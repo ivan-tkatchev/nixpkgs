@@ -8819,6 +8819,11 @@ with pkgs;
   boost16x = boost167;
   boost = boost16x;
 
+  boostStatic = lowPrio (appendToName "static" (callPackage ../development/libraries/boost/1.62.nix {
+    enableShared = false;
+    enableStatic = true;
+  }));
+
   boost_process = callPackage ../development/libraries/boost-process { };
 
   botan = callPackage ../development/libraries/botan { };

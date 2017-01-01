@@ -48,78 +48,79 @@ common = rec { # attributes common to both builds
     ++ stdenv.lib.optional stdenv.cc.isClang ./clang-isfinite.patch;
 
   cmakeFlags = [
-    "-DBUILD_CONFIG=mysql_release"
-    "-DMANUFACTURER=NixOS.org"
-    "-DDEFAULT_CHARSET=utf8"
-    "-DDEFAULT_COLLATION=utf8_general_ci"
-    "-DSECURITY_HARDENED=ON"
+	  "-DBUILD_CONFIG=mysql_release"
+		  "-DMANUFACTURER=NixOS.org"
+		  "-DDEFAULT_CHARSET=utf8"
+		  "-DDEFAULT_COLLATION=utf8_general_ci"
+		  "-DSECURITY_HARDENED=ON"
 
-    "-DMYSQL_UNIX_ADDR=/run/mysqld/mysqld.sock"
-    "-DINSTALL_MYSQLSHAREDIR=share/mysql"
+		  "-DMYSQL_UNIX_ADDR=/run/mysqld/mysqld.sock"
+		  "-DINSTALL_MYSQLSHAREDIR=share/mysql"
 
-    "-DWITH_ZLIB=system"
-    "-DWITH_SSL=system"
-    "-DWITH_PCRE=system"
+		  "-DWITH_ZLIB=system"
+		  "-DWITH_SSL=system"
+		  "-DWITH_PCRE=system"
 
-    # On Darwin without sandbox, CMake will find the system java and attempt to build with java support, but
-    # then it will fail during the actual build. Let's just disable the flag explicitly until someone decides
-    # to pass in java explicitly. This should have no effect on Linux.
-    "-DCONNECT_WITH_JDBC=OFF"
+# On Darwin without sandbox, CMake will find the system java and attempt to build with java support, but
+# then it will fail during the actual build. Let's just disable the flag explicitly until someone decides
+# to pass in java explicitly. This should have no effect on Linux.
+		  "-DCONNECT_WITH_JDBC=OFF"
 
-    # Same as above. Somehow on Darwin CMake decides that we support GSS even though we aren't provding the
-    # library through Nix, and then breaks later on. This should have no effect on Linux.
-    "-DPLUGIN_AUTH_GSSAPI=NO"
-    "-DPLUGIN_AUTH_GSSAPI_CLIENT=NO"
-  ]
-    ++ optional stdenv.isDarwin "-DCURSES_LIBRARY=${ncurses.out}/lib/libncurses.dylib"
-    ++ optional stdenv.hostPlatform.isMusl "-DWITHOUT_TOKUDB=1" # mariadb docs say disable this for musl
-    ;
+# Same as above. Somehow on Darwin CMake decides that we support GSS even though we aren't provding the
+# library through Nix, and then breaks later on. This should have no effect on Linux.
+		  "-DPLUGIN_AUTH_GSSAPI=NO"
+		  "-DPLUGIN_AUTH_GSSAPI_CLIENT=NO"
+		  ]
+		  ++ optional stdenv.isDarwin "-DCURSES_LIBRARY=${ncurses.out}/lib/libncurses.dylib"
+		  ++ optional stdenv.hostPlatform.isMusl "-DWITHOUT_TOKUDB=1" # mariadb docs say disable this for musl
+		  ;
 
   preConfigure = ''
-    cmakeFlags="$cmakeFlags -DINSTALL_INCLUDEDIR=''${!outputDev}/include/mysql"
-  '';
+	  cmakeFlags="$cmakeFlags -DINSTALL_INCLUDEDIR=''${!outputDev}/include/mysql"
+	  '';
 
   postInstall = ''
-    rm "$out"/lib/*.a
-    find "''${!outputBin}/bin" -name '*test*' -delete
-  '';
+	  find "''${!outputBin}/bin" -name '*test*' -delete
+	  '';
 
   passthru.mysqlVersion = "5.7";
 
   meta = with stdenv.lib; {
-    description = "An enhanced, drop-in replacement for MySQL";
-    homepage    = https://mariadb.org/;
-    license     = licenses.gpl2;
-    maintainers = with maintainers; [ thoughtpolice wkennington ];
-    platforms   = platforms.all;
+	  description = "An enhanced, drop-in replacement for MySQL";
+	  homepage    = https://mariadb.org/;
+	  license     = licenses.gpl2;
+	  maintainers = with maintainers; [ thoughtpolice wkennington ];
+	  platforms   = platforms.all;
   };
 };
 
 client = stdenv.mkDerivation (common // {
-  name = "mariadb-client-${common.version}";
+		name = "mariadb-client-${common.version}";
 
-  outputs = [ "bin" "dev" "out" ];
+		outputs = [ "bin" "dev" "out" "static" ];
 
-  propagatedBuildInputs = [ openssl zlib ]; # required from mariadb.pc
+		propagatedBuildInputs = [ openssl zlib ]; # required from mariadb.pc
 
-  cmakeFlags = common.cmakeFlags ++ [
-    "-DWITHOUT_SERVER=ON"
-  ];
+		cmakeFlags = common.cmakeFlags ++ [
+		"-DWITHOUT_SERVER=ON"
+		];
 
-  preConfigure = common.preConfigure + ''
-    cmakeFlags="$cmakeFlags \
-      -DINSTALL_BINDIR=$bin/bin \
-      -DINSTALL_SCRIPTDIR=$bin/bin \
-      -DINSTALL_SUPPORTFILESDIR=$bin/share/mysql \
-      -DINSTALL_DOCDIR=$bin/share/doc/mysql \
-      -DINSTALL_DOCREADMEDIR=$bin/share/doc/mysql \
-      "
-  '';
+		preConfigure = common.preConfigure + ''
+		cmakeFlags="$cmakeFlags \
+		-DINSTALL_BINDIR=$bin/bin \
+		-DINSTALL_SCRIPTDIR=$bin/bin \
+		-DINSTALL_SUPPORTFILESDIR=$bin/share/mysql \
+		-DINSTALL_DOCDIR=$bin/share/doc/mysql \
+		-DINSTALL_DOCREADMEDIR=$bin/share/doc/mysql \
+		"
+		'';
 
-  # prevent cycle; it needs to reference $dev
-  postInstall = common.postInstall + ''
-    moveToOutput bin/mysql_config "$dev"
-    moveToOutput bin/mariadb_config "$dev"
+# prevent cycle; it needs to reference $dev
+postInstall = common.postInstall + ''
+moveToOutput bin/mysql_config "$dev"
+moveToOutput bin/mariadb_config "$dev"
+    mkdir -p $static/lib
+    mv "$out"/lib/*.a $static/lib
   '';
 
   enableParallelBuilding = true; # the client should be OK

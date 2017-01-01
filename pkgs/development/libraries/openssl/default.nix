@@ -30,7 +30,7 @@ let
                 '!defined(__ANDROID__) && !defined(__OpenBSD__) && 0'
   '' else null;
 
-    outputs = [ "bin" "dev" "out" "man" ];
+    outputs = [ "bin" "dev" "out" "man" "static" ];
     setOutputFlags = false;
     separateDebugInfo = hostPlatform.isLinux;
 
@@ -76,11 +76,9 @@ let
     enableParallelBuilding = true;
 
     postInstall = ''
-      # If we're building dynamic libraries, then don't install static
-      # libraries.
-      if [ -n "$(echo $out/lib/*.so $out/lib/*.dylib $out/lib/*.dll)" ]; then
-          rm "$out/lib/"*.a
-      fi
+
+      mkdir -p $static/lib
+      mv "$out/lib/"*.a $static/lib
 
       mkdir -p $bin
       mv $out/bin $bin/

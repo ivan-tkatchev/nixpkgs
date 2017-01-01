@@ -12,8 +12,16 @@ stdenv.mkDerivation rec {
 
   buildInputs = optional stdenv.isDarwin darwin.cctools;
 
-  configureFlags = optional disablePosixThreads
-    [ "--disable-posix-threads" ];
+  dontDisableStatic = true;
+  setOutputFlags = false;
+  configureFlags = [ "--enable-static" ] ++ optional disablePosixThreads [ "--disable-posix-threads" ];
+
+  outputs = [ "out" "static" ];
+
+  postInstall = ''
+    mkdir -p $static/lib
+    mv $out/lib/*.a $static/lib
+  '';
 
   meta = {
     description = "Replacement for the old crypt() package and crypt(1) command, with extensions";
