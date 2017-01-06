@@ -7563,6 +7563,8 @@ with pkgs;
     inherit (darwin.apple_sdk.frameworks) CoreServices ApplicationServices;
   };
 
+  rapidjson = callPackage ../development/libraries/rapidjson { };
+
   rascal = callPackage ../development/interpreters/rascal { };
 
   red = callPackage ../development/interpreters/red { };
