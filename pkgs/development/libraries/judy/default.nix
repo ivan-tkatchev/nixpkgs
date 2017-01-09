@@ -8,6 +8,8 @@ stdenv.mkDerivation {
     sha256 = "1sv3990vsx8hrza1mvq3bhvv9m6ff08y4yz7swn6znszz24l0w6j";
   };
 
+  dontDisableStatic = true;
+
   # gcc 4.8 optimisations break judy.
   # http://sourceforge.net/p/judy/mailman/message/31995144/
   preConfigure = stdenv.lib.optionalString stdenv.cc.isGNU ''
