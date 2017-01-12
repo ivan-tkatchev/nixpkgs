@@ -12,7 +12,7 @@ stdenv.lib.overrideDerivation
   };
 
   installPhase   = ''
-    make install INSTALL_INC=$out/include PREFIX=$out
+    make install PREFIX=$out
   '';
 })
 
