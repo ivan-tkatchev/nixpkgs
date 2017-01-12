@@ -3,7 +3,7 @@
 stdenv.lib.overrideDerivation
 (import ./default.nix { inherit stdenv fetchurl; })
 (attrs: rec {
-    name = "luajit-${version}";
+  name = "luajit-${version}";
   version = "2.0.4";
 
   src = fetchurl {
@@ -12,7 +12,7 @@ stdenv.lib.overrideDerivation
   };
 
   installPhase   = ''
-    make install INSTALL_INC=$out/include PREFIX=$out
+    make install PREFIX=$out
   '';
 })
 
