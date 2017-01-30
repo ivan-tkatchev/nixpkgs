@@ -8,6 +8,8 @@ stdenv.mkDerivation rec {
     sha256 = "07pyy0afqikfq51z5kbzbj9ldbd12mri0zvx0mfv3ds6bc0g26pi";
   };
 
+  dontDisableStatic = true;
+
   outputs = [ "bin" "dev" "out" "info" "devdoc" ];
 
   # broken with gcc-7
