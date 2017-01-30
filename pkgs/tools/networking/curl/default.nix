@@ -62,6 +62,8 @@ stdenv.mkDerivation rec {
     rm src/tool_hugehelp.c
   '';
 
+  dontDisableStatic = true;
+
   configureFlags = [
       # Disable default CA bundle, use NIX_SSL_CERT_FILE or fallback
       # to nss-cacert from the default profile.
