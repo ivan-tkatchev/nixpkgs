@@ -26,6 +26,8 @@ stdenv.mkDerivation rec {
 
   outputs = [ "bin" "out" "dev" "lib" ];
 
+  dontDisableStatic = true;
+
   nativeBuildInputs = [ pkgconfig ];
   buildInputs = [ openssl libev zlib c-ares ]
     ++ optional enableHpack jansson
