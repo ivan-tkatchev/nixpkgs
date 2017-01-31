@@ -30,6 +30,8 @@ stdenv.mkDerivation rec {
   outputs = [ "out" "dev" ]
     ++ stdenv.lib.optional sslSupport "openssl"
     ;
+  dontDisableStatic = true;
+
   outputBin = "dev";
   propagatedBuildOutputs = [ "out" ]
     ++ stdenv.lib.optional sslSupport "openssl"
