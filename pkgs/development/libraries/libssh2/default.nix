@@ -10,6 +10,8 @@ stdenv.mkDerivation rec {
     sha256 = "1m3n8spv79qhjq4yi0wgly5s5rc8783jb1pyra9bkx1md0plxwrr";
   };
 
+  dontDisableStatic = true;
+
   outputs = [ "out" "dev" "devdoc" ];
 
   buildInputs = [ openssl zlib ]
