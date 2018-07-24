@@ -8817,7 +8817,7 @@ with pkgs;
   boost16x = boost167;
   boost = boost16x;
 
-  boostStatic = lowPrio (appendToName "static" (callPackage ../development/libraries/boost/1.63.nix {
+  boostStatic = lowPrio (appendToName "static" (callPackage ../development/libraries/boost/1.67.nix {
     enableShared = false;
     enableStatic = true;
   }));
