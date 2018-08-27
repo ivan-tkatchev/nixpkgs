@@ -8820,6 +8820,7 @@ with pkgs;
   boostStatic = lowPrio (appendToName "static" (callPackage ../development/libraries/boost/1.67.nix {
     enableShared = false;
     enableStatic = true;
+    enablePython = true;
   }));
 
   boost_process = callPackage ../development/libraries/boost-process { };
