@@ -1,7 +1,7 @@
 { stdenv, fetchFromGitHub, zlib, libarchive, openssl }: 
 
 stdenv.mkDerivation rec { 
-  version = "1.0";
+  version = "1.1";
   name = "makerpm-${version}";
 
   installPhase = ''
@@ -15,7 +15,7 @@ stdenv.mkDerivation rec {
     owner = "ivan-tkatchev";
     repo = "makerpm";
     rev = "${version}";
-    sha256 = "089dkbh5705ppyi920rd0ksjc0143xmvnhm8qrx93rsgwc1ggi1y";
+    sha256 = "1qjvd1fbf5gvbq5r1qksk7y8a8qfj0rhjc5al93cs5ralsl515bh";
   };
 
   meta = with stdenv.lib; {
