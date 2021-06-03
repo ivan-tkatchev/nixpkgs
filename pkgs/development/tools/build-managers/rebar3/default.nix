@@ -1,126 +1,128 @@
-{ stdenv, writeText, callPackage, fetchurl,
-  fetchHex, erlang, hermeticRebar3 ? true,
-  tree, fetchFromGitHub, hexRegistrySnapshot }:
+{ lib, stdenv, fetchFromGitHub,
+  fetchHex, erlang, makeWrapper,
+  writeScript, common-updater-scripts, coreutils, git, gnused, nix, rebar3-nix }:
 
 let
-  version = "3.6.1";
+  version = "3.16.1";
+  owner = "erlang";
+  deps = import ./rebar-deps.nix { inherit fetchFromGitHub fetchHex; };
+  rebar3 = stdenv.mkDerivation rec {
+    pname = "rebar3";
+    inherit version erlang;
 
-  bootstrapper = ./rebar3-nix-bootstrap;
+    # How to obtain `sha256`:
+    # nix-prefetch-url --unpack https://github.com/erlang/rebar3/archive/${version}.tar.gz
+    src = fetchFromGitHub {
+      inherit owner;
+      repo = pname;
+      rev = version;
+      sha256 = "0dhwlx7zykf9y3znk2k8fxrq5j43jy3c3gd76k74q34p1xbajgzr";
+    };
 
-  erlware_commons = fetchHex {
-    pkg = "erlware_commons";
-    version = "1.2.0";
-    sha256 = "149kkn9gc9cjgvlmakygq475r63q2rry31s29ax0s425dh37sfl7";
-  };
-  ssl_verify_fun = fetchHex {
-    pkg = "ssl_verify_fun";
-    version = "1.1.3";
-    sha256 = "1zljxashfhqmiscmf298vhr880ppwbgi2rl3nbnyvsfn0mjhw4if";
-  };
-  certifi = fetchHex {
-    pkg = "certifi";
-    version = "2.0.0";
-    sha256 = "075v7cvny52jbhnskchd3fp68fxgp7qfvdls0haamcycxrn0dipx";
-  };
-  providers = fetchHex {
-    pkg = "providers";
-    version = "1.7.0";
-    sha256 = "19p4rbsdx9lm2ihgvlhxyld1q76kxpd7qwyqxxsgmhl5r8ln3rlb";
-  };
-  getopt = fetchHex {
-    pkg = "getopt";
-    version = "1.0.1";
-    sha256 = "174mb46c2qd1f4a7507fng4vvscjh1ds7rykfab5rdnfp61spqak";
-  };
-  bbmustache = fetchHex {
-    pkg = "bbmustache";
-    version = "1.5.0";
-    sha256 = "0xg3r4lxhqifrv32nm55b4zmkflacc1s964g15p6y6jfx6v4y1zd";
-  };
-  relx = fetchHex {
-    pkg = "relx";
-    version = "3.26.0";
-    sha256 = "1f810rb01kdidpa985s321ycg3y4hvqpzbk263n6i1bfnqykkvv9";
-  };
-  cf = fetchHex {
-    pkg = "cf";
-    version = "0.2.2";
-    sha256 = "08cvy7skn5d2k4manlx5k3anqgjdvajjhc5jwxbaszxw34q3na28";
-  };
-  cth_readable = fetchHex {
-    pkg = "cth_readable";
-    version = "1.4.2";
-    sha256 = "1pjid4f60pp81ds01rqa6ybksrnzqriw3aibilld1asn9iabxkav";
-  };
-  eunit_formatters = fetchHex {
-    pkg = "eunit_formatters";
-    version = "0.5.0";
-    sha256 = "1jb3hzb216r29x2h4pcjwfmx1k81431rgh5v0mp4x5146hhvmj6n";
-  };
-  rebar3_hex = fetchHex {
-    pkg = "rebar3_hex";
-    version = "4.0.0";
-    sha256 = "0k0ykx1lz62r03dpbi2zxsvrxgnr5hj67yky0hjrls09ynk4682v";
-  };
+    buildInputs = [ erlang ];
 
-in
-stdenv.mkDerivation {
-  name = "rebar3-${version}";
-  inherit version;
+    postPatch = ''
+      mkdir -p _checkouts _build/default/lib/
 
-  src = fetchurl {
-    url = "https://github.com/rebar/rebar3/archive/${version}.tar.gz";
-    sha256 = "0cqhqymzh10pfyxqiy4hcg3d2myz3chx0y4m2ixmq8zk81acics0";
+      ${toString (lib.mapAttrsToList (k: v: ''
+        cp -R --no-preserve=mode ${v} _checkouts/${k}
+      '') deps)}
+
+      # Bootstrap script expects the dependencies in _build/default/lib
+      # TODO: Make it accept checkouts?
+      for i in _checkouts/* ; do
+          ln -s $(pwd)/$i $(pwd)/_build/default/lib/
+      done
+    '';
+
+    buildPhase = ''
+      HOME=. escript bootstrap
+    '';
+
+    installPhase = ''
+      mkdir -p $out/bin
+      cp rebar3 $out/bin/rebar3
+    '';
+
+    meta = {
+      homepage = "https://github.com/rebar/rebar3";
+      description = "Erlang build tool that makes it easy to compile and test Erlang applications, port drivers and releases";
+
+      longDescription = ''
+        rebar is a self-contained Erlang script, so it's easy to distribute or
+        even embed directly in a project. Where possible, rebar uses standard
+        Erlang/OTP conventions for project structures, thus minimizing the amount
+        of build configuration work. rebar also provides dependency management,
+        enabling application writers to easily re-use common libraries from a
+        variety of locations (hex.pm, git, hg, and so on).
+        '';
+
+      platforms = lib.platforms.unix;
+      maintainers = lib.teams.beam.members;
+      license = lib.licenses.asl20;
+    };
+
+    passthru.updateScript = writeScript "update.sh" ''
+      #!${stdenv.shell}
+      set -ox errexit
+      PATH=${
+        lib.makeBinPath [
+          common-updater-scripts
+          coreutils
+          git
+          gnused
+          nix
+          (rebar3WithPlugins { globalPlugins = [rebar3-nix]; })
+        ]
+      }
+      latest=$(list-git-tags https://github.com/${owner}/${pname}.git | sed -n '/[\d\.]\+/p' | sort -V | tail -1)
+      if [ "$latest" != "${version}" ]; then
+        nixpkgs="$(git rev-parse --show-toplevel)"
+        nix_path="$nixpkgs/pkgs/development/tools/build-managers/rebar3"
+        update-source-version rebar3 "$latest" --version-key=version --print-changes --file="$nix_path/default.nix"
+        tmpdir=$(mktemp -d)
+        cp -R $(nix-build $nixpkgs --no-out-link -A rebar3.src)/* "$tmpdir"
+        (cd "$tmpdir" && rebar3 nix lock -o "$nix_path/rebar-deps.nix")
+      else
+        echo "rebar3 is already up-to-date"
+      fi
+    '';
   };
+  rebar3WithPlugins = { plugins ? [ ], globalPlugins ? [ ] }:
+    let
+      pluginLibDirs = map (p: "${p}/lib/erlang/lib") (lib.unique (plugins ++ globalPlugins));
+      globalPluginNames = lib.unique (map (p: p.packageName) globalPlugins);
+      rebar3Patched = (rebar3.overrideAttrs (old: {
 
-  inherit bootstrapper;
+        # skip-plugins.patch is necessary because otherwise rebar3 will always
+        # try to fetch plugins if they are not already present in _build.
+        #
+        # global-deps.patch makes it possible to use REBAR_GLOBAL_PLUGINS to
+        # instruct rebar3 to always load a certain plugin. It is necessary since
+        # REBAR_GLOBAL_CONFIG_DIR doesn't seem to work for this.
+        patches = [ ./skip-plugins.patch ./global-plugins.patch ];
+      }));
+    in stdenv.mkDerivation {
+      pname = "rebar3-with-plugins";
+      inherit (rebar3) version;
+      nativeBuildInputs = [ erlang makeWrapper ];
+      unpackPhase = "true";
 
-  patches = if hermeticRebar3 == true
-  then  [ ./hermetic-rebar3.patch ]
-  else [];
+      # Here we extract the rebar3 escript (like `rebar3_prv_local_install.erl`) and
+      # add plugins to the code path.
 
-  buildInputs = [ erlang tree  ];
-  propagatedBuildInputs = [ hexRegistrySnapshot ];
-
-  postPatch = ''
-    ${erlang}/bin/escript ${bootstrapper} registry-only
-    mkdir -p _build/default/lib/
-    mkdir -p _build/default/plugins
-    cp --no-preserve=mode -R ${erlware_commons} _build/default/lib/erlware_commons
-    cp --no-preserve=mode -R ${providers} _build/default/lib/providers
-    cp --no-preserve=mode -R ${getopt} _build/default/lib/getopt
-    cp --no-preserve=mode -R ${bbmustache} _build/default/lib/bbmustache
-    cp --no-preserve=mode -R ${certifi} _build/default/lib/certifi
-    cp --no-preserve=mode -R ${cf} _build/default/lib/cf
-    cp --no-preserve=mode -R ${cth_readable} _build/default/lib/cth_readable
-    cp --no-preserve=mode -R ${eunit_formatters} _build/default/lib/eunit_formatters
-    cp --no-preserve=mode -R ${relx} _build/default/lib/relx
-    cp --no-preserve=mode -R ${ssl_verify_fun} _build/default/lib/ssl_verify_fun
-    cp --no-preserve=mode -R ${rebar3_hex} _build/default/plugins/rebar3_hex
-  '';
-
-  buildPhase = ''
-    HOME=. escript bootstrap
-  '';
-  installPhase = ''
-    mkdir -p $out/bin
-    cp rebar3 $out/bin/rebar3
-  '';
-
-  meta = {
-    homepage = https://github.com/rebar/rebar3;
-    description = "rebar 3.0 is an Erlang build tool that makes it easy to compile and test Erlang applications, port drivers and releases";
-
-    longDescription = ''
-      rebar is a self-contained Erlang script, so it's easy to distribute or
-      even embed directly in a project. Where possible, rebar uses standard
-      Erlang/OTP conventions for project structures, thus minimizing the amount
-      of build configuration work. rebar also provides dependency management,
-      enabling application writers to easily re-use common libraries from a
-      variety of locations (hex.pm, git, hg, and so on).
+      installPhase = ''
+        erl -noshell -eval '
+          {ok, Escript} = escript:extract("${rebar3Patched}/bin/rebar3", []),
+          {archive, Archive} = lists:keyfind(archive, 1, Escript),
+          {ok, _} = zip:extract(Archive, [{cwd, "'$out/lib'"}]),
+          init:stop(0)
+        '
+        mkdir -p $out/bin
+        makeWrapper ${erlang}/bin/erl $out/bin/rebar3 \
+          --set REBAR_GLOBAL_PLUGINS "${toString globalPluginNames}" \
+          --suffix-each ERL_LIBS ":" "$out/lib ${toString pluginLibDirs}" \
+          --add-flags "+sbtu +A1 -noshell -boot start_clean -s rebar3 main -extra"
       '';
-
-    platforms = stdenv.lib.platforms.unix;
-    maintainers = with stdenv.lib.maintainers; [ gleber tazjin ];
-  };
-}
+    };
+in { inherit rebar3 rebar3WithPlugins; }

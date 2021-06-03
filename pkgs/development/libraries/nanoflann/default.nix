@@ -1,25 +1,29 @@
-{stdenv, fetchFromGitHub, cmake}:
+{lib, stdenv, fetchFromGitHub, cmake}:
 
 stdenv.mkDerivation rec {
-  version = "1.2.3";
-  name = "nanoflann-${version}";
-  
+  version = "1.3.2";
+  pname = "nanoflann";
+
   src = fetchFromGitHub {
     owner = "jlblancoc";
     repo = "nanoflann";
     rev = "v${version}";
-    sha256 = "1jrh73kjvdv7s7zc1sc3z254i17lpvn77b19wx32nvzsfxs4g44i";
+    sha256 = "0lq1zqwjvk8wv15hd7aw57jsqbvv45cwb8ngdh1d2iyw5rvnbhsn";
   };
 
-  buildInputs = [ cmake ];
+  nativeBuildInputs = [ cmake ];
+
+  cmakeFlags = [
+    "-DBUILD_EXAMPLES=OFF"
+  ];
 
   doCheck = true;
   checkTarget = "test";
 
   meta = {
-    homepage = https://github.com/jlblancoc/nanoflann;
-    license = stdenv.lib.licenses.bsd3;
+    homepage = "https://github.com/jlblancoc/nanoflann";
+    license = lib.licenses.bsd2;
     description = "Header only C++ library for approximate nearest neighbor search";
-    platforms = stdenv.lib.platforms.unix;
+    platforms = lib.platforms.unix;
   };
 }

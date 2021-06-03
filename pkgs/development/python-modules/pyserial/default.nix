@@ -1,16 +1,21 @@
-{ lib, fetchPypi, buildPythonPackage, hostPlatform }:
+{ stdenv, lib, fetchPypi, buildPythonPackage }:
 
 buildPythonPackage rec {
   pname = "pyserial";
-  version="3.4";
+  version="3.5";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "09y68bczw324a4jb9a1cfwrbjhq179vnfkkkrybbksp0vqgl0bbf";
+    sha256 = "1nyd4m4mnrz8scbfqn4zpq8gnbl4x42w5zz62vcgpzqd2waf0xrw";
   };
 
+  patches = [
+    ./001-rfc2217-only-negotiate-on-value-change.patch
+    ./002-rfc2217-timeout-setter-for-rfc2217.patch
+  ];
+
   checkPhase = "python -m unittest discover -s test";
-  doInstallCheck = !hostPlatform.isDarwin; # broken on darwin
+  doCheck = !stdenv.hostPlatform.isDarwin; # broken on darwin
 
   meta = with lib; {
     homepage = "https://github.com/pyserial/pyserial";

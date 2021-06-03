@@ -1,34 +1,34 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, libxcb,
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, pkg-config, libxcb,
   xcbutilkeysyms , xcbutilimage, pam, libX11, libev, cairo, libxkbcommon,
-  libxkbfile, libjpeg_turbo
+  libxkbfile, libjpeg_turbo, xcbutilxrm
 }:
 
 stdenv.mkDerivation rec {
-  version = "2.11-c";
-  name = "i3lock-color-${version}";
+  version = "2.13.c.2";
+  pname = "i3lock-color";
 
   src = fetchFromGitHub {
     owner = "PandorasFox";
     repo = "i3lock-color";
     rev = version;
-    sha256 = "1myq9fazkwd776agrnj27bm5nwskvss9v9a5qb77n037dv8d0rdw";
+    sha256 = "sha256-cMj1uB2Hf7v5Rukw9c5YeUmwbdTn1+PV13bUaOWzBp0=";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
   buildInputs = [ libxcb xcbutilkeysyms xcbutilimage pam libX11
-    libev cairo libxkbcommon libxkbfile libjpeg_turbo ];
+    libev cairo libxkbcommon libxkbfile libjpeg_turbo xcbutilxrm ];
 
-  makeFlags = "all";
+  makeFlags = [ "all" ];
   preInstall = ''
     mkdir -p $out/share/man/man1
   '';
-  installFlags = "PREFIX=\${out} SYSCONFDIR=\${out}/etc MANDIR=\${out}/share/man";
+  installFlags = [ "PREFIX=\${out}" "SYSCONFDIR=\${out}/etc" "MANDIR=\${out}/share/man" ];
   postInstall = ''
     mv $out/bin/i3lock $out/bin/i3lock-color
     mv $out/share/man/man1/i3lock.1 $out/share/man/man1/i3lock-color.1
     sed -i 's/\(^\|\s\|"\)i3lock\(\s\|$\)/\1i3lock-color\2/g' $out/share/man/man1/i3lock-color.1
   '';
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A simple screen locker like slock, enhanced version with extra configuration options";
     longDescription = ''
       Simple screen locker. After locking, a colored background (default: white) or
@@ -51,12 +51,10 @@ stdenv.mkDerivation rec {
         - clock: time/date with configurable format
         - keyboard-layout
     '';
-    homepage = https://github.com/PandorasFox/i3lock-color;
-    maintainers = with maintainers; [ garbas malyn ];
+    homepage = "https://github.com/PandorasFox/i3lock-color";
+    maintainers = with maintainers; [ malyn ];
     license = licenses.bsd3;
 
-    # Needs the SSE2 instruction set. See upstream issue
-    # https://github.com/chrjguill/i3lock-color/issues/44
-    platforms = platforms.x86;
+    platforms = platforms.all;
   };
 }

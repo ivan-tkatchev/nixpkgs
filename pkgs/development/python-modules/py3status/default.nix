@@ -1,9 +1,15 @@
-{ stdenv
+{ lib
 , buildPythonPackage
 , fetchPypi
 , requests
 , pytz
 , tzlocal
+, i3ipc
+, pydbus
+, pygobject3
+, pyserial
+, setuptools
+, dbus-python
 
 , file
 , acpi
@@ -18,14 +24,17 @@
 
 buildPythonPackage rec {
   pname = "py3status";
-  version = "3.8";
+  version = "3.35";
+
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1izjpf9q768m3j95y328vbdh7rycglqlslyd777b12c13i6zs6cb";
+    sha256 = "1508fa481a2f1b55b9a9792f0480c7f54cad107c668ffc98a7c73622676e1c23";
   };
+
   doCheck = false;
-  propagatedBuildInputs = [ pytz requests tzlocal ];
-  buildInputs = [ file ];
+  propagatedBuildInputs = [
+    pytz requests tzlocal i3ipc pydbus pygobject3 pyserial setuptools dbus-python file
+  ];
   prePatch = ''
     sed -i -e "s|'file|'${file}/bin/file|" py3status/parse_config.py
     sed -i -e "s|\[\"acpi\"|\[\"${acpi}/bin/acpi\"|" py3status/modules/battery_level.py
@@ -39,10 +48,10 @@ buildPythonPackage rec {
     sed -i -e "s|'xset|'${xorg.xset}/bin/xset|" py3status/modules/keyboard_layout.py
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Extensible i3status wrapper";
     license = licenses.bsd3;
-    homepage = https://github.com/ultrabug/py3status;
-    maintainers = with maintainers; [ garbas ];
+    homepage = "https://github.com/ultrabug/py3status";
+    maintainers = with maintainers; [ ];
   };
 }

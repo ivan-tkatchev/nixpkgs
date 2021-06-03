@@ -1,7 +1,7 @@
-{ stdenv, appleDerivation, xcbuildHook }:
+{ lib, appleDerivation, xcbuildHook, launchd }:
 
-appleDerivation rec {
-  nativeBuildInputs = [ xcbuildHook ];
+appleDerivation {
+  nativeBuildInputs = [ xcbuildHook launchd ];
 
   patchPhase = ''
     # NOTE: these hashes must be recalculated for each version change
@@ -28,8 +28,11 @@ appleDerivation rec {
 
   # temporary install phase until xcodebuild has "install" support
   installPhase = ''
-    mkdir -p $out/usr/bin
-    install Products/Release/* $out/usr/bin
+    for f in Products/Release/*; do
+      if [ -f $f ]; then
+        install -D $f $out/usr/bin/$(basename $f)
+      fi
+    done
 
     export DSTROOT=$out
     export SRCROOT=$PWD
@@ -41,7 +44,7 @@ appleDerivation rec {
   '';
 
   meta = {
-    platforms = stdenv.lib.platforms.darwin;
-    maintainers = with stdenv.lib.maintainers; [ matthewbauer ];
+    platforms = lib.platforms.darwin;
+    maintainers = with lib.maintainers; [ matthewbauer ];
   };
 }

@@ -1,6 +1,5 @@
-{ stdenv, buildPackages
+{ lib, stdenv, buildPackages
 , fetchurl, linuxHeaders, libiconvReal
-, buildPlatform, hostPlatform
 , extraConfig ? ""
 }:
 
@@ -40,7 +39,7 @@ let
     UCLIBC_SUSV4_LEGACY y
     UCLIBC_HAS_THREADS_NATIVE y
     KERNEL_HEADERS "${linuxHeaders}/include"
-  '' + stdenv.lib.optionalString (stdenv.isAarch32 && buildPlatform != hostPlatform) ''
+  '' + lib.optionalString (stdenv.isAarch32 && stdenv.buildPlatform != stdenv.hostPlatform) ''
     CONFIG_ARM_EABI y
     ARCH_WANTS_BIG_ENDIAN n
     ARCH_BIG_ENDIAN n
@@ -49,7 +48,7 @@ let
     UCLIBC_HAS_FPU n
   '';
 
-  version = "1.0.30";
+  version = "1.0.37";
 in
 
 stdenv.mkDerivation {
@@ -59,7 +58,7 @@ stdenv.mkDerivation {
   src = fetchurl {
     url = "https://downloads.uclibc-ng.org/releases/${version}/uClibc-ng-${version}.tar.bz2";
     # from "${url}.sha256";
-    sha256 = "3e0f057f24882823d697126015aa4d7d48fa2542be3939985cb3c26dcbcab5a8";
+    sha256 = "sha256-wThkkRBA42CskGC8kUlgmxk88Qy2Z8qRfLqD6kP8JY0=";
   };
 
   # 'ftw' needed to build acl, a coreutils dependency
@@ -69,7 +68,7 @@ stdenv.mkDerivation {
     cat << EOF | parseconfig
     ${nixConfig}
     ${extraConfig}
-    ${hostPlatform.platform.uclibc.extraConfig or ""}
+    ${stdenv.hostPlatform.uclibc.extraConfig or ""}
     EOF
     ( set +o pipefail; yes "" | make oldconfig )
   '';
@@ -82,9 +81,9 @@ stdenv.mkDerivation {
   depsBuildBuild = [ buildPackages.stdenv.cc ];
 
   makeFlags = [
-    "ARCH=${hostPlatform.parsed.cpu.name}"
+    "ARCH=${stdenv.hostPlatform.parsed.cpu.name}"
     "VERBOSE=1"
-  ] ++ stdenv.lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
+  ] ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
     "CROSS=${stdenv.cc.targetPrefix}"
   ];
 
@@ -105,11 +104,11 @@ stdenv.mkDerivation {
     libiconv = libiconvReal;
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://uclibc-ng.org";
     description = "A small implementation of the C library";
     maintainers = with maintainers; [ rasendubi ];
     license = licenses.lgpl2;
-    platforms = platforms.linux;
+    platforms = intersectLists platforms.linux platforms.x86; # fails to build on ARM
   };
 }

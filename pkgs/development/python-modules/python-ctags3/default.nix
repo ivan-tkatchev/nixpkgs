@@ -2,16 +2,16 @@
 
 buildPythonPackage rec {
   pname = "python-ctags3";
-  version = "1.2.4";
+  version = "1.5.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "62e1d48a8cd88756767f3f5e3f1b1a81bc84deeb736f0c9480a5b5d066f63c3e";
+    sha256 = "a2cb0b35f0d67bab47045d803dce8291a1500af11832b154f69b3785f2130daa";
   };
 
   meta = with lib; {
     description = "Ctags indexing python bindings";
-    homepage = https://github.com/jonashaag/python-ctags3;
+    homepage = "https://github.com/jonashaag/python-ctags3";
     license = licenses.lgpl3Plus;
   };
 }

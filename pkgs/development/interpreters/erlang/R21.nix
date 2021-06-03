@@ -1,10 +1,6 @@
-{ mkDerivation, fetchurl }:
+{ mkDerivation }:
 
-mkDerivation rec {
-  version = "21.0";
-  sha256 = "0khprgawmbdpn9b8jw2kksmvs6b45mibpjralsc0ggxym1397vm8";
-
-  prePatch = ''
-    substituteInPlace configure.in --replace '`sw_vers -productVersion`' '10.10'
-  '';
+mkDerivation {
+  version = "21.3.8.23";
+  sha256 = "sha256-zIEXn2HuXeRKHfXmm0AAv9rEqqc4gIgaYek0hSUK5YU=";
 }

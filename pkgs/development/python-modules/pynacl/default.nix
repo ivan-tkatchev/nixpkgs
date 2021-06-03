@@ -1,32 +1,45 @@
-{ stdenv, buildPythonPackage, fetchFromGitHub, pytest, coverage, libsodium, cffi, six, hypothesis}:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, pytestCheckHook
+, pythonOlder
+, libsodium
+, cffi
+, hypothesis
+}:
 
 buildPythonPackage rec {
   pname = "pynacl";
-  version = "1.2.1";
+  version = "1.4.0";
+  disabled = pythonOlder "3.6";
 
-  src = fetchFromGitHub {
-    owner = "pyca";
-    repo = pname;
-    rev = version;
-    sha256 = "0z9i1z4hjzmp23igyhvg131gikbrr947506lwfb3fayf0agwfv8f";
+  src = fetchPypi {
+    inherit version;
+    pname = "PyNaCl";
+    sha256 = "01b56hxrbif3hx8l6rwz5kljrgvlbj7shmmd2rjh0hn7974a5sal";
   };
 
-  # set timeout to unlimited, remove deadline from tests, see https://github.com/pyca/pynacl/issues/370
-  patches = [ ./pynacl-no-timeout-and-deadline.patch ];
+  buildInputs = [
+    libsodium
+  ];
 
-  checkInputs = [ pytest hypothesis ];
-  propagatedBuildInputs = [ libsodium cffi six ];
+  propagatedBuildInputs = [
+    cffi
+  ];
+
+  checkInputs = [
+    hypothesis
+    pytestCheckHook
+  ];
 
   SODIUM_INSTALL = "system";
 
-  checkPhase = ''
-    py.test
-  '';
-  
-  meta = with stdenv.lib; {
+  pythonImportsCheck = [ "nacl" ];
+
+  meta = with lib; {
     maintainers = with maintainers; [ va1entin ];
     description = "Python binding to the Networking and Cryptography (NaCl) library";
-    homepage = https://github.com/pyca/pynacl/;
+    homepage = "https://github.com/pyca/pynacl/";
     license = licenses.asl20;
   };
 }

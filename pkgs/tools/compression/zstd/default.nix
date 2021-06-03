@@ -1,38 +1,80 @@
-{ stdenv, fetchFromGitHub, gnugrep
+{ lib, stdenv, fetchFromGitHub, cmake, bash, gnugrep
 , fixDarwinDylibNames
-, legacySupport ? false }:
+, file
+, legacySupport ? false
+, static ? stdenv.hostPlatform.isStatic
+}:
 
 stdenv.mkDerivation rec {
-  name = "zstd-${version}";
-  version = "1.3.5";
+  pname = "zstd";
+  version = "1.4.9";
 
   src = fetchFromGitHub {
-    sha256 = "0fpv8k16s14g0r552mhbh0mkr716cqy41d2znyrvks6qfphkgir4";
-    rev = "v${version}";
-    repo = "zstd";
     owner = "facebook";
+    repo = "zstd";
+    rev = "v${version}";
+    sha256 = "18alxnym54gswsmsr5ra82q4k1q5fyzsyx0jykb2sk2nkpvx7334";
   };
 
-  buildInputs = stdenv.lib.optional stdenv.isDarwin fixDarwinDylibNames;
+  nativeBuildInputs = [ cmake ]
+   ++ lib.optional stdenv.isDarwin fixDarwinDylibNames;
+  buildInputs = lib.optional stdenv.hostPlatform.isUnix bash;
 
-  makeFlags = [
-    "ZSTD_LEGACY_SUPPORT=${if legacySupport then "1" else "0"}"
+  patches = [
+    # This patches makes sure we do not attempt to use the MD5 implementation
+    # of the host platform when running the tests
+    ./playtests-darwin.patch
   ];
 
-  installFlags = [
-    "PREFIX=$(out)"
-  ];
-
-  preInstall = ''
-    substituteInPlace programs/zstdgrep \
-      --replace "=grep" "=${gnugrep}/bin/grep" \
-      --replace "=zstdcat" "=$out/bin/zstdcat"
-
-    substituteInPlace programs/zstdless \
-      --replace "zstdcat" "$out/bin/zstdcat"
+  postPatch = lib.optionalString (!static) ''
+    substituteInPlace build/cmake/CMakeLists.txt \
+      --replace 'message(SEND_ERROR "You need to build static library to build tests")' ""
+    substituteInPlace build/cmake/tests/CMakeLists.txt \
+      --replace 'libzstd_static' 'libzstd_shared'
+    sed -i \
+      "1aexport ${lib.optionalString stdenv.isDarwin "DY"}LD_LIBRARY_PATH=$PWD/build_/lib" \
+      tests/playTests.sh
   '';
 
-  meta = with stdenv.lib; {
+  cmakeFlags = lib.attrsets.mapAttrsToList
+    (name: value: "-DZSTD_${name}:BOOL=${if value then "ON" else "OFF"}") {
+      BUILD_SHARED = !static;
+      BUILD_STATIC = static;
+      PROGRAMS_LINK_SHARED = !static;
+      LEGACY_SUPPORT = legacySupport;
+      BUILD_TESTS = doCheck;
+    };
+
+  cmakeDir = "../build/cmake";
+  dontUseCmakeBuildDir = true;
+  preConfigure = ''
+    mkdir -p build_ && cd $_
+  '';
+
+  checkInputs = [ file ];
+  doCheck = stdenv.hostPlatform == stdenv.buildPlatform;
+  checkPhase = ''
+    runHook preCheck
+    # Patch shebangs for playTests
+    patchShebangs ../programs/zstdgrep
+    ctest -R playTests # The only relatively fast test.
+    runHook postCheck
+  '';
+
+  preInstall = ''
+    substituteInPlace ../programs/zstdgrep \
+      --replace ":-grep" ":-${gnugrep}/bin/grep" \
+      --replace ":-zstdcat" ":-$bin/bin/zstdcat"
+
+    substituteInPlace ../programs/zstdless \
+      --replace "zstdcat" "$bin/bin/zstdcat"
+  '';
+
+  outputs = [ "bin" "dev" ]
+    ++ lib.optional stdenv.hostPlatform.isUnix "man"
+    ++ [ "out" ];
+
+  meta = with lib; {
     description = "Zstandard real-time compression algorithm";
     longDescription = ''
       Zstd, short for Zstandard, is a fast lossless compression algorithm,
@@ -43,11 +85,11 @@ stdenv.mkDerivation rec {
       speed is preserved and remain roughly the same at all settings, a
       property shared by most LZ compression algorithms, such as zlib.
     '';
-    homepage = https://facebook.github.io/zstd/;
-    # The licence of the CLI programme is GPLv2+, that of the library BSD-2.
-    license = with licenses; [ gpl2Plus bsd2 ];
+    homepage = "https://facebook.github.io/zstd/";
+    changelog = "https://github.com/facebook/zstd/blob/v${version}/CHANGELOG";
+    license = with licenses; [ bsd3 ]; # Or, at your opinion, GPL-2.0-only.
 
-    platforms = platforms.unix;
+    platforms = platforms.all;
     maintainers = with maintainers; [ orivej ];
   };
 }

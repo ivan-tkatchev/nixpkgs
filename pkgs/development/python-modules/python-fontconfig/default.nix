@@ -1,4 +1,4 @@
-{ lib, buildPythonPackage, fetchPypi, fontconfig, python, freefont_ttf, makeFontsConf }:
+{ lib, buildPythonPackage, fetchPypi, fontconfig, python, cython, freefont_ttf, makeFontsConf }:
 
 let
   fontsConf = makeFontsConf {
@@ -14,6 +14,11 @@ in buildPythonPackage rec {
   };
 
   buildInputs = [ fontconfig ];
+  nativeBuildInputs = [ cython ];
+
+  preBuild = ''
+    ${python.interpreter} setup.py build_ext -i
+  '';
 
   checkPhase = ''
     export FONTCONFIG_FILE=${fontsConf};
@@ -21,9 +26,9 @@ in buildPythonPackage rec {
   '';
 
   meta = {
-    homepage = https://github.com/Vayn/python-fontconfig;
+    homepage = "https://github.com/Vayn/python-fontconfig";
     description = "Python binding for Fontconfig";
     license = lib.licenses.gpl3;
-    maintainers = with lib.maintainers; [ gnidorah ];
+    maintainers = with lib.maintainers; [ ];
   };
 }

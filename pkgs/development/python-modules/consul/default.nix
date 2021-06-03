@@ -1,13 +1,13 @@
-{ stdenv, buildPythonPackage, fetchPypi
+{ lib, buildPythonPackage, fetchPypi
 , requests, six, pytest }:
 
 buildPythonPackage rec {
   pname = "python-consul";
-  version = "1.0.1";
+  version = "1.1.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0feb7a14b6869bbfa9eb4868e823f040e3642b84e80c39ffdff3a8b7fd7017c4";
+    sha256 = "168f1fa53948047effe4f14d53fc1dab50192e2a2cf7855703f126f469ea11f4";
   };
 
   buildInputs = [ requests six pytest ];
@@ -15,9 +15,9 @@ buildPythonPackage rec {
   # No tests distributed. https://github.com/cablehead/python-consul/issues/133
   doCheck = false;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Python client for Consul (https://www.consul.io/)";
-    homepage = https://github.com/cablehead/python-consul;
+    homepage = "https://github.com/cablehead/python-consul";
     license = licenses.mit;
     maintainers = with maintainers; [ desiderius ];
   };

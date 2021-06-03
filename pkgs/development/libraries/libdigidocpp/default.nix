@@ -1,29 +1,25 @@
-{ stdenv, fetchurl, cmake, libdigidoc, minizip, pcsclite, opensc, openssl
-, xercesc, xml-security-c, pkgconfig, xsd, zlib, vim }:
+{ lib, stdenv, fetchurl, cmake, libdigidoc, minizip, pcsclite, opensc, openssl
+, xercesc, xml-security-c, pkg-config, xsd, zlib, xalanc, xxd }:
 
 stdenv.mkDerivation rec {
-
-  version = "3.13.3.1365";
-  name = "libdigidocpp-${version}";
+  version = "3.14.6";
+  pname = "libdigidocpp";
 
   src = fetchurl {
-    url = "https://installer.id.ee/media/ubuntu/pool/main/libd/libdigidocpp/libdigidocpp_3.13.3.1365.orig.tar.xz";
-    sha256 = "1xmvjh5xzspm6ja8hz6bzblwly7yn2jni2m6kx8ny9g65zjrj2iw";
+     url = "https://github.com/open-eid/libdigidocpp/releases/download/v${version}/libdigidocpp-${version}.tar.gz";
+     sha256 = "sha256-zDMxJyL/T3cXrqgMT15yZlCozgyOt5nNreottuuiGHk=";
   };
 
-  unpackPhase = ''
-    mkdir src
-    tar xf $src -C src
-    cd src
-  '';
+  nativeBuildInputs = [ cmake pkg-config xxd ];
 
-  buildInputs = [ cmake libdigidoc minizip pcsclite opensc openssl xercesc
-                  xml-security-c pkgconfig xsd zlib vim
-                ];
-  
-  meta = with stdenv.lib; {
+  buildInputs = [
+    libdigidoc minizip pcsclite opensc openssl xercesc
+    xml-security-c xsd zlib xalanc
+  ];
+
+  meta = with lib; {
     description = "Library for creating DigiDoc signature files";
-    homepage = http://www.id.ee/;
+    homepage = "http://www.id.ee/";
     license = licenses.lgpl2;
     platforms = platforms.linux;
     maintainers = [ maintainers.jagajaga ];

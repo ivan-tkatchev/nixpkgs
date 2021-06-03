@@ -1,46 +1,39 @@
-{ stdenv
+{ lib, stdenv
 , cairo
 , cmake
 , fetchFromGitHub
+, fetchpatch
 , ffmpeg
 , gettext
-, gtk2-x11
-, libpng
-, libpthreadstubs
-, libXdmcp
-, libxshmfence
-, libGLU_combined
+, libGLU, libGL
 , openal
-, pkgconfig
+, pkg-config
 , SDL2
 , sfml
-, wxGTK
 , zip
 , zlib
 }:
 
 stdenv.mkDerivation rec {
-  name = "visualboyadvance-m-${version}";
-  version = "unstable-2017-09-04";
+  pname = "visualboyadvance-m";
+  version = "2.1.4";
   src = fetchFromGitHub {
     owner = "visualboyadvance-m";
     repo = "visualboyadvance-m";
-    rev = "ceef480";
-    sha256 = "1lpmlj8mv6fwlfg9m58hzggx8ld6cnjvaqx5ka5sffxd9v95qq2l";
+    rev = "v${version}";
+    sha256 = "1kgpbvng3c12ws0dy92zc0azd94h0i3j4vm7b67zc8mi3pqsppdg";
   };
+
+  nativeBuildInputs = [ cmake pkg-config ];
 
   buildInputs = [
     cairo
-    cmake
     ffmpeg
     gettext
-    gtk2-x11
-    libGLU_combined
+    libGLU libGL
     openal
-    pkgconfig
     SDL2
     sfml
-    wxGTK
     zip
     zlib
   ];
@@ -48,15 +41,27 @@ stdenv.mkDerivation rec {
   cmakeFlags = [
     "-DCMAKE_BUILD_TYPE='Release'"
     "-DENABLE_FFMPEG='true'"
-    #"-DENABLE_LINK='true'" currently broken :/
+    "-DENABLE_LINK='true'"
     "-DSYSCONFDIR=etc"
+    "-DENABLE_WX='false'"
+    "-DENABLE_SDL='true'"
   ];
 
-  meta = {
+  patches = [
+    (fetchpatch {
+      # https://github.com/visualboyadvance-m/visualboyadvance-m/pull/793
+      name = "fix-build-SDL-2.0.14.patch";
+      url = "https://github.com/visualboyadvance-m/visualboyadvance-m/commit/619a5cce683ec4b1d03f08f316ba276d8f8cd824.patch";
+      sha256 = "099cbzgq4r9g83bvdra8a0swfl1vpfng120wf4q7h6vs0n102rk9";
+    })
+  ];
+
+  meta =  with lib; {
     description = "A merge of the original Visual Boy Advance forks";
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = [ stdenv.lib.maintainers.lassulus ];
-    homepage = http://vba-m.com/;
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.gpl2;
+    maintainers = with maintainers; [ lassulus ];
+    homepage = "https://vba-m.com/";
+    platforms = lib.platforms.linux;
+    badPlatforms = [ "aarch64-linux" ];
   };
 }

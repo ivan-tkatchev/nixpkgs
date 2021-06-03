@@ -1,8 +1,8 @@
-{ stdenv, fetchurl, ppp } :
+{ lib, stdenv, fetchurl, ppp } :
 let
   version = "3.12";
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   name = "rp-pppoe-" + version;
   src = fetchurl {
     url = "https://www.roaringpenguin.com/files/download/rp-pppoe-${version}.tar.gz";
@@ -21,9 +21,10 @@ stdenv.mkDerivation rec {
     sed -i Makefile -e 's@PPPOESERVER_PPPD_OPTIONS=@&$(out)@'
   '';
 
-  meta = {
+  meta = with lib; {
     description = "Roaring Penguin Point-to-Point over Ethernet tool";
-    platforms = stdenv.lib.platforms.linux;
-    homepage = https://www.roaringpenguin.com/products/pppoe;
+    platforms = platforms.linux;
+    homepage = "https://www.roaringpenguin.com/products/pppoe";
+    license = licenses.gpl2Plus;
   };
 }

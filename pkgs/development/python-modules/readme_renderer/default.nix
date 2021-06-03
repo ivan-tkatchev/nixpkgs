@@ -1,38 +1,45 @@
 { lib
-, buildPythonPackage
-, fetchPypi
-, pytest
-, mock
-, cmarkgfm
 , bleach
+, buildPythonPackage
+, cmarkgfm
 , docutils
+, fetchPypi
 , future
+, mock
 , pygments
-, six
+, pytestCheckHook
+, pythonOlder
 }:
 
 buildPythonPackage rec {
   pname = "readme_renderer";
-  version = "21.0";
+  version = "29.0";
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "422404013378f0267ee128956021a47457db8eb487908b70b8a7de5fa935781a";
+    sha256 = "sha256-kv1awr+Gd/MQ8zA6pLzludX58glKuYwp8TeR17gFo9s=";
   };
 
-  checkInputs = [ pytest mock ];
-
   propagatedBuildInputs = [
-    bleach cmarkgfm docutils future pygments six
+    bleach
+    cmarkgfm
+    docutils
+    future
+    pygments
   ];
 
-  checkPhase = ''
-    py.test
-  '';
+  checkInputs = [
+    mock
+    pytestCheckHook
+  ];
 
-  meta = {
-    description = "readme_renderer is a library for rendering readme descriptions for Warehouse";
-    homepage = https://github.com/pypa/readme_renderer;
-    license = lib.licenses.asl20;
+  pythonImportsCheck = [ "readme_renderer" ];
+
+  meta = with lib; {
+    description = "Python library for rendering readme descriptions";
+    homepage = "https://github.com/pypa/readme_renderer";
+    license = with licenses; [ asl20 ];
+    maintainers = with maintainers; [ fab ];
   };
 }

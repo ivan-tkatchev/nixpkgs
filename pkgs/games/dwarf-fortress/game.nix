@@ -12,38 +12,35 @@ with lib;
 let
   libpath = makeLibraryPath [ stdenv.cc.cc stdenv.cc.libc dwarf-fortress-unfuck SDL ];
 
-  homepage = http://www.bay12games.com/dwarves/;
+  homepage = "http://www.bay12games.com/dwarves/";
 
   # Map Dwarf Fortress platform names to Nixpkgs platform names.
   # Other srcs are avilable like 32-bit mac & win, but I have only
   # included the ones most likely to be needed by Nixpkgs users.
   platforms = {
-    "x86_64-linux" = "linux";
-    "i686-linux" = "linux32";
-    "x86_64-darwin" = "osx";
-    "i686-darwin" = "osx32";
-    "x86_64-cygwin" = "win";
-    "i686-cygwin" = "win32";
+    x86_64-linux = "linux";
+    i686-linux = "linux32";
+    x86_64-darwin = "osx";
+    i686-darwin = "osx32";
+    x86_64-cygwin = "win";
+    i686-cygwin = "win32";
   };
 
-  dfVersionTriple = splitString "." dfVersion;
+  dfVersionTriple = splitVersion dfVersion;
   baseVersion = elemAt dfVersionTriple 1;
   patchVersion = elemAt dfVersionTriple 2;
 
   game = if hasAttr dfVersion df-hashes
          then getAttr dfVersion df-hashes
          else throw "Unknown Dwarf Fortress version: ${dfVersion}";
-  dfPlatform = if hasAttr stdenv.system platforms
-               then getAttr stdenv.system platforms
-               else throw "Unsupported system: ${stdenv.system}";
+  dfPlatform = if hasAttr stdenv.hostPlatform.system platforms
+               then getAttr stdenv.hostPlatform.system platforms
+               else throw "Unsupported system: ${stdenv.hostPlatform.system}";
   sha256 = if hasAttr dfPlatform game
            then getAttr dfPlatform game
            else throw "Unsupported dfPlatform: ${dfPlatform}";
 
 in
-
-assert dwarf-fortress-unfuck != null ->
-       dwarf-fortress-unfuck.dfVersion == dfVersion;
 
 stdenv.mkDerivation {
   name = "dwarf-fortress-${dfVersion}";
@@ -99,6 +96,6 @@ stdenv.mkDerivation {
     inherit homepage;
     license = licenses.unfreeRedistributable;
     platforms = attrNames platforms;
-    maintainers = with maintainers; [ a1russell robbinch roconnor the-kenny abbradar numinit ];
+    maintainers = with maintainers; [ a1russell robbinch roconnor abbradar numinit shazow ];
   };
 }

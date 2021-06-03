@@ -1,24 +1,26 @@
-{ lib, fetchurl, buildPythonPackage, numpy }:
+{ lib, fetchurl, buildPythonPackage, numpy, scikit-learn, setuptools-scm, cython, pytest }:
 
 buildPythonPackage rec {
   pname = "hmmlearn";
-  version = "0.2.0";
-  name = pname + "-" + version;
+  version = "0.2.5";
 
   src = fetchurl {
-    url = "mirror://pypi/h/hmmlearn/${name}.tar.gz";
-    sha256 = "0qc3fkdyrgfg31y1a8jzs83dxkjw78pqkdm44lll1iib63w4cik9";
+    url = "mirror://pypi/h/hmmlearn/${pname}-${version}.tar.gz";
+    sha256 = "14fb4ad3fb7529785844a25fae5d32272619fb5973cc02c8784018055470ca01";
   };
 
-  propagatedBuildInputs = [ numpy ];
+  buildInputs = [ setuptools-scm cython ];
+  propagatedBuildInputs = [ numpy scikit-learn ];
+  checkInputs = [ pytest ];
 
-  doCheck = false;
+  checkPhase = ''
+    pytest --pyargs hmmlearn
+  '';
 
   meta = with lib; {
     description = "Hidden Markov Models in Python with scikit-learn like API";
-    homepage    = https://github.com/hmmlearn/hmmlearn;
+    homepage    = "https://github.com/hmmlearn/hmmlearn";
     license     = licenses.bsd3;
     maintainers = with maintainers; [ abbradar ];
-    platforms   = platforms.unix;
   };
 }

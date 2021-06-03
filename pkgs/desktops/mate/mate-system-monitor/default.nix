@@ -1,17 +1,17 @@
-{ stdenv, fetchurl, pkgconfig, intltool, itstool, gtkmm3, libxml2, libgtop, libwnck3, librsvg, systemd, mate, wrapGAppsHook }:
+{ lib, stdenv, fetchurl, pkg-config, gettext, itstool, gtkmm3, libxml2, libgtop, libwnck3, librsvg, polkit, systemd, wrapGAppsHook, mateUpdateScript }:
 
 stdenv.mkDerivation rec {
-  name = "mate-system-monitor-${version}";
-  version = "1.21.0";
+  pname = "mate-system-monitor";
+  version = "1.24.2";
 
   src = fetchurl {
-    url = "http://pub.mate-desktop.org/releases/${mate.getRelease version}/${name}.tar.xz";
-    sha256 = "0filf6qyw4fk45br3cridbqdngwl525z49zn36r7q4agzhny4phz";
+    url = "https://pub.mate-desktop.org/releases/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "1mbny5hs5805398krvcsvi1jfhyq9a9dfciyrnis67n2yisr1hzp";
   };
 
   nativeBuildInputs = [
-    pkgconfig
-    intltool
+    pkg-config
+    gettext
     itstool
     wrapGAppsHook
   ];
@@ -22,14 +22,19 @@ stdenv.mkDerivation rec {
     libgtop
     libwnck3
     librsvg
+    polkit
     systemd
   ];
 
-  configureFlags = "--enable-systemd";
+  configureFlags = [ "--enable-systemd" ];
 
-  meta = with stdenv.lib; {
+  enableParallelBuilding = true;
+
+  passthru.updateScript = mateUpdateScript { inherit pname version; };
+
+  meta = with lib; {
     description = "System monitor for the MATE desktop";
-    homepage = http://mate-desktop.org;
+    homepage = "https://mate-desktop.org";
     license = [ licenses.gpl2Plus ];
     platforms = platforms.unix;
     maintainers = [ maintainers.romildo ];

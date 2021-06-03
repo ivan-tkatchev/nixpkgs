@@ -1,16 +1,16 @@
-{ stdenv, fetchgit }:
+{ lib, stdenv, fetchgit }:
 
-stdenv.mkDerivation rec {
-  name = "mmc-utils-${version}";
-  version = "2015-11-18";
+stdenv.mkDerivation {
+  pname = "mmc-utils";
+  version = "2021-05-11";
 
   src = fetchgit {
     url = "git://git.kernel.org/pub/scm/linux/kernel/git/cjb/mmc-utils.git";
-    rev = "44f94b925894577f9ffcf2c418dd013a5e582648";
-    sha256 = "0hkdzc71pdnscbpdpgwljcchiyancarldjyd0w609sy18bky833x";
+    rev = "43282e80e174cc73b09b81a4d17cb3a7b4dc5cfc";
+    sha256 = "0l06ahmprqshh75pkdpagb8fgnp2bwn8q8hwp1yl3laww2ghm8i5";
   };
 
-  makeFlags = "CC=${stdenv.cc.targetPrefix}cc";
+  makeFlags = [ "CC=${stdenv.cc.targetPrefix}cc" ];
 
   installPhase = ''
     make install prefix=$out
@@ -18,9 +18,9 @@ stdenv.mkDerivation rec {
     cp man/mmc.1 $out/share/man/man1/
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Configure MMC storage devices from userspace";
-    homepage = http://git.kernel.org/cgit/linux/kernel/git/cjb/mmc-utils.git/;
+    homepage = "http://git.kernel.org/cgit/linux/kernel/git/cjb/mmc-utils.git/";
     license = licenses.gpl2;
     maintainers = [ maintainers.dezgeg ];
     platforms = platforms.linux;

@@ -1,59 +1,116 @@
-{ lib, fetchurl, fetchpatch, pythonPackages, pkgconfig, makeWrapper
-, qmake, lndir, qtbase, qtsvg, qtwebkit, qtwebengine, dbus
-, withWebSockets ? false, qtwebsockets
+{ lib, pythonPackages, pkg-config
+, dbus
+, qmake, lndir
+, qtbase
+, qtsvg
+, qtdeclarative
+, qtwebchannel
 , withConnectivity ? false, qtconnectivity
+, withMultimedia ? false, qtmultimedia
+, withWebKit ? false, qtwebkit
+, withWebSockets ? false, qtwebsockets
 }:
 
 let
-  pname = "PyQt";
-  version = "5.10.1";
 
-  inherit (pythonPackages) buildPythonPackage python dbus-python sip;
+  inherit (pythonPackages) buildPythonPackage python isPy3k dbus-python enum34;
 
-in buildPythonPackage {
-  pname = pname;
-  version = version;
-  format = "other";
+  sip = if isPy3k then
+    pythonPackages.sip
+  else
+    (pythonPackages.sip_4.override { sip-module = "PyQt5.sip"; }).overridePythonAttrs(oldAttrs: {
+      # If we install sip in another folder, then we need to create a __init__.py as well
+      # if we want to be able to import it with Python 2.
+      # Python 3 could rely on it being an implicit namespace package, however,
+      # PyQt5 we made an explicit namespace package so sip should be as well.
+      postInstall = ''
+        cat << EOF > $out/${python.sitePackages}/PyQt5/__init__.py
+        from pkgutil import extend_path
+        __path__ = extend_path(__path__, __name__)
+        EOF
+      '';
+    });
 
-  meta = with lib; {
-    description = "Python bindings for Qt5";
-    homepage    = http://www.riverbankcomputing.co.uk;
-    license     = licenses.gpl3;
-    platforms   = platforms.mesaPlatforms;
-    maintainers = with maintainers; [ sander ];
+  pyqt5_sip = buildPythonPackage rec {
+    pname = "PyQt5_sip";
+    version = "12.8.1";
+
+    src = pythonPackages.fetchPypi {
+      inherit pname version;
+      sha256 = "30e944db9abee9cc757aea16906d4198129558533eb7fadbe48c5da2bd18e0bd";
+    };
+
+    # There is no test code and the check phase fails with:
+    # > error: could not create 'PyQt5/sip.cpython-38-x86_64-linux-gnu.so': No such file or directory
+    doCheck = false;
   };
 
-  src = fetchurl {
-    url = "mirror://sourceforge/pyqt/PyQt5/PyQt-${version}/PyQt5_gpl-${version}.tar.gz";
-    sha256 = "1vz9c4v0k8azk2b08swwybrshzw32x8djjpq13mf9v15x1qyjclr";
+in buildPythonPackage rec {
+  pname = "PyQt5";
+  version = "5.15.2";
+  format = "other";
+
+  src = pythonPackages.fetchPypi {
+    inherit pname version;
+    sha256 = "1z74295i69cha52llsqffzhb5zz7qnbjc64h8qg21l91jgf0harp";
   };
 
   outputs = [ "out" "dev" ];
 
-  nativeBuildInputs = [ pkgconfig qmake lndir ];
+  dontWrapQtApps = true;
 
-  buildInputs = [ dbus ];
+  nativeBuildInputs = [
+    pkg-config
+    qmake
+    lndir
+    sip
+    qtbase
+    qtsvg
+    qtdeclarative
+    qtwebchannel
+  ]
+    ++ lib.optional withConnectivity qtconnectivity
+    ++ lib.optional withMultimedia qtmultimedia
+    ++ lib.optional withWebKit qtwebkit
+    ++ lib.optional withWebSockets qtwebsockets
+  ;
+
+  buildInputs = [
+    dbus
+    qtbase
+    qtsvg
+    qtdeclarative
+  ]
+    ++ lib.optional withConnectivity qtconnectivity
+    ++ lib.optional withWebKit qtwebkit
+    ++ lib.optional withWebSockets qtwebsockets
+  ;
 
   propagatedBuildInputs = [
-    sip qtbase qtsvg qtwebkit qtwebengine
-  ] ++ lib.optional withWebSockets qtwebsockets ++ lib.optional withConnectivity qtconnectivity;
+    dbus-python
+  ] ++ (if isPy3k then [ pyqt5_sip ] else [ sip enum34 ]);
+
+  patches = [
+    # Fix some wrong assumptions by ./configure.py
+    # TODO: figure out how to send this upstream
+    ./pyqt5-fix-dbus-mainloop-support.patch
+  ];
+
+  passthru = {
+    inherit sip;
+    multimediaEnabled = withMultimedia;
+    webKitEnabled = withWebKit;
+    WebSocketsEnabled = withWebSockets;
+  };
 
   configurePhase = ''
     runHook preConfigure
 
-    mkdir -p $out
-    lndir ${dbus-python} $out
-    rm -rf "$out/nix-support"
-
     export PYTHONPATH=$PYTHONPATH:$out/${python.sitePackages}
-
-    substituteInPlace configure.py \
-      --replace 'install_dir=pydbusmoddir' "install_dir='$out/${python.sitePackages}/dbus/mainloop'" \
-      --replace "ModuleMetadata(qmake_QT=['webkitwidgets'])" "ModuleMetadata(qmake_QT=['webkitwidgets', 'printsupport'])"
 
     ${python.executable} configure.py  -w \
       --confirm-license \
-      --dbus=${dbus.dev}/include/dbus-1.0 \
+      --dbus-moduledir=$out/${python.sitePackages}/dbus/mainloop \
       --no-qml-plugin \
       --bindir=$out/bin \
       --destdir=$out/${python.sitePackages} \
@@ -64,32 +121,42 @@ in buildPythonPackage {
     runHook postConfigure
   '';
 
-  patches = [
-    # This patch from Arch Linux fixes Cura segfaulting on startup
-    # https://github.com/Ultimaker/Cura/issues/3438
-    # It can probably removed on 5.10.3
-    (fetchpatch {
-      name = "pyqt5-cura-crash.patch";
-      url = https://git.archlinux.org/svntogit/packages.git/plain/repos/extra-x86_64/pyqt5-cura-crash.patch?id=6cfe64a3d1827e0ed9cc62f1683a53b582315f4f;
-      sha256 = "02a0mw1z8p9hhqhl4bgjrmf1xq82xjmpivn5bg6r4yv6pidsh7ck";
-    })
-    (fetchpatch {
-      name = "pyqt-qt5.11.patch";
-      url = "https://git.archlinux.org/svntogit/packages.git/plain/trunk/pyqt-qt5.11.patch?h=packages/pyqt5&id=d01240b801203d3865b2f61fa19090cc20e55a97";
-      sha256 = "0qa7w1agjg9da99lvnqwwxnm3pp7qd683h7zggq4c269y2km812h";
-    })
-    (fetchpatch {
-      name = "pyqt-support-new-qt.patch";
-      url = "https://git.archlinux.org/svntogit/packages.git/plain/trunk/pyqt-support-new-qt.patch?h=packages/pyqt5&id=d01240b801203d3865b2f61fa19090cc20e55a97";
-      sha256 = "1nkl96f4bki37zw6iwvd4vq8z8gg45q5m1cbkbaw72395i0m7p5j";
-    })
-  ];
-
-  postInstall = ''
+  postInstall = lib.optionalString (!isPy3k) ''
+    ln -s ${sip}/${python.sitePackages}/PyQt5/sip.* $out/${python.sitePackages}/PyQt5/
     for i in $out/bin/*; do
       wrapProgram $i --prefix PYTHONPATH : "$PYTHONPATH"
     done
+
+    # Let's make it a namespace package
+    cat << EOF > $out/${python.sitePackages}/PyQt5/__init__.py
+    from pkgutil import extend_path
+    __path__ = extend_path(__path__, __name__)
+    EOF
   '';
 
+  # Checked using pythonImportsCheck
+  doCheck = false;
+
+  pythonImportsCheck = [
+    "PyQt5"
+    "PyQt5.QtCore"
+    "PyQt5.QtQml"
+    "PyQt5.QtWidgets"
+    "PyQt5.QtGui"
+  ]
+    ++ lib.optional withWebSockets "PyQt5.QtWebSockets"
+    ++ lib.optional withWebKit "PyQt5.QtWebKit"
+    ++ lib.optional withMultimedia "PyQt5.QtMultimedia"
+    ++ lib.optional withConnectivity "PyQt5.QtConnectivity"
+  ;
+
   enableParallelBuilding = true;
+
+  meta = with lib; {
+    description = "Python bindings for Qt5";
+    homepage    = "http://www.riverbankcomputing.co.uk";
+    license     = licenses.gpl3;
+    platforms   = platforms.mesaPlatforms;
+    maintainers = with maintainers; [ sander ];
+  };
 }

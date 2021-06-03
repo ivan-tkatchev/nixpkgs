@@ -1,49 +1,61 @@
-{ stdenv, buildPythonPackage, fetchPypi, isPy3k
-, beautifulsoup4, bottle, chardet, dateutil
-, google_api_python_client, lxml, ply, python_magic
-, nose, requests }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, isPy3k
+, beautifulsoup4
+, bottle
+, chardet
+, dateutil
+, google-api-python-client
+, google-auth-oauthlib
+, lxml
+, oauth2client
+, ply
+, pytest
+, python_magic
+, requests
+}:
 
 buildPythonPackage rec {
-  version = "2.1.2";
+  version = "2.3.4";
   pname = "beancount";
 
   disabled = !isPy3k;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "d0d5f7088cb6b699cc4d030dad42d20b8228232cdb445bb1330d4ef5e3581f52";
+    sha256 = "sha256-K/CM5qldmAAPTXM5WYXNHeuBwNUu1aduYQusd9gvhsA=";
   };
 
-  checkInputs = [ nose ];
-
-  # Automatic tests cannot be run because it needs to import some local modules for tests.
+  # Tests require files not included in the PyPI archive.
   doCheck = false;
-  checkPhase = ''
-    nosetests
-  '';
 
   propagatedBuildInputs = [
     beautifulsoup4
     bottle
     chardet
     dateutil
-    google_api_python_client
+    google-api-python-client
+    google-auth-oauthlib
     lxml
+    oauth2client
     ply
     python_magic
     requests
+    # pytest really is a runtime dependency
+    # https://github.com/beancount/beancount/blob/v2/setup.py#L81-L82
+    pytest
   ];
 
-  meta = {
-    homepage = http://furius.ca/beancount/;
+  meta = with lib; {
+    homepage = "http://furius.ca/beancount/";
     description = "Double-entry bookkeeping computer language";
     longDescription = ''
         A double-entry bookkeeping computer language that lets you define
         financial transaction records in a text file, read them in memory,
         generate a variety of reports from them, and provides a web interface.
     '';
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = with stdenv.lib.maintainers; [ ];
+    license = licenses.gpl2Only;
+    maintainers = with maintainers; [ bhipple ];
   };
 }
-

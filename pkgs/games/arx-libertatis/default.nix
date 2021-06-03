@@ -1,23 +1,35 @@
-{ stdenv, fetchFromGitHub, cmake, zlib, boost,
-  openal, glm, freetype, libGLU_combined, glew, SDL2,
-  dejavu_fonts, inkscape, optipng, imagemagick }:
+{ lib, stdenv, fetchFromGitHub, cmake, zlib, boost
+, openal, glm, freetype, libGLU, SDL2, epoxy
+, dejavu_fonts, inkscape, optipng, imagemagick
+, withCrashReporter ? !stdenv.isDarwin
+,   qtbase ? null
+,   wrapQtAppsHook ? null
+,   curl ? null
+,   gdb  ? null
+}:
 
-stdenv.mkDerivation rec {
-  name = "arx-libertatis-${version}";
-  version = "2017-10-30";
+with lib;
+
+stdenv.mkDerivation {
+  pname = "arx-libertatis";
+  version = "2020-10-20";
 
   src = fetchFromGitHub {
-    owner  = "arx";
-    repo   = "ArxLibertatis";
-    rev    = "e5ea4e8f0f7e86102cfc9113c53daeb0bdee6dd3";
-    sha256 = "11z0ndhk802jr3w3z5gfqw064g98v99xin883q1qd36jw96s27p5";
+    owner = "arx";
+    repo = "ArxLibertatis";
+    rev = "21df2e37664de79e117eff2af164873f05600f4c";
+    sha256 = "06plyyh0ddqv1j04m1vclz9j72609pgrp61v8wfjdcln8djm376i";
   };
 
+  nativeBuildInputs = [
+    cmake inkscape imagemagick optipng
+  ] ++ optionals withCrashReporter [ wrapQtAppsHook ];
+
   buildInputs = [
-    cmake zlib boost openal glm
-    freetype libGLU_combined glew SDL2 inkscape
-    optipng imagemagick
-  ];
+    zlib boost openal glm
+    freetype libGLU SDL2 epoxy
+  ] ++ optionals withCrashReporter [ qtbase curl ]
+    ++ optionals stdenv.isLinux    [ gdb ];
 
   cmakeFlags = [
     "-DDATA_DIR_PREFIXES=$out/share"
@@ -25,21 +37,23 @@ stdenv.mkDerivation rec {
     "-DImageMagick_mogrify_EXECUTABLE=${imagemagick.out}/bin/mogrify"
   ];
 
-  enableParallelBuilding = true;
+  dontWrapQtApps = true;
 
   postInstall = ''
     ln -sf \
       ${dejavu_fonts}/share/fonts/truetype/DejaVuSansMono.ttf \
       $out/share/games/arx/misc/dejavusansmono.ttf
+  '' + optionalString withCrashReporter ''
+    wrapQtApp "$out/libexec/arxcrashreporter"
   '';
-  
-  meta = with stdenv.lib; {
+
+  meta = {
     description = ''
       A cross-platform, open source port of Arx Fatalis, a 2002
       first-person role-playing game / dungeon crawler
       developed by Arkane Studios.
     '';
-    homepage = http://arx-libertatis.org/;
+    homepage = "https://arx-libertatis.org/";
     license = licenses.gpl3;
     maintainers = with maintainers; [ rnhmjoj ];
     platforms = platforms.linux;

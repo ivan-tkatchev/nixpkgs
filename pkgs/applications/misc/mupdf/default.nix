@@ -1,54 +1,89 @@
-{ stdenv, lib, fetchurl, fetchpatch, pkgconfig, freetype, harfbuzz, openjpeg
-, jbig2dec, libjpeg , darwin
-, enableX11 ? true, libX11, libXext, libXi, libXrandr
-, enableCurl ? true, curl, openssl
-, enableGL ? true, freeglut, libGLU
+{ stdenv
+, lib
+, fetchurl
+, fetchpatch
+, pkg-config
+, freetype
+, harfbuzz
+, openjpeg
+, jbig2dec
+, libjpeg
+, darwin
+, gumbo
+, enableX11 ? true
+, libX11
+, libXext
+, libXi
+, libXrandr
+, enableCurl ? true
+, curl
+, openssl
+, enableGL ? true
+, freeglut
+, libGLU
 }:
-
 let
 
   # OpenJPEG version is hardcoded in package source
   openJpegVersion = with stdenv;
-    lib.concatStringsSep "." (lib.lists.take 2
-      (lib.splitString "." (lib.getVersion openjpeg)));
+    lib.versions.majorMinor (lib.getVersion openjpeg);
 
 
-in stdenv.mkDerivation rec {
-  version = "1.13.0";
-  name = "mupdf-${version}";
+in
+stdenv.mkDerivation rec {
+  version = "1.18.0";
+  pname = "mupdf";
 
   src = fetchurl {
-    url = "https://mupdf.com/downloads/archive/${name}-source.tar.gz";
-    sha256 = "02faww5bnjw76k6igrjzwf0lnw4xd9ckc8d6ilc3c4gfrdi6j707";
+    url = "https://mupdf.com/downloads/archive/${pname}-${version}-source.tar.gz";
+    sha256 = "0rljl44y8p8hgaqializlyrgpij1wbnrzyp0ll5kcg7w05nylq48";
   };
 
-  patches = [
+  patches = lib.optional stdenv.isDarwin ./darwin.patch ++ [
     (fetchpatch {
-      name = "CVE-2018-10289.patch";
-      url = "https://bugs.ghostscript.com/attachment.cgi?id=15230";
-      sha256 = "0jmpacxd9930g6k57kda9jrcrbk75whdlv8xwmqg5jwn848qvy4q";
+      name = "pdfocr.patch";
+      url = "http://git.ghostscript.com/?p=mupdf.git;a=patch;h=a507b139adf37d2c742e039815601cdc2aa00a84";
+      sha256 = "1fx6pdgwrbk3bqsx53764d61llfj9s5q8lxqkna7mjnp7mg4krj3";
     })
-  ]
-    # Use shared libraries to decrease size
-    ++ stdenv.lib.optional (!stdenv.isDarwin) ./mupdf-1.13-shared_libs-1.patch
-    ++ stdenv.lib.optional stdenv.isDarwin ./darwin.patch
-  ;
+    (fetchpatch {
+      name = "pdf-layer.patch";
+      url = "http://git.ghostscript.com/?p=mupdf.git;a=patch;h=b82e9b6d6b46877e5c3763cc3bc641c66fa7eb54";
+      sha256 = "0ma8jq8d9a0mf26qjklgi4gdaflpjik1br1nhafzvjz7ccl56ksm";
+    })
+    (fetchpatch {
+      name = "pixmap.patch";
+      url = "http://git.ghostscript.com/?p=mupdf.git;a=patch;h=32e4e8b4bcbacbf92af7c88337efae21986d9603";
+      sha256 = "1zqkxgwrhcwsdya98pcmpq2815jjmv3fwsp0sba9f5nq5xi6whbj";
+    })
+    (fetchpatch {
+      name = "CVE-2021-3407.patch";
+      url = "http://git.ghostscript.com/?p=mupdf.git;a=patch;h=cee7cefc610d42fd383b3c80c12cbc675443176a";
+      sha256 = "18g9jsj90jnqibaff8pqi70a7x8ygc3sh4jl4xnvlv8vr7fxxbh6";
+    })
+  ];
 
   postPatch = ''
     sed -i "s/__OPENJPEG__VERSION__/${openJpegVersion}/" source/fitz/load-jpx.c
   '';
 
-  makeFlags = [ "prefix=$(out)" ];
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ freetype harfbuzz openjpeg jbig2dec libjpeg freeglut libGLU ]
-                ++ lib.optionals enableX11 [ libX11 libXext libXi libXrandr ]
-                ++ lib.optionals enableCurl [ curl openssl ]
-                ++ lib.optionals enableGL (
-                  if stdenv.isDarwin then
-                    with darwin.apple_sdk.frameworks; [ GLUT OpenGL ]
-                  else
-                    [ freeglut libGLU ])
-                ;
+  # Use shared libraries to decrease size
+  buildFlags = [ "shared" ];
+
+  makeFlags = [ "prefix=$(out)" "USE_SYSTEM_LIBS=yes" ]
+    ++ lib.optionals (!enableX11) [ "HAVE_X11=no" ]
+    ++ lib.optionals (!enableGL) [ "HAVE_GLUT=no" ];
+
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ freetype harfbuzz openjpeg jbig2dec libjpeg gumbo ]
+    ++ lib.optionals enableX11 [ libX11 libXext libXi libXrandr ]
+    ++ lib.optionals enableCurl [ curl openssl ]
+    ++ lib.optionals enableGL (
+    if stdenv.isDarwin then
+      with darwin.apple_sdk.frameworks; [ GLUT OpenGL ]
+    else
+      [ freeglut libGLU ]
+  )
+  ;
   outputs = [ "bin" "dev" "out" "man" "doc" ];
 
   preConfigure = ''
@@ -66,11 +101,13 @@ in stdenv.mkDerivation rec {
     Name: mupdf
     Description: Library for rendering PDF documents
     Version: ${version}
-    Libs: -L$out/lib -lmupdf -lmupdfthird
+    Libs: -L$out/lib -lmupdf -lmupdf-third
     Cflags: -I$dev/include
     EOF
 
     moveToOutput "bin" "$bin"
+  '' + lib.optionalString enableX11 ''
+    ln -s "$bin/bin/mupdf-x11" "$bin/bin/mupdf"
     mkdir -p $bin/share/applications
     cat > $bin/share/applications/mupdf.desktop <<EOF
     [Desktop Entry]
@@ -80,17 +117,18 @@ in stdenv.mkDerivation rec {
     Comment=PDF viewer
     Exec=$bin/bin/mupdf-x11 %f
     Terminal=false
+    MimeType=application/pdf;application/x-pdf;application/x-cbz;application/oxps;application/vnd.ms-xpsdocument;application/epub+zip
     EOF
   '';
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    homepage = https://mupdf.com;
-    repositories.git = git://git.ghostscript.com/mupdf.git;
+  meta = with lib; {
+    homepage = "https://mupdf.com";
+    repositories.git = "git://git.ghostscript.com/mupdf.git";
     description = "Lightweight PDF, XPS, and E-book viewer and toolkit written in portable C";
     license = licenses.agpl3Plus;
-    maintainers = with maintainers; [ viric vrthra fpletz ];
+    maintainers = with maintainers; [ vrthra fpletz ];
     platforms = platforms.unix;
   };
 }

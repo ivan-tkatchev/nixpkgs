@@ -1,18 +1,18 @@
-{ stdenv, fetchurl, makeWrapper }:
+{ lib, stdenv, fetchurl, makeWrapper, autoPatchelfHook }:
 
 stdenv.mkDerivation rec {
-  name = "insync-${version}";
-  version = "1.4.5.37069";
+  pname = "insync";
+  version = "1.5.7.37371";
   src =
-    if stdenv.system == "x86_64-linux" then
+    if stdenv.hostPlatform.system == "x86_64-linux" then
       fetchurl {
         url = "http://s.insynchq.com/builds/insync-portable_${version}_amd64.tar.bz2";
-        sha256 = "0mkqgpq4isngkj20c0ygmxf4cj975d446svhwvl3cqdrjkjm1ybd";
+        sha256 = "1cm3q6y2crw6pcsvh21sbkmh1hin7xl4fyslc96nbyql8rxsky5n";
       }
     else
-      throw "${name} is not supported on ${stdenv.system}";
+      throw "${pname}-${version} is not supported on ${stdenv.hostPlatform.system}";
 
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper autoPatchelfHook ];
 
   postPatch = ''
     patchelf --interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" client/insync-portable
@@ -26,9 +26,9 @@ stdenv.mkDerivation rec {
 
   meta = {
     platforms = ["x86_64-linux"];
-    license = stdenv.lib.licenses.unfree;
-    maintainers = [ stdenv.lib.maintainers.benley ];
-    homepage = https://www.insynchq.com;
+    license = lib.licenses.unfree;
+    maintainers = [ lib.maintainers.benley ];
+    homepage = "https://www.insynchq.com";
     description = "Google Drive sync and backup with multiple account support";
     longDescription = ''
      Insync is a commercial application that syncs your Drive files to your

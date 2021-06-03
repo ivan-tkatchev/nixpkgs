@@ -1,31 +1,27 @@
-{ stdenv, fetchFromGitHub, ocaml, findlib, jbuilder
-, ppx_sexp_conv
-, astring, ipaddr, uri
+{ lib, fetchurl, buildDunePackage
+, ppx_sexp_conv, sexplib, astring, uri, logs
+, ipaddr, ipaddr-sexp
 }:
 
-stdenv.mkDerivation rec {
-	version = "1.0.0";
-	name = "ocaml${ocaml.version}-conduit-${version}";
+buildDunePackage rec {
+  pname = "conduit";
+  version = "4.0.0";
+  useDune2 = true;
 
-	src = fetchFromGitHub {
-		owner = "mirage";
-		repo = "ocaml-conduit";
-		rev = "v${version}";
-		sha256 = "1ryigzh7sfif1mly624fpm87aw5h60n5wzdlrvqsf71qcpxc6iiz";
-	};
+  minimumOCamlVersion = "4.03";
 
-	buildInputs = [ ocaml findlib jbuilder ppx_sexp_conv ];
-	propagatedBuildInputs = [ astring ipaddr uri ];
+  src = fetchurl {
+    url = "https://github.com/mirage/ocaml-conduit/releases/download/v${version}/conduit-v${version}.tbz";
+    sha256 = "74b29d72bf47adc5d5c4cae6130ad5a2a4923118b9c571331bd1cb3c56decd2a";
+  };
 
-	buildPhase = "jbuilder build -p conduit";
+  buildInputs = [ ppx_sexp_conv ];
+  propagatedBuildInputs = [ astring ipaddr ipaddr-sexp sexplib uri logs ];
 
-	inherit (jbuilder) installPhase;
-
-	meta = {
-		description = "Network connection library for TCP and SSL";
-		license = stdenv.lib.licenses.isc;
-		maintainers = [ stdenv.lib.maintainers.vbgl ];
-		inherit (src.meta) homepage;
-		inherit (ocaml.meta) platforms;
-	};
+  meta = {
+    description = "A network connection establishment library";
+    license = lib.licenses.isc;
+    maintainers = with lib.maintainers; [ alexfmpe vbgl ];
+    homepage = "https://github.com/mirage/ocaml-conduit";
+  };
 }

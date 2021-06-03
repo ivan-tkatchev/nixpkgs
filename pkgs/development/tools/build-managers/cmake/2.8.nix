@@ -1,15 +1,14 @@
-{ stdenv, fetchurl, fetchpatch, replace, curl, expat, zlib, bzip2
+{ lib, stdenv, fetchurl, fetchpatch, curl, expat, zlib, bzip2
 , useNcurses ? false, ncurses, useQt4 ? false, qt4, ps
-, buildPlatform, hostPlatform
 }:
 
-with stdenv.lib;
+with lib;
 
 assert stdenv ? cc;
 assert stdenv.cc ? libc;
 
 let
-  os = stdenv.lib.optionalString;
+  os = lib.optionalString;
   majorVersion = "2.8";
   minorVersion = "12.2";
   version = "${majorVersion}.${minorVersion}";
@@ -30,12 +29,12 @@ stdenv.mkDerivation rec {
   patches =
     [(fetchpatch { # see https://www.cmake.org/Bug/view.php?id=13959
       name = "FindFreetype-2.5.patch";
-      url = "https://www.cmake.org/Bug/file_download.php?file_id=4660&type=bug";
+      url = "https://public.kitware.com/Bug/file/4660/0001-Support-finding-freetype2-using-pkg-config.patch";
       sha256 = "136z63ff83hnwd247cq4m8m8164pklzyl5i2csf5h6wd8p01pdkj";
     })] ++
     # Don't search in non-Nix locations such as /usr, but do search in our libc.
-    [ ./search-path.patch ] ++
-    optional (hostPlatform != buildPlatform) (fetchurl {
+    [ ./search-path-2.8.patch ] ++
+    optional (stdenv.hostPlatform != stdenv.buildPlatform) (fetchurl {
       name = "fix-darwin-cross-compile.patch";
       url = "https://public.kitware.com/Bug/file_download.php?"
           + "file_id=4981&type=bug";
@@ -47,7 +46,7 @@ stdenv.mkDerivation rec {
       --replace '"-framework CoreServices"' '""'
   '';
 
-  buildInputs = [ curl expat zlib bzip2 ]
+  buildInputs = [ setupHook curl expat zlib bzip2 ]
     ++ optional useNcurses ncurses
     ++ optional useQt4 qt4;
 
@@ -61,14 +60,13 @@ stdenv.mkDerivation rec {
     "--mandir=/share/man"
     "--system-libs"
     "--no-system-libarchive"
-   ] ++ stdenv.lib.optional useQt4 "--qt-gui";
+   ] ++ lib.optional useQt4 "--qt-gui";
 
   setupHook = ./setup-hook.sh;
 
   dontUseCmakeConfigure = true;
 
   preConfigure = with stdenv; ''
-      source $setupHook
       fixCmakeFiles .
       substituteInPlace Modules/Platform/UnixPaths.cmake \
         --subst-var-by libc_bin ${getBin cc.libc} \
@@ -80,9 +78,10 @@ stdenv.mkDerivation rec {
   hardeningDisable = [ "format" ];
 
   meta = {
-    homepage = https://cmake.org;
+    homepage = "https://cmake.org";
     description = "Cross-Platform Makefile Generator";
-    platforms = if useQt4 then qt4.meta.platforms else stdenv.lib.platforms.unix;
-    maintainers = with stdenv.lib.maintainers; [ ];
+    platforms = if useQt4 then qt4.meta.platforms else lib.platforms.unix;
+    maintainers = with lib.maintainers; [ xfix ];
+    license = lib.licenses.bsd3;
   };
 }

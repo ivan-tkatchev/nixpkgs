@@ -1,14 +1,15 @@
-{ stdenv, fetchurl, foomatic-filters, bc, unzip, ghostscript, systemd, vim }:
+{ lib, stdenv, fetchurl, foomatic-filters, bc, ghostscript, systemd, vim, time }:
 
 stdenv.mkDerivation rec {
-  name = "foo2zjs-20180519";
+  pname = "foo2zjs";
+  version = "20210116";
 
   src = fetchurl {
-    url = "http://www.loegria.net/mirrors/foo2zjs/${name}.tar.gz";
-    sha256 = "1rmw4jmxn2lqp124mapvnic0ma8ipyvisx2vj848mvad5g5w9x3z";
+    url = "http://www.loegria.net/mirrors/foo2zjs/foo2zjs-${version}.tar.gz";
+    sha256 = "14x3wizvncdy0xgvmcx541qanwb7bg76abygqy17bxycn1zh5r1x";
   };
 
-  buildInputs = [ foomatic-filters bc unzip ghostscript systemd vim ];
+  buildInputs = [ foomatic-filters bc ghostscript systemd vim ];
 
   patches = [ ./no-hardcode-fw.diff ];
 
@@ -39,6 +40,9 @@ stdenv.mkDerivation rec {
     sed -e "/PRINTERID=/s@=.*@=$out/bin/usb_printerid@" -i hplj1000
   '';
 
+  checkInputs = [ time ];
+  doCheck = false; # fails to find its own binary. Also says "Tests will pass only if you are using ghostscript-8.71-16.fc14".
+
   preInstall = ''
     mkdir -pv $out/{etc/udev/rules.d,lib/udev/rules.d,etc/hotplug/usb}
     mkdir -pv $out/share/foomatic/db/source/{opt,printer,driver}
@@ -49,7 +53,7 @@ stdenv.mkDerivation rec {
     cp -v getweb arm2hpdl "$out/bin"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "ZjStream printer drivers";
     maintainers = with maintainers;
     [

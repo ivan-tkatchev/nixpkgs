@@ -1,4 +1,4 @@
-{lib, fetchurl, python, buildPythonPackage, makeWrapper}:
+{fetchurl, python, buildPythonPackage, makeWrapper}:
 
 buildPythonPackage rec {
   pname = "PyXML";
@@ -10,7 +10,7 @@ buildPythonPackage rec {
     sha256 = "04wc8i7cdkibhrldy6j65qp5l75zjxf5lx6qxdxfdf2gb3wndawz";
   };
 
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
   buildPhase = "${python.interpreter} ./setup.py build";
   installPhase = ''
     ${python.interpreter} ./setup.py install --prefix="$out" || exit 1
@@ -25,6 +25,6 @@ buildPythonPackage rec {
 
   meta = {
     description = "A collection of libraries to process XML with Python";
-    homepage = http://pyxml.sourceforge.net/;
+    homepage = "http://pyxml.sourceforge.net/";
   };
 }

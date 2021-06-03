@@ -1,39 +1,56 @@
-{ lib, buildPythonPackage, fetchFromGitHub, python
-, isPy3k, attrs, coverage, enum34
-, doCheck ? true, pytest, pytest_xdist, flake8, flaky, mock
+{ lib
+, buildPythonPackage
+, pythonAtLeast
+, fetchFromGitHub
+, attrs
+, pexpect
+, doCheck ? true
+, pytestCheckHook
+, pytest-xdist
+, sortedcontainers
+, tzdata
 }:
 buildPythonPackage rec {
-  # http://hypothesis.readthedocs.org/en/latest/packaging.html
+  # https://hypothesis.readthedocs.org/en/latest/packaging.html
 
   # Hypothesis has optional dependencies on the following libraries
   # pytz fake_factory django numpy pytest
   # If you need these, you can just add them to your environment.
 
-  version = "3.45.2";
   pname = "hypothesis";
+  version = "5.49.0";
 
-  # Upstream prefers github tarballs
+  # Use github tarballs that includes tests
   src = fetchFromGitHub {
     owner = "HypothesisWorks";
     repo = "hypothesis-python";
-    rev = version;
-    sha256 = "063sn5m1966gvm3wrlxczdq4vw0r94h3nd9xpr94qxahpg2r4bpb";
+    rev = "hypothesis-python-${version}";
+    sha256 = "1lr9a93vdx70s9i1zazazif5hy8fbqhvwqq402ygpf53yw4lgi2w";
   };
 
-  checkInputs = [ pytest pytest_xdist flaky mock ];
-  propagatedBuildInputs = [ attrs coverage ] ++ lib.optional (!isPy3k) [ enum34 ];
+  postUnpack = "sourceRoot=$sourceRoot/hypothesis-python";
+
+  propagatedBuildInputs = [
+    attrs
+    sortedcontainers
+  ];
+
+  checkInputs = [ pytestCheckHook pytest-xdist pexpect ]
+    ++ lib.optional (pythonAtLeast "3.9") tzdata;
 
   inherit doCheck;
 
-  # https://github.com/DRMacIver/hypothesis/issues/300
-  checkPhase = ''
-    rm tox.ini # This file changes how py.test runs and breaks it
-    py.test tests/cover
+  # This file changes how pytest runs and breaks it
+  preCheck = ''
+    rm tox.ini
   '';
+
+  pytestFlagsArray = [ "tests/cover" ];
 
   meta = with lib; {
     description = "A Python library for property based testing";
-    homepage = https://github.com/HypothesisWorks/hypothesis;
+    homepage = "https://github.com/HypothesisWorks/hypothesis";
     license = licenses.mpl20;
+    maintainers = with maintainers; [ SuperSandro2000 ];
   };
 }

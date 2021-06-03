@@ -1,15 +1,16 @@
+/* Generated file. */
 args @ { fetchurl, ... }:
 rec {
-  baseName = ''lquery'';
-  version = ''20180131-git'';
+  baseName = "lquery";
+  version = "20201220-git";
 
-  description = ''A library to allow jQuery-like HTML/DOM manipulation.'';
+  description = "A library to allow jQuery-like HTML/DOM manipulation.";
 
   deps = [ args."array-utils" args."clss" args."documentation-utils" args."form-fiddle" args."plump" args."trivial-indent" ];
 
   src = fetchurl {
-    url = ''http://beta.quicklisp.org/archive/lquery/2018-01-31/lquery-20180131-git.tgz'';
-    sha256 = ''1v5mmdx7a1ngydkcs3c5anmqrl0jxc52b8jisc2f0b5k0j1kgmm9'';
+    url = "http://beta.quicklisp.org/archive/lquery/2020-12-20/lquery-20201220-git.tgz";
+    sha256 = "0mfnk1p73aihraklw802j5mjgc8cjxva0mdf0c4p7b253crf15jx";
   };
 
   packageName = "lquery";
@@ -19,13 +20,13 @@ rec {
 }
 /* (SYSTEM lquery DESCRIPTION
     A library to allow jQuery-like HTML/DOM manipulation. SHA256
-    1v5mmdx7a1ngydkcs3c5anmqrl0jxc52b8jisc2f0b5k0j1kgmm9 URL
-    http://beta.quicklisp.org/archive/lquery/2018-01-31/lquery-20180131-git.tgz
-    MD5 07e92aad32c4d12c4699956b57dbc9b8 NAME lquery FILENAME lquery DEPS
+    0mfnk1p73aihraklw802j5mjgc8cjxva0mdf0c4p7b253crf15jx URL
+    http://beta.quicklisp.org/archive/lquery/2020-12-20/lquery-20201220-git.tgz
+    MD5 a71685848959cf33cd6963b4a5f9e2ed NAME lquery FILENAME lquery DEPS
     ((NAME array-utils FILENAME array-utils) (NAME clss FILENAME clss)
      (NAME documentation-utils FILENAME documentation-utils)
      (NAME form-fiddle FILENAME form-fiddle) (NAME plump FILENAME plump)
      (NAME trivial-indent FILENAME trivial-indent))
     DEPENDENCIES
     (array-utils clss documentation-utils form-fiddle plump trivial-indent)
-    VERSION 20180131-git SIBLINGS (lquery-test) PARASITES NIL) */
+    VERSION 20201220-git SIBLINGS (lquery-test) PARASITES NIL) */

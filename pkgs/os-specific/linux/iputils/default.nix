@@ -1,55 +1,83 @@
-{ stdenv, fetchurl
-, sysfsutils, gnutls, openssl
-, libcap, opensp, docbook_sgml_dtd_31
-, libidn, nettle
-, SGMLSpm, libgcrypt }:
+{ lib, stdenv, fetchFromGitHub
+, meson, ninja, pkg-config, gettext, libxslt, docbook_xsl_ns
+, libcap, libidn2
+, apparmorRulesFromClosure
+}:
 
 let
-  time = "20161105";
-in
-stdenv.mkDerivation rec {
-  name = "iputils-${time}";
+  version = "20210202";
+  sunAsIsLicense = {
+    fullName = "AS-IS, SUN MICROSYSTEMS license";
+    url = "https://github.com/iputils/iputils/blob/s${version}/rdisc.c";
+  };
+in stdenv.mkDerivation rec {
+  pname = "iputils";
+  inherit version;
 
-  src = fetchurl {
-    url = "https://github.com/iputils/iputils/archive/s${time}.tar.gz";
-    sha256 = "12mdmh4qbf5610csaw3rkzhpzf6djndi4jsl4gyr8wni0cphj4zq";
+  src = fetchFromGitHub {
+    owner = pname;
+    repo = pname;
+    rev = version;
+    sha256 = "08j2hfgnfh31vv9rn1ml7090j2lsvm9wdpdz13rz60rmyzrx9dq3";
   };
 
-  prePatch = ''
-    sed -e s/sgmlspl/sgmlspl.pl/ \
-        -e s/nsgmls/onsgmls/ \
-      -i doc/Makefile
+  outputs = ["out" "apparmor"];
+
+  mesonFlags = [
+    "-DBUILD_RARPD=true"
+    "-DBUILD_TRACEROUTE6=true"
+    "-DBUILD_TFTPD=true"
+    "-DNO_SETCAP_OR_SUID=true"
+    "-Dsystemdunitdir=etc/systemd/system"
+    "-DINSTALL_SYSTEMD_UNITS=true"
+  ]
+    # Disable idn usage w/musl (https://github.com/iputils/iputils/pull/111):
+    ++ lib.optional stdenv.hostPlatform.isMusl "-DUSE_IDN=false";
+
+  nativeBuildInputs = [ meson ninja pkg-config gettext libxslt.bin docbook_xsl_ns ];
+  buildInputs = [ libcap ]
+    ++ lib.optional (!stdenv.hostPlatform.isMusl) libidn2;
+  postInstall = ''
+    mkdir $apparmor
+    cat >$apparmor/bin.ping <<EOF
+    include <tunables/global>
+    $out/bin/ping {
+      include <abstractions/base>
+      include <abstractions/consoles>
+      include <abstractions/nameservice>
+      include "${apparmorRulesFromClosure { name = "ping"; }
+       ([libcap] ++ lib.optional (!stdenv.hostPlatform.isMusl) libidn2)}"
+      include <local/bin.ping>
+      capability net_raw,
+      network inet raw,
+      network inet6 raw,
+      mr $out/bin/ping,
+      r $out/share/locale/**,
+      r @{PROC}/@{pid}/environ,
+    }
+    EOF
   '';
 
-  # Disable idn usage w/musl: https://github.com/iputils/iputils/pull/111
-  makeFlags = [ "USE_GNUTLS=no" ] ++ stdenv.lib.optional stdenv.hostPlatform.isMusl "USE_IDN=no";
-
-  depsBuildBuild = [ opensp SGMLSpm docbook_sgml_dtd_31 ];
-  buildInputs = [
-    sysfsutils openssl libcap libgcrypt nettle
-  ] ++ stdenv.lib.optional (!stdenv.hostPlatform.isMusl) libidn;
-
-  # ninfod probably could build on cross, but the Makefile doesn't pass --host etc to the sub configure...
-  buildFlags = "man all" + stdenv.lib.optionalString (!stdenv.isCross) " ninfod";
-
-  installPhase =
-    ''
-      mkdir -p $out/bin
-      cp -p ping tracepath clockdiff arping rdisc rarpd $out/bin/
-      if [ -x ninfod/ninfod ]; then
-        cp -p ninfod/ninfod $out/bin
-      fi
-
-      mkdir -p $out/share/man/man8
-      cp -p \
-        doc/clockdiff.8 doc/arping.8 doc/ping.8 doc/rdisc.8 doc/rarpd.8 doc/tracepath.8 doc/ninfod.8 \
-        $out/share/man/man8
-    '';
-
-  meta = with stdenv.lib; {
-    homepage = https://github.com/iputils/iputils;
+  meta = with lib; {
     description = "A set of small useful utilities for Linux networking";
+    inherit (src.meta) homepage;
+    changelog = "https://github.com/iputils/iputils/releases/tag/s${version}";
+    license = with licenses; [ gpl2Plus bsd3 sunAsIsLicense ];
     platforms = platforms.linux;
-    maintainers = with maintainers; [ lheckemann ];
+    maintainers = with maintainers; [ primeos lheckemann ];
+
+    longDescription = ''
+      A set of small useful utilities for Linux networking including:
+
+      arping
+      clockdiff
+      ninfod
+      ping
+      rarpd
+      rdisc
+      tftpd
+      tracepath
+      traceroute6
+    '';
   };
 }

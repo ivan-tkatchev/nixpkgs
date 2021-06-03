@@ -1,18 +1,18 @@
-{ stdenv, fetchzip, autoreconfHook, pkgconfig, glib, libtool, pcre
-, json_c, flex, bison, dtc, pciutils, dmidecode, iasl }:
+{ lib, stdenv, fetchzip, autoreconfHook, pkg-config, glib, libtool, pcre
+, json_c, flex, bison, dtc, pciutils, dmidecode, iasl, libbsd }:
 
 stdenv.mkDerivation rec {
-  name = "fwts-${version}";
-  version = "18.06.02";
+  pname = "fwts";
+  version = "20.11.00";
 
   src = fetchzip {
-    url = "http://fwts.ubuntu.com/release/fwts-V${version}.tar.gz";
-    sha256 = "1j7yn3qyy9baylhjvr9j8hiyl1nc7la1j4fffvxk8qvxakwxbyl2";
+    url = "http://fwts.ubuntu.com/release/${pname}-V${version}.tar.gz";
+    sha256 = "0s8iz6c9qhyndcsjscs3qail2mzfywpbiys1x232igm5kl089vvr";
     stripRoot = false;
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig libtool ];
-  buildInputs = [ glib pcre json_c flex bison dtc pciutils dmidecode iasl ];
+  nativeBuildInputs = [ autoreconfHook pkg-config libtool ];
+  buildInputs = [ glib pcre json_c flex bison dtc pciutils dmidecode iasl libbsd ];
 
   postPatch = ''
     substituteInPlace src/lib/include/fwts_binpaths.h --replace "/usr/bin/lspci"      "${pciutils}/bin/lspci"
@@ -20,7 +20,9 @@ stdenv.mkDerivation rec {
     substituteInPlace src/lib/include/fwts_binpaths.h --replace "/usr/bin/iasl"       "${iasl}/bin/iasl"
   '';
 
-  meta = with stdenv.lib; {
+  enableParallelBuilding = true;
+
+  meta = with lib; {
     homepage = "https://wiki.ubuntu.com/FirmwareTestSuite";
     description = "Firmware Test Suite";
     platforms = platforms.linux;

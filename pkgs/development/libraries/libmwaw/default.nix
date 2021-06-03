@@ -1,16 +1,16 @@
-{stdenv, fetchurl, boost, pkgconfig, cppunit, zlib, libwpg, libwpd, librevenge}:
+{lib, stdenv, fetchurl, boost, pkg-config, cppunit, zlib, libwpg, libwpd, librevenge}:
 let
   s = # Generated upstream information
   rec {
     baseName="libmwaw";
-    version="0.3.14";
+    version="0.3.19";
     name="${baseName}-${version}";
-    hash="1s9wyf8pyh3fbazq2d2b6fgi7s7bid60viw2xbdkmn2ywlfbza5c";
-    url="mirror://sourceforge/libmwaw/libmwaw/libmwaw-0.3.14/libmwaw-0.3.14.tar.xz";
-    sha256="1s9wyf8pyh3fbazq2d2b6fgi7s7bid60viw2xbdkmn2ywlfbza5c";
+    hash="sha256-snLiNO78goxLuDRK8PBHpi4HD1MOni+6EbBMjbjtpa8=";
+    url="mirror://sourceforge/libmwaw/libmwaw/libmwaw-0.3.19/libmwaw-0.3.19.tar.xz";
+    sha256="sha256-snLiNO78goxLuDRK8PBHpi4HD1MOni+6EbBMjbjtpa8=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [
     boost cppunit zlib libwpg libwpd librevenge
   ];
@@ -23,9 +23,9 @@ stdenv.mkDerivation {
   };
   meta = {
     inherit (s) version;
-    description = ''Import library for some old mac text documents'';
-    license = stdenv.lib.licenses.mpl20 ;
-    maintainers = [stdenv.lib.maintainers.raskin];
-    platforms = stdenv.lib.platforms.linux;
+    description = "Import library for some old mac text documents";
+    license = lib.licenses.mpl20 ;
+    maintainers = [lib.maintainers.raskin];
+    platforms = lib.platforms.unix;
   };
 }

@@ -1,39 +1,73 @@
-{ stdenv, fetchurl, pkgconfig, glib, freetype, cairo, libintl
+{ lib, stdenv, fetchFromGitHub, pkg-config, glib, freetype, cairo, libintl
+, meson, ninja
+, gobject-introspection
 , icu, graphite2, harfbuzz # The icu variant uses and propagates the non-icu one.
+, ApplicationServices, CoreText
+, withCoreText ? false
 , withIcu ? false # recommended by upstream as default, but most don't needed and it's big
 , withGraphite2 ? true # it is small and major distros do include it
+, python3
+, gtk-doc, docbook-xsl-nons, docbook_xml_dtd_43
 }:
 
 let
-  version = "1.8.1";
-  inherit (stdenv.lib) optional optionals optionalString;
+  version = "2.8.0";
+  inherit (lib) optional optionals optionalString;
+  mesonFeatureFlag = opt: b:
+    "-D${opt}=${if b then "enabled" else "disabled"}";
 in
 
 stdenv.mkDerivation {
   name = "harfbuzz${optionalString withIcu "-icu"}-${version}";
 
-  src = fetchurl {
-    url = "https://www.freedesktop.org/software/harfbuzz/release/harfbuzz-${version}.tar.bz2";
-    sha256 = "0ifzhqbg4p6ka7ps5c7lapix09i9yy4z7achc1gf91dhvn967vgv";
+  src = fetchFromGitHub {
+    owner  = "harfbuzz";
+    repo   = "harfbuzz";
+    rev    = version;
+    sha256 = "sha256-JnvOFGK2HWIpzuwgZtyt0IfKfnoXD1LMeVb3RzMmyY4=";
   };
 
-  outputs = [ "out" "dev" ];
+  postPatch = ''
+    patchShebangs src/*.py
+    patchShebangs test
+  '' + lib.optionalString stdenv.isDarwin ''
+    # ApplicationServices.framework headers have cast-align warnings.
+    substituteInPlace src/hb.hh \
+      --replace '#pragma GCC diagnostic error   "-Wcast-align"' ""
+  '';
+
+  outputs = [ "out" "dev" "devdoc" ];
   outputBin = "dev";
 
-  configureFlags = [
-    ( "--with-graphite2=" + (if withGraphite2 then "yes" else "no") ) # not auto-detected by default
-    ( "--with-icu=" +       (if withIcu       then "yes" else "no") )
+  mesonFlags = [
+    (mesonFeatureFlag "graphite" withGraphite2)
+    (mesonFeatureFlag "icu" withIcu)
+    (mesonFeatureFlag "coretext" withCoreText)
   ];
 
-  nativeBuildInputs = [ pkgconfig libintl ];
-  buildInputs = [ glib freetype cairo ]; # recommended by upstream
+  nativeBuildInputs = [
+    meson
+    ninja
+    gobject-introspection
+    libintl
+    pkg-config
+    python3
+    gtk-doc
+    docbook-xsl-nons
+    docbook_xml_dtd_43
+  ];
+
+  buildInputs = [ glib freetype cairo ] # recommended by upstream
+    ++ lib.optionals withCoreText [ ApplicationServices CoreText ];
+
   propagatedBuildInputs = []
     ++ optional withGraphite2 graphite2
-    ++ optionals withIcu [ icu harfbuzz ]
-    ;
+    ++ optionals withIcu [ icu harfbuzz ];
+
+  doCheck = true;
 
   # Slightly hacky; some pkgs expect them in a single directory.
-  postInstall = optionalString withIcu ''
+  postFixup = optionalString withIcu ''
     rm "$out"/lib/libharfbuzz.* "$dev/lib/pkgconfig/harfbuzz.pc"
     ln -s {'${harfbuzz.out}',"$out"}/lib/libharfbuzz.la
     ln -s {'${harfbuzz.dev}',"$dev"}/lib/pkgconfig/harfbuzz.pc
@@ -43,13 +77,11 @@ stdenv.mkDerivation {
     ''}
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An OpenType text shaping engine";
-    homepage = http://www.freedesktop.org/wiki/Software/HarfBuzz;
-    downloadPage = "https://www.freedesktop.org/software/harfbuzz/release/";
+    homepage = "https://harfbuzz.github.io/";
     maintainers = [ maintainers.eelco ];
+    license = licenses.mit;
     platforms = with platforms; linux ++ darwin;
-    inherit version;
-    updateWalker = true;
   };
 }

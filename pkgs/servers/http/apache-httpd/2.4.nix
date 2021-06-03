@@ -1,4 +1,5 @@
-{ stdenv, fetchurl, perl, zlib, apr, aprutil, pcre, libiconv
+{ lib, stdenv, fetchurl, perl, zlib, apr, aprutil, pcre, libiconv, lynx
+, nixosTests
 , proxySupport ? true
 , sslSupport ? true, openssl
 , http2Support ? true, nghttp2
@@ -8,7 +9,7 @@
 , luaSupport ? false, lua5
 }:
 
-let inherit (stdenv.lib) optional optionalString;
+let inherit (lib) optional;
 in
 
 assert sslSupport -> aprutil.sslSupport && openssl != null;
@@ -16,12 +17,12 @@ assert ldapSupport -> aprutil.ldapSupport && openldap != null;
 assert http2Support -> nghttp2 != null;
 
 stdenv.mkDerivation rec {
-  version = "2.4.34";
-  name = "apache-httpd-${version}";
+  version = "2.4.47";
+  pname = "apache-httpd";
 
   src = fetchurl {
     url = "mirror://apache/httpd/httpd-${version}.tar.bz2";
-    sha256 = "1w1q2smdgf6ln0x741lk5pv5r0gzrxj2iza1vslhifzy65bcjlzs";
+    sha256 = "sha256-I9AG28jleBFqETj6RX7qgkBIRY6JyECHIZ8DcogMA8o=";
   };
 
   # FIXME: -dev depends on -doc
@@ -38,39 +39,43 @@ stdenv.mkDerivation rec {
 
   prePatch = ''
     sed -i config.layout -e "s|installbuilddir:.*|installbuilddir: $dev/share/build|"
+    sed -i support/apachectl.in -e 's|@LYNX_PATH@|${lynx}/bin/lynx|'
   '';
 
   # Required for ‘pthread_cancel’.
-  NIX_LDFLAGS = stdenv.lib.optionalString (!stdenv.isDarwin) "-lgcc_s";
+  NIX_LDFLAGS = lib.optionalString (!stdenv.isDarwin) "-lgcc_s";
 
-  preConfigure = ''
-    configureFlags="$configureFlags --includedir=$dev/include"
-  '';
+  configureFlags = [
+    "--with-apr=${apr.dev}"
+    "--with-apr-util=${aprutil.dev}"
+    "--with-z=${zlib.dev}"
+    "--with-pcre=${pcre.dev}"
+    "--disable-maintainer-mode"
+    "--disable-debugger-mode"
+    "--enable-mods-shared=all"
+    "--enable-mpms-shared=all"
+    "--enable-cern-meta"
+    "--enable-imagemap"
+    "--enable-cgi"
+    "--includedir=${placeholder "dev"}/include"
+    (lib.enableFeature proxySupport "proxy")
+    (lib.enableFeature sslSupport "ssl")
+    (lib.withFeatureAs libxml2Support "libxml2" "${libxml2.dev}/include/libxml2")
+    "--docdir=$(doc)/share/doc"
 
-  configureFlags = ''
-    --with-apr=${apr.dev}
-    --with-apr-util=${aprutil.dev}
-    --with-z=${zlib.dev}
-    --with-pcre=${pcre.dev}
-    --disable-maintainer-mode
-    --disable-debugger-mode
-    --enable-mods-shared=all
-    --enable-mpms-shared=all
-    --enable-cern-meta
-    --enable-imagemap
-    --enable-cgi
-    ${optionalString brotliSupport "--enable-brotli --with-brotli=${brotli}"}
-    ${optionalString proxySupport "--enable-proxy"}
-    ${optionalString sslSupport "--enable-ssl"}
-    ${optionalString http2Support "--enable-http2 --with-nghttp2"}
-    ${optionalString luaSupport "--enable-lua --with-lua=${lua5}"}
-    ${optionalString libxml2Support "--with-libxml2=${libxml2.dev}/include/libxml2"}
-    --docdir=$(doc)/share/doc
-  '';
+    (lib.enableFeature brotliSupport "brotli")
+    (lib.withFeatureAs brotliSupport "brotli" brotli)
+
+    (lib.enableFeature http2Support "http2")
+    (lib.withFeature http2Support "nghttp2")
+
+    (lib.enableFeature luaSupport "lua")
+    (lib.withFeatureAs luaSupport "lua" lua5)
+  ];
 
   enableParallelBuilding = true;
 
-  stripDebugList = "lib modules bin";
+  stripDebugList = [ "lib" "modules" "bin" ];
 
   postInstall = ''
     mkdir -p $doc/share/doc/httpd
@@ -80,14 +85,17 @@ stdenv.mkDerivation rec {
   '';
 
   passthru = {
-    inherit apr aprutil sslSupport proxySupport ldapSupport;
+    inherit apr aprutil sslSupport proxySupport ldapSupport luaSupport lua5;
+    tests = {
+      acme-integration = nixosTests.acme;
+    };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Apache HTTPD, the world's most popular web server";
-    homepage    = http://httpd.apache.org/;
+    homepage    = "http://httpd.apache.org/";
     license     = licenses.asl20;
-    platforms   = stdenv.lib.platforms.linux ++ stdenv.lib.platforms.darwin;
+    platforms   = lib.platforms.linux ++ lib.platforms.darwin;
     maintainers = with maintainers; [ lovek323 peti ];
   };
 }

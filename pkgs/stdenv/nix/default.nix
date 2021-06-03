@@ -1,10 +1,10 @@
 { lib
-, crossSystem, config, overlays
+, crossSystem, localSystem, config, overlays
 , bootStages
 , ...
 }:
 
-assert crossSystem == null;
+assert crossSystem == localSystem;
 
 bootStages ++ [
   (prevStage: {
@@ -24,6 +24,7 @@ bootStages ++ [
       initialPath = (import ../common-path.nix) { pkgs = prevStage; };
 
       cc = import ../../build-support/cc-wrapper {
+        inherit lib;
         nativeTools = false;
         nativePrefix = lib.optionalString hostPlatform.isSunOS "/usr";
         nativeLibc = true;

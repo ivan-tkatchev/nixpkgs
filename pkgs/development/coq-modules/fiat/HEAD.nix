@@ -1,23 +1,23 @@
-{stdenv, fetchgit, coq, ocamlPackages, python27}:
+{lib, mkCoqDerivation, coq, python27, version ? null }:
 
-stdenv.mkDerivation rec {
+with lib; mkCoqDerivation rec {
+  pname = "fiat";
+  owner = "mit-plv";
+  repo = "fiat";
+  displayVersion = { fiat = v: "unstable-${v}"; };
+  inherit version;
+  defaultVersion = if coq.coq-version == "8.5" then "2016-10-24" else null;
+  release."2016-10-24".rev    = "7feb6c64be9ebcc05924ec58fe1463e73ec8206a";
+  release."2016-10-24".sha256 = "0griqc675yylf9rvadlfsabz41qy5f5idya30p5rv6ysiakxya64";
 
-  name = "coq-fiat-${coq.coq-version}-unstable-${version}";
-  version = "2018-02-27";
+  mlPlugin = true;
+  extraBuildInputs = [ python27 ];
 
-  src = fetchgit {
-    url = "https://github.com/mit-plv/fiat.git";
-    rev = "253fc133397f73d6daed0b9518ca7ab5507a1cb0";
-    sha256 = "0b5z7nz0cr1s7vy04s996dj0pd7ljqx6g5a8syh4hy2z87ijkjzd";
-  };
-
-  buildInputs = [ ocamlPackages.ocaml ocamlPackages.camlp5_transitional
-                  ocamlPackages.findlib python27 ];
-  propagatedBuildInputs = [ coq ];
+  prePatch = "patchShebangs etc/coq-scripts";
 
   doCheck = false;
 
-  enableParallelBuilding = true;
+  enableParallelBuilding = false;
   buildPhase = "make -j$NIX_BUILD_CORES";
 
   installPhase = ''
@@ -26,14 +26,9 @@ stdenv.mkDerivation rec {
     cp -pR src/* $COQLIB/user-contrib/Fiat
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://plv.csail.mit.edu/fiat/;
+  meta = {
+    homepage = "http://plv.csail.mit.edu/fiat/";
     description = "A library for the Coq proof assistant for synthesizing efficient correct-by-construction programs from declarative specifications";
     maintainers = with maintainers; [ jwiegley ];
-    platforms = coq.meta.platforms;
-  };
-
-  passthru = {
-    compatibleCoqVersions = v: builtins.elem v [ "8.5" "8.6" "8.7" ];
   };
 }

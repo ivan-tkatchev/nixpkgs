@@ -1,27 +1,23 @@
-{ stdenv, fetchurl
-, autoreconfHook, pkgconfig, wrapGAppsHook
+{ lib, stdenv, fetchurl
+, autoreconfHook, pkg-config, wrapGAppsHook
 , glib, intltool, gtk3, gtksourceview }:
 
 stdenv.mkDerivation rec {
-  name = "xpad-${version}";
-  version = "5.0.0";
+  pname = "xpad";
+  version = "5.4.0";
 
   src = fetchurl {
     url = "https://launchpad.net/xpad/trunk/${version}/+download/xpad-${version}.tar.bz2";
-    sha256 = "02yikxg6z9bwla09ka001ppjlpbv5kbza3za9asazm5aiz376mkb";
+    sha256 = "1qpmlwn0bcw1q73ag0l0fdnlzmwawfvsy4g9y5b0vyrc58lcp5d3";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig wrapGAppsHook ];
+  nativeBuildInputs = [ autoreconfHook pkg-config wrapGAppsHook ];
 
   buildInputs = [ glib intltool gtk3 gtksourceview ];
 
-  autoreconfPhase = ''
-    ./autogen.sh
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A sticky note application for jotting down things to remember";
-    homepage = https://launchpad.net/xpad;
+    homepage = "https://launchpad.net/xpad";
     license = licenses.gpl3;
     platforms = platforms.linux;
     maintainers = with maintainers; [ michalrus ];

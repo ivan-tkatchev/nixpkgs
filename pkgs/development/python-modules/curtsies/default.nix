@@ -1,14 +1,15 @@
-{ stdenv, buildPythonPackage, fetchPypi, blessings, mock, nose, pyte, wcwidth, typing }:
+{ lib, buildPythonPackage, fetchPypi, pythonOlder, blessings, mock, nose, pyte, cwcwidth, typing ? null}:
 
 buildPythonPackage rec {
   pname = "curtsies";
-  version = "0.3.0";
+  version = "0.3.5";
   src = fetchPypi {
     inherit pname version;
-    sha256 = "89c802ec051d01dec6fc983e9856a3706e4ea8265d2940b1f6d504a9e26ed3a9";
+    sha256 = "1g8dwafx4vx06isjkn28r3cwb0hw1bv67lgygaz34yk66lrzz1x5";
   };
 
-  propagatedBuildInputs = [ blessings wcwidth typing ];
+  propagatedBuildInputs = [ blessings cwcwidth ]
+    ++ lib.optionals (pythonOlder "3.5") [ typing ];
 
   checkInputs = [ mock pyte nose ];
 
@@ -16,9 +17,9 @@ buildPythonPackage rec {
     nosetests tests
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Curses-like terminal wrapper, with colored strings!";
-    homepage = https://pypi.python.org/pypi/curtsies;
+    homepage = "https://github.com/bpython/curtsies";
     license = licenses.mit;
     maintainers = with maintainers; [ flokli ];
   };

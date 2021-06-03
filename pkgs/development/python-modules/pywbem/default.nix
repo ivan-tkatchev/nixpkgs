@@ -1,50 +1,48 @@
-{ stdenv, buildPythonPackage, fetchFromGitHub, fetchpatch, libxml2
-, m2crypto, ply, pyyaml, six
-, httpretty, lxml, mock, pytest, requests
+{ lib, buildPythonPackage, fetchPypi, libxml2
+, m2crypto, ply, pyyaml, six, pbr, pythonOlder, isPy37
+, nocasedict, nocaselist, yamlloader, requests-mock
+, httpretty, lxml, mock, pytest, requests, decorator, unittest2
+, FormEncode, testfixtures, pytz
 }:
 
 buildPythonPackage rec {
   pname = "pywbem";
-  version = "0.10.0";
+  version = "1.1.3";
 
-  src = fetchFromGitHub {
-    owner  = "pywbem";
-    repo   = "pywbem";
-    rev    = "v${version}";
-    sha256 = "0jcwklip03xcni0dvsk9va8ilqz21g4fxwqd5kzvv91slaadfcym";
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "2abb6443f4debae56af7abefadb9fa5b8af9b53fc9bcf67f6c01a78db1064300";
   };
 
-  patches = [
-    # fix timezone handling so the tests pass again. Can go when 0.10.1 is released
-    # https://github.com/pywbem/pywbem/issues/755#issuecomment-327508681
-    ./make_cimdatetime_timezone_aware.patch
+  propagatedBuildInputs = [
+    mock
+    nocasedict
+    nocaselist
+    pbr
+    ply
+    pyyaml
+    six
+    yamlloader
+  ] ++ lib.optionals (pythonOlder "3.0") [ m2crypto ];
+
+  checkInputs = [
+    decorator
+    FormEncode
+    httpretty
+    libxml2
+    lxml
+    pytest
+    pytz
+    requests
+    requests-mock
+    testfixtures
+    unittest2
   ];
 
-  propagatedBuildInputs = [ m2crypto ply pyyaml six ];
-
-  checkInputs = [ httpretty lxml mock pytest requests ];
-
-  # 1 test fails because it doesn't like running in our sandbox. Deleting the
-  # whole file is admittedly a little heavy-handed but at least the vast
-  # majority of tests are run.
-  checkPhase = ''
-    rm testsuite/testclient/networkerror.yaml
-
-    substituteInPlace makefile \
-      --replace "PYTHONPATH=." "" \
-      --replace '--cov $(package_name) --cov-config coveragerc' ""
-
-    for f in testsuite/test_cim_xml.py testsuite/validate.py ; do
-      substituteInPlace $f --replace "'xmllint" "'${stdenv.lib.getBin libxml2}/bin/xmllint"
-    done
-
-    make PATH=$PATH:${stdenv.lib.getBin libxml2}/bin test
-  '';
-
-  meta = with stdenv.lib; {
-    description = "Support for the WBEM standard for systems management.";
-    homepage = http://pywbem.github.io/pywbem/;
-    license = licenses.gpl2;
+  meta = with lib; {
+    description = "Support for the WBEM standard for systems management";
+    homepage = "https://pywbem.github.io";
+    license = licenses.lgpl21Plus;
     maintainers = with maintainers; [ peterhoeg ];
   };
 }

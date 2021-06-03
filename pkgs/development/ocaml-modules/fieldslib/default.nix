@@ -1,12 +1,16 @@
-{ stdenv, fetchurl, ocaml, findlib, ocamlbuild, type_conv, camlp4 }:
+{ lib, stdenv, fetchurl, ocaml, findlib, ocamlbuild, type_conv, camlp4 }:
 
-assert stdenv.lib.versionOlder "4.00" (stdenv.lib.getVersion ocaml);
+assert lib.versionOlder "4.00" (lib.getVersion ocaml);
+
+if lib.versionAtLeast ocaml.version "4.06"
+then throw "fieldslib-109.20.03 is not available for OCaml ${ocaml.version}"
+else
 
 stdenv.mkDerivation {
   name = "ocaml-fieldslib-109.20.03";
 
   src = fetchurl {
-    url = https://ocaml.janestreet.com/ocaml-core/109.20.00/individual/fieldslib-109.20.03.tar.gz;
+    url = "https://ocaml.janestreet.com/ocaml-core/109.20.00/individual/fieldslib-109.20.03.tar.gz";
     sha256 = "1dkzk0wf26rhvji80dz1r56dp6x9zqrnp87wldd4pj56jli94vir";
   };
 
@@ -15,8 +19,8 @@ stdenv.mkDerivation {
 
   createFindlibDestdir = true;
 
-  meta = with stdenv.lib; {
-    homepage = https://ocaml.janestreet.com/;
+  meta = with lib; {
+    homepage = "https://ocaml.janestreet.com/";
     description = "OCaml syntax extension to define first class values representing record fields, to get and set record fields, iterate and fold over all fields of a record and create new record values";
     license = licenses.asl20;
     maintainers = [ maintainers.vbgl ];

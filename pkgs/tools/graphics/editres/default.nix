@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, pkgconfig, libXt, libXaw, libXres, utilmacros }:
+{ lib, stdenv, fetchurl, pkg-config, libXt, libXaw, libXres, utilmacros }:
 
 stdenv.mkDerivation rec {
   name = "editres-1.0.7";
@@ -8,17 +8,17 @@ stdenv.mkDerivation rec {
     sha256 = "10mbgijb6ac6wqb2grpy9mrazzw68jxjkxr9cbdf1111pa64yj19";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ libXt libXaw libXres utilmacros ];
 
-  configureFlags = "--with-appdefaultdir=$(out)/share/X11/app-defaults/editres";
+  configureFlags = [ "--with-appdefaultdir=$(out)/share/X11/app-defaults/editres" ];
 
   hardeningDisable = [ "format" ];
 
-  meta = {
-    homepage = https://cgit.freedesktop.org/xorg/app/editres/;
+  meta = with lib; {
+    homepage = "https://cgit.freedesktop.org/xorg/app/editres/";
     description = "A dynamic resource editor for X Toolkit applications";
-
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.mit;
+    platforms = platforms.linux;
   };
 }

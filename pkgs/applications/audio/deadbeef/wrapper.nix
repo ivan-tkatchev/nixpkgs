@@ -1,11 +1,11 @@
-{ stdenv, symlinkJoin, deadbeef, makeWrapper, plugins }:
+{ symlinkJoin, deadbeef, makeWrapper, plugins }:
 
 symlinkJoin {
   name = "deadbeef-with-plugins-${deadbeef.version}";
 
   paths = [ deadbeef ] ++ plugins;
 
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
 
   postBuild = ''
     wrapProgram $out/bin/deadbeef \

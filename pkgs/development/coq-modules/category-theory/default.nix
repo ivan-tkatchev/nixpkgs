@@ -1,49 +1,26 @@
-{ stdenv, fetchgit, coq, ssreflect }:
+{ lib, mkCoqDerivation, coq, ssreflect, equations, version ? null }:
 
-let param =
-  {
-    "8.6" = {
-      version = "20171214";
-      rev = "babf9c013506da1dbd67171e4a3ae87fdb7e9d00";
-      sha256 = "16fsf4cggx9s9fkijnpi4g614nmdb2yx7inzqqn070f8p959qcrd";
-    };
+with lib; mkCoqDerivation {
 
-    "8.7" = {
-      version = "20171214";
-      rev = "babf9c013506da1dbd67171e4a3ae87fdb7e9d00";
-      sha256 = "16fsf4cggx9s9fkijnpi4g614nmdb2yx7inzqqn070f8p959qcrd";
-    };
+  pname = "category-theory";
+  owner = "jwiegley";
 
-  }."${coq.coq-version}"
-; in
+  release."20190414".rev    = "706fdb4065cc2302d92ac2bce62cb59713253119";
+  release."20190414".sha256 = "16lg4xs2wzbdbsn148xiacgl4wq4xwfqjnjkdhfr3w0qh1s81hay";
+  release."20180709".rev    = "3b9ba7b26a64d49a55e8b6ccea570a7f32c11ead";
+  release."20180709".sha256 = "0f2nr8dgn1ab7hr7jrdmr1zla9g9h8216q4yf4wnff9qkln8sbbs";
 
-stdenv.mkDerivation rec {
+  inherit version;
+  defaultVersion = with versions; switch coq.coq-version [
+    { case = range "8.8" "8.9"; out = "20190414"; }
+    { case = range "8.6" "8.7"; out = "20180709"; }
+  ] null;
 
-  name = "coq${coq.coq-version}-category-theory-${param.version}";
+  mlPlugin = true;
+  propagatedBuildInputs = [ ssreflect equations ];
 
-  src = fetchgit {
-    url = git://github.com/jwiegley/category-theory.git;
-    inherit (param) rev sha256;
-  };
-
-  buildInputs = [ coq.ocaml coq.camlp5 coq.findlib ];
-  propagatedBuildInputs = [ coq ssreflect ];
-
-  enableParallelBuilding = false;
-
-  installPhase = ''
-    make -f Makefile.coq COQLIB=$out/lib/coq/${coq.coq-version}/ install
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = git://github.com/jwiegley/category-theory.git;
+  meta = {
     description = "A formalization of category theory in Coq for personal study and practical work";
     maintainers = with maintainers; [ jwiegley ];
-    platforms = coq.meta.platforms;
   };
-
-  passthru = {
-    compatibleCoqVersions = v: builtins.elem v [ "8.6" "8.7" ];
-  };
-
 }

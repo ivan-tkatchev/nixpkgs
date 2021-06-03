@@ -1,18 +1,29 @@
-{ coreutils, db, fetchurl, openldap, openssl, pcre, perl, pkgconfig, stdenv
-, enableLDAP ? false
+{ coreutils, db, fetchurl, openssl, pcre, perl, pkg-config, lib, stdenv
+, enableLDAP ? false, openldap
+, enableMySQL ? false, libmysqlclient, zlib
+, enableAuthDovecot ? false, dovecot
+, enablePAM ? false, pam
+, enableSPF ? true, libspf2
+, enableDMARC ? true, opendmarc
 }:
 
 stdenv.mkDerivation rec {
-  name = "exim-4.91";
+  pname = "exim";
+  version = "4.94.2";
 
   src = fetchurl {
-    url = "https://ftp.exim.org/pub/exim/exim4/${name}.tar.xz";
-    sha256 = "066ip7a5lqfn9rcr14j4nm0kqysw6mzvbbb0ip50lmfm0fqsqmzc";
+    url = "https://ftp.exim.org/pub/exim/exim4/${pname}-${version}.tar.xz";
+    sha256 = "0x4j698gsawm8a3bz531pf1k6izyxfvry4hj5wb0aqphi7y62605";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ coreutils db openssl pcre perl ]
-    ++ stdenv.lib.optional enableLDAP openldap;
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ coreutils db openssl perl pcre ]
+    ++ lib.optional enableLDAP openldap
+    ++ lib.optionals enableMySQL [ libmysqlclient zlib ]
+    ++ lib.optional enableAuthDovecot dovecot
+    ++ lib.optional enablePAM pam
+    ++ lib.optional enableSPF libspf2
+    ++ lib.optional enableDMARC opendmarc;
 
   preBuild = ''
     sed '
@@ -20,12 +31,13 @@ stdenv.mkDerivation rec {
       s:^\(CONFIGURE_FILE\)=.*:\1=/etc/exim.conf:
       s:^\(EXIM_USER\)=.*:\1=ref\:nobody:
       s:^\(SPOOL_DIRECTORY\)=.*:\1=/exim-homeless-shelter:
+      s:^# \(TRANSPORT_LMTP\)=.*:\1=yes:
       s:^# \(SUPPORT_MAILDIR\)=.*:\1=yes:
       s:^EXIM_MONITOR=.*$:# &:
       s:^\(FIXED_NEVER_USERS\)=root$:\1=0:
       s:^# \(WITH_CONTENT_SCAN\)=.*:\1=yes:
       s:^# \(AUTH_PLAINTEXT\)=.*:\1=yes:
-      s:^# \(SUPPORT_TLS\)=.*:\1=yes:
+      s:^# \(USE_OPENSSL\)=.*:\1=yes:
       s:^# \(USE_OPENSSL_PC=openssl\)$:\1:
       s:^# \(LOG_FILE_PATH=syslog\)$:\1:
       s:^# \(HAVE_IPV6=yes\)$:\1:
@@ -36,10 +48,35 @@ stdenv.mkDerivation rec {
       s:^# \(RM_COMMAND\)=.*:\1=${coreutils}/bin/rm:
       s:^# \(TOUCH_COMMAND\)=.*:\1=${coreutils}/bin/touch:
       s:^# \(PERL_COMMAND\)=.*:\1=${perl}/bin/perl:
-      ${stdenv.lib.optionalString enableLDAP ''
+      s:^# \(LOOKUP_DSEARCH=yes\)$:\1:
+      ${lib.optionalString enableLDAP ''
         s:^# \(LDAP_LIB_TYPE=OPENLDAP2\)$:\1:
         s:^# \(LOOKUP_LDAP=yes\)$:\1:
-        s:^# \(LOOKUP_LIBS\)=.*:\1=-lldap:
+        s:^\(LOOKUP_LIBS\)=\(.*\):\1=\2 -lldap -llber:
+        s:^# \(LOOKUP_LIBS\)=.*:\1=-lldap -llber:
+      ''}
+      ${lib.optionalString enableMySQL ''
+        s:^# \(LOOKUP_MYSQL=yes\)$:\1:
+        s:^# \(LOOKUP_MYSQL_PC=libmysqlclient\)$:\1:
+        s:^\(LOOKUP_LIBS\)=\(.*\):\1=\2 -lmysqlclient -L${libmysqlclient}/lib/mysql -lssl -ldl -lm -lpthread -lz:
+        s:^# \(LOOKUP_LIBS\)=.*:\1=-lmysqlclient -L${libmysqlclient}/lib/mysql -lssl -ldl -lm -lpthread -lz:
+        s:^# \(LOOKUP_INCLUDE\)=.*:\1=-I${libmysqlclient.dev}/include/mysql/:
+      ''}
+      ${lib.optionalString enableAuthDovecot ''
+        s:^# \(AUTH_DOVECOT\)=.*:\1=yes:
+      ''}
+      ${lib.optionalString enablePAM ''
+        s:^# \(SUPPORT_PAM\)=.*:\1=yes:
+        s:^\(EXTRALIBS_EXIM\)=\(.*\):\1=\2 -lpam:
+        s:^# \(EXTRALIBS_EXIM\)=.*:\1=-lpam:
+      ''}
+      ${lib.optionalString enableSPF ''
+        s:^# \(SUPPORT_SPF\)=.*:\1=yes:
+        s:^# \(LDFLAGS += -lspf2\):\1:
+      ''}
+      ${lib.optionalString enableDMARC ''
+        s:^# \(SUPPORT_DMARC\)=.*:\1=yes:
+        s:^# \(LDFLAGS += -lopendmarc\):\1:
       ''}
       #/^\s*#.*/d
       #/^\s*$/d
@@ -62,11 +99,12 @@ stdenv.mkDerivation rec {
       done )
   '';
 
-  meta = {
-    homepage = http://exim.org/;
+  meta = with lib; {
+    homepage = "https://exim.org/";
     description = "A mail transfer agent (MTA)";
-    license = stdenv.lib.licenses.gpl3;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.tv ];
+    license = with licenses; [ gpl2Plus bsd3 ];
+    platforms = platforms.linux;
+    maintainers = with maintainers; [ tv ajs124 das_j ];
+    changelog = "https://github.com/Exim/exim/blob/exim-${version}/doc/doc-txt/ChangeLog";
   };
 }

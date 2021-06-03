@@ -1,33 +1,28 @@
 # trivial builder for Emacs packages
 
-{ lib, stdenv, texinfo, ... }@envargs:
+{ callPackage, lib, ... }@envargs:
 
 with lib;
 
 args:
 
-import ./generic.nix envargs ({
-  #preConfigure = ''
-  #  export LISPDIR=$out/share/emacs/site-lisp
-  #  export VERSION_SPECIFIC_LISPDIR=$out/share/emacs/site-lisp
-  #'';
-
+callPackage ./generic.nix envargs ({
   buildPhase = ''
-    eval "$preBuild"
+    runHook preBuild
 
     emacs -L . --batch -f batch-byte-compile *.el
 
-    eval "$postBuild"
+    runHook postBuild
   '';
 
   installPhase = ''
-    eval "$preInstall"
+    runHook preInstall
 
     LISPDIR=$out/share/emacs/site-lisp
     install -d $LISPDIR
     install *.el *.elc $LISPDIR
 
-    eval "$postInstall"
+    runHook postInstall
   '';
 }
 

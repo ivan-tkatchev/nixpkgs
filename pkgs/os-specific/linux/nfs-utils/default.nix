@@ -1,43 +1,52 @@
-{ stdenv, fetchurl, fetchpatch, lib, pkgconfig, utillinux, libcap, libtirpc, libevent, libnfsidmap
-, sqlite, kerberos, kmod, libuuid, keyutils, lvm2, systemd, coreutils, tcp_wrappers
-, buildEnv
+{ stdenv, fetchurl, fetchpatch, lib, pkg-config, util-linux, libcap, libtirpc, libevent
+, sqlite, libkrb5, kmod, libuuid, keyutils, lvm2, systemd, coreutils, tcp_wrappers
+, python3, buildPackages, nixosTests, rpcsvc-proto
+, enablePython ? true
 }:
 
 let
-  statdPath = lib.makeBinPath [ systemd utillinux coreutils ];
+  statdPath = lib.makeBinPath [ systemd util-linux coreutils ];
+in
 
-  # Not nice; feel free to find a nicer solution.
-  kerberosEnv = buildEnv {
-    name = "kerberos-env-${kerberos.version}";
-    paths = with lib; [ (getDev kerberos) (getLib kerberos) ];
-  };
-
-in stdenv.mkDerivation rec {
-  name = "nfs-utils-${version}";
-  version = "2.1.1";
+stdenv.mkDerivation rec {
+  pname = "nfs-utils";
+  version = "2.5.1";
 
   src = fetchurl {
-    url = "mirror://sourceforge/nfs/${name}.tar.bz2";
-    sha256 = "02dvxphndpm8vpqqnl0zvij97dq9vsq2a179pzrjcv2i91ll2a0a";
+    url = "https://kernel.org/pub/linux/utils/nfs-utils/${version}/${pname}-${version}.tar.xz";
+    sha256 = "1i1h3n2m35q9ixs1i2qf1rpjp10cipa3c25zdf1xj1vaw5q8270g";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  # libnfsidmap is built together with nfs-utils from the same source,
+  # put it in the "lib" output, and the headers in "dev"
+  outputs = [ "out" "dev" "lib" "man" ];
+
+  nativeBuildInputs = [ pkg-config buildPackages.stdenv.cc rpcsvc-proto ];
 
   buildInputs = [
-    libtirpc libcap libevent libnfsidmap sqlite lvm2
-    libuuid keyutils kerberos tcp_wrappers
-  ];
+    libtirpc libcap libevent sqlite lvm2
+    libuuid keyutils libkrb5 tcp_wrappers
+  ] ++ lib.optional enablePython python3;
 
   enableParallelBuilding = true;
 
+  preConfigure =
+    ''
+      substituteInPlace configure \
+        --replace '$dir/include/gssapi' ${lib.getDev libkrb5}/include/gssapi \
+        --replace '$dir/bin/krb5-config' ${lib.getDev libkrb5}/bin/krb5-config
+    '';
+
   configureFlags =
     [ "--enable-gss"
+      "--enable-svcgss"
       "--with-statedir=/var/lib/nfs"
-      "--with-krb5=${kerberosEnv}"
-      "--with-systemd=$(out)/etc/systemd/system"
+      "--with-krb5=${lib.getLib libkrb5}"
+      "--with-systemd=${placeholder "out"}/etc/systemd/system"
       "--enable-libmount-mount"
-    ]
-    ++ lib.optional (stdenv ? glibc) "--with-rpcgen=${stdenv.glibc.bin}/bin/rpcgen";
+      "--with-pluginpath=${placeholder "lib"}/lib/libnfsidmap" # this installs libnfsidmap
+      "--with-rpcgen=${buildPackages.rpcsvc-proto}/bin/rpcgen"
+    ];
 
   patches = lib.optionals stdenv.hostPlatform.isMusl [
     (fetchpatch {
@@ -78,6 +87,8 @@ in stdenv.mkDerivation rec {
     "statdpath=$(TMPDIR)"
   ];
 
+  stripDebugList = [ "lib" "libexec" "bin" "etc/systemd/system-generators" ];
+
   postInstall =
     ''
       # Not used on NixOS
@@ -85,12 +96,25 @@ in stdenv.mkDerivation rec {
         -e "s,/sbin/modprobe,${kmod}/bin/modprobe,g" \
         -e "s,/usr/sbin,$out/bin,g" \
         $out/etc/systemd/system/*
+    '' + lib.optionalString (!enablePython) ''
+      # Remove all scripts that require python (currently mountstats and nfsiostat)
+      grep -l /usr/bin/python $out/bin/* | xargs -I {} rm -v {}
     '';
 
   # One test fails on mips.
-  doCheck = !stdenv.isMips;
+  # doCheck = !stdenv.isMips;
+  # https://bugzilla.kernel.org/show_bug.cgi?id=203793
+  doCheck = false;
 
-  meta = with stdenv.lib; {
+  disallowedReferences = [ (lib.getDev libkrb5) ];
+
+  passthru.tests = {
+    nfs3-simple = nixosTests.nfs3.simple;
+    nfs4-simple = nixosTests.nfs4.simple;
+    nfs4-kerberos = nixosTests.nfs4.kerberos;
+  };
+
+  meta = with lib; {
     description = "Linux user-space NFS utilities";
 
     longDescription = ''
@@ -99,7 +123,7 @@ in stdenv.mkDerivation rec {
       daemons.
     '';
 
-    homepage = https://sourceforge.net/projects/nfs/;
+    homepage = "https://linux-nfs.org/";
     license = licenses.gpl2;
     platforms = platforms.linux;
     maintainers = with maintainers; [ abbradar ];

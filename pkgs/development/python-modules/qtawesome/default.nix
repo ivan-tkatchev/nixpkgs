@@ -1,19 +1,29 @@
-{ stdenv, buildPythonPackage, fetchPypi, qtpy, six, pyside }:
+{ lib, buildPythonPackage, fetchPypi, qtpy, six, pyqt5, pytest }:
 
 buildPythonPackage rec {
   pname = "QtAwesome";
-  version = "0.4.4";
+  version = "1.0.2";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "12l71wh9fcd79d6c7qfzp029iph6gv4daxpg2ddpzr9lrvcw3yah";
+    sha256 = "771dd95ac4f50d647d18b4e892fd310a580b56d258476554c7b3498593dfd887";
   };
 
-  propagatedBuildInputs = [ qtpy six pyside ];
+  propagatedBuildInputs = [ qtpy six ];
 
-  meta = with stdenv.lib; {
+  checkInputs = [ pyqt5 pytest ];
+
+  checkPhase = ''
+    py.test
+  '';
+
+  # Requires https://github.com/boylea/qtbot
+  doCheck = false;
+
+  meta = with lib; {
     description = "Iconic fonts in PyQt and PySide applications";
-    homepage = https://github.com/spyder-ide/qtawesome;
+    homepage = "https://github.com/spyder-ide/qtawesome";
     license = licenses.mit;
+    platforms = platforms.linux; # fails on Darwin
   };
 }

@@ -1,4 +1,4 @@
-{ pkgs, stdenv, maven }:
+{ pkgs }:
 
 with pkgs;
 
@@ -88,6 +88,9 @@ in {
     mavenCommonArtifactFilters_1_2
     mavenCommonArtifactFilters_1_3
     mavenCommonArtifactFilters_1_4;
+
+  inherit (callPackage ../development/java-modules/maven/compiler-plugin.nix { inherit fetchMaven; })
+    mavenCompiler_3_2;
 
   inherit (callPackage ../development/java-modules/maven/core.nix { inherit fetchMaven; })
     mavenCore_2_0_1
@@ -243,13 +246,16 @@ in {
     plexusClassworlds_2_4;
 
   inherit (callPackage ../development/java-modules/plexus/compiler-api.nix { inherit fetchMaven; })
-    plexusCompilerApi_2_2;
+    plexusCompilerApi_2_2
+    plexusCompilerApi_2_4;
 
   inherit (callPackage ../development/java-modules/plexus/compiler-javac.nix { inherit fetchMaven; })
-    plexusCompilerJavac_2_2;
+    plexusCompilerJavac_2_2
+    plexusCompilerJavac_2_4;
 
   inherit (callPackage ../development/java-modules/plexus/compiler-manager.nix { inherit fetchMaven; })
-    plexusCompilerManager_2_2;
+    plexusCompilerManager_2_2
+    plexusCompilerManager_2_4;
 
   inherit (callPackage ../development/java-modules/plexus/component-annotations.nix { inherit fetchMaven; })
     plexusComponentAnnotations_1_5_5;

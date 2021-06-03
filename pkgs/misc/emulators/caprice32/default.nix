@@ -1,29 +1,52 @@
-{ stdenv, fetchFromGitHub, libpng, pkgconfig, SDL, freetype, zlib }:
+{ lib, stdenv, fetchFromGitHub, desktop-file-utils, libpng
+, pkg-config, SDL, freetype, zlib }:
 
 stdenv.mkDerivation rec {
 
-  repo = "caprice32";
-  version = "unstable-2018-02-10";
-  rev = "53de69543300f81af85df32cbd21bb5c68cab61e";
-  name = "${repo}-${version}";
+  pname = "caprice32";
+  version = "4.6.0";
+  # NOTE: When bumping version beyond 4.6.0, you likely need to remove
+  #       string.patch below. The fix of this patch has already been
+  #       done upstream but is not yet part of a release
 
   src = fetchFromGitHub {
-    inherit rev repo;
+    repo = "caprice32";
+    rev = "v${version}";
     owner = "ColinPitrat";
-    sha256 = "12yv56blm49qmshpk4mgc802bs51wv2ra87hmcbf2wxma39c45fy";
+    sha256 = "0hng5krwgc1h9bz1xlkp2hwnvas965nd7sb3z9mb2m6x9ghxlacz";
   };
 
-  postPatch = "substituteInPlace cap32.cfg --replace /usr/local $out";
+  nativeBuildInputs = [ desktop-file-utils pkg-config ];
+  buildInputs = [ libpng SDL freetype zlib ];
 
-  meta = with stdenv.lib; {
+  patches = [ ./string.patch ];
+
+  makeFlags = [
+    "APP_PATH=${placeholder "out"}/share/caprice32"
+    "RELEASE=1"
+    "DESTDIR=${placeholder "out"}"
+    "prefix=/"
+  ];
+
+  postInstall = ''
+    mkdir -p $out/share/icons/
+    mv $out/share/caprice32/resources/freedesktop/caprice32.png $out/share/icons/
+    mv $out/share/caprice32/resources/freedesktop/emulators.png $out/share/icons/
+
+    desktop-file-install --dir $out/share/applications \
+      $out/share/caprice32/resources/freedesktop/caprice32.desktop
+
+    desktop-file-install --dir $out/share/desktop-directories \
+      $out/share/caprice32/resources/freedesktop/Emulators.directory
+
+    install -Dm644 $out/share/caprice32/resources/freedesktop/caprice32.menu -t $out/etc/xdg/menus/applications-merged/
+  '';
+
+  meta = with lib; {
     description = "A complete emulation of CPC464, CPC664 and CPC6128";
-    homepage = https://github.com/ColinPitrat/caprice32 ;
+    homepage = "https://github.com/ColinPitrat/caprice32";
     license = licenses.gpl2;
-    maintainers = [ maintainers.genesis ];
+    maintainers = [ ];
     platforms = platforms.linux;
   };
-
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ libpng SDL freetype zlib ];
-  makeFlags = [ "GIT_HASH=${src.rev}" "DESTDIR=$(out)" "prefix=/"];
 }

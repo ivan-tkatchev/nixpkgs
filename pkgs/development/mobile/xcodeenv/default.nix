@@ -1,15 +1,15 @@
-{stdenv, version ? "9.2", xcodeBaseDir ? "/Applications/Xcode.app"}:
+{ stdenv, lib }:
 
 rec {
-  xcodewrapper = import ./xcodewrapper.nix {
-    inherit stdenv version xcodeBaseDir;
+  composeXcodeWrapper = import ./compose-xcodewrapper.nix {
+    inherit stdenv;
   };
 
   buildApp = import ./build-app.nix {
-    inherit stdenv xcodewrapper;
+    inherit stdenv lib composeXcodeWrapper;
   };
 
   simulateApp = import ./simulate-app.nix {
-    inherit stdenv xcodewrapper;
+    inherit stdenv lib composeXcodeWrapper;
   };
 }

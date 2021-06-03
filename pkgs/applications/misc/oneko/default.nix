@@ -1,23 +1,20 @@
-{ stdenv, fetchurl, xorg, xlibsWrapper }:
+{ lib, stdenv, fetchurl, imake, gccmakedep, xlibsWrapper }:
 
 stdenv.mkDerivation rec {
-  version = "1.2.sakura.5";
-  vname = "1.2.5";
-  name = "oneko-${vname}";
+  version_name = "1.2.sakura.5";
+  version = "1.2.5";
+  pname = "oneko";
   src = fetchurl {
-    url = "http://www.daidouji.com/oneko/distfiles/oneko-${version}.tar.gz";
+    url = "http://www.daidouji.com/oneko/distfiles/oneko-${version_name}.tar.gz";
     sha256 = "2c2e05f1241e9b76f54475b5577cd4fb6670de058218d04a741a04ebd4a2b22f";
   };
-  buildInputs = [ xorg.imake xorg.gccmakedep xlibsWrapper ];
+  nativeBuildInputs = [ imake gccmakedep ];
+  buildInputs = [ xlibsWrapper ];
 
-  configurePhase = "xmkmf";
+  makeFlags = [ "BINDIR=$(out)/bin" "MANPATH=$(out)/share/man" ];
+  installTargets = [ "install" "install.man" ];
 
-  installPhase = ''
-    make install BINDIR=$out/bin
-    make install.man MANPATH=$out/share/man
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Creates a cute cat chasing around your mouse cursor";
     longDescription = ''
     Oneko changes your mouse cursor into a mouse

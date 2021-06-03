@@ -1,67 +1,56 @@
-{ stdenv
-, makeWrapper
+{ lib
 , fetchurl
 , intltool
 , python3Packages
-, gobjectIntrospection
+, gobject-introspection
 , gtk3
-, dbus
+, itstool
 , libwnck3
 , keybinder3
-, hicolor-icon-theme
+, desktop-file-utils
+, shared-mime-info
 , wrapGAppsHook
+, wafHook
 }:
 
 with python3Packages;
 
 buildPythonApplication rec {
-  name = "kupfer-${version}";
-  version = "319";
+  pname = "kupfer";
+  version = "321";
+
+  format = "other";
 
   src = fetchurl {
-    url = "https://github.com/kupferlauncher/kupfer/releases/download/v${version}/kupfer-v${version}.tar.xz";
-    sha256 = "0c9xjx13r8ckfr4az116bhxsd3pk78v04c3lz6lqhraak0rp4d92";
+    url = "https://github.com/kupferlauncher/kupfer/releases/download/v${version}/kupfer-v${version}.tar.bz2";
+    sha256 = "0nagjp63gxkvsgzrpjk78cbqx9a7rbnjivj1avzb2fkhrlxa90c7";
   };
 
   nativeBuildInputs = [
     wrapGAppsHook intltool
     # For setup hook
-    gobjectIntrospection
+    gobject-introspection wafHook
+    itstool            # for help pages
+    desktop-file-utils # for update-desktop-database
+    shared-mime-info   # for update-mime-info
   ];
-  buildInputs = [ hicolor-icon-theme docutils libwnck3 keybinder3 ];
+  buildInputs = [ docutils libwnck3 keybinder3 ];
   propagatedBuildInputs = [ pygobject3 gtk3 pyxdg dbus-python pycairo ];
 
-  configurePhase = ''
-    runHook preConfigure
-    python ./waf configure --prefix=$prefix
-    runHook postConfigure
-  '';
+  # without strictDeps kupfer fails to build: Could not find the python module 'gi.repository.Gtk'
+  # see https://github.com/NixOS/nixpkgs/issues/56943 for details
+  strictDeps = false;
 
-  buildPhase = ''
-    runHook preBuild
-    python ./waf
-    runHook postBuild
-  '';
-
-  installPhase = let
-    pythonPath = (stdenv.lib.concatMapStringsSep ":"
-      (m: "${m}/lib/${python.libPrefix}/site-packages")
-      propagatedBuildInputs);
-  in ''
-    runHook preInstall
-    python ./waf install
-
+  postInstall = ''
     gappsWrapperArgs+=(
-      "--prefix" "PYTHONPATH" : "${pythonPath}"
+      "--prefix" "PYTHONPATH" : "${makePythonPath propagatedBuildInputs}"
       "--set" "PYTHONNOUSERSITE" "1"
     )
-
-    runHook postInstall
   '';
 
   doCheck = false; # no tests
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A smart, quick launcher";
     homepage    = "https://kupferlauncher.github.io/";
     license     = licenses.gpl3;

@@ -1,31 +1,52 @@
-{ lib, pythonPackages, fetchFromGitHub }:
+{ lib, stdenv
+, buildPythonApplication
+, fetchPypi
+, isPy3k
+, cli-helpers
+, click
+, configobj
+, humanize
+, prompt_toolkit
+, psycopg2
+, pygments
+, sqlparse
+, pgspecial
+, setproctitle
+, keyring
+, pendulum
+, pytestCheckHook
+, mock
+}:
 
-pythonPackages.buildPythonApplication rec {
-  name = "pgcli-${version}";
-  version = "1.6.0";
+buildPythonApplication rec {
+  pname = "pgcli";
+  version = "3.1.0";
 
-  src = fetchFromGitHub {
-    sha256 = "0f1zv4kwi2991pclf8chrhgjwf8jkqxdh5ndc9qx6igh56iyyncz";
-    rev = "v${version}";
-    repo = "pgcli";
-    owner = "dbcli";
+  disabled = !isPy3k;
+
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "d5b2d803f7e4e7fe679306a000bde5d14d15ec590ddd108f3dc4c0ecad169d2b";
   };
 
-  buildInputs = with pythonPackages; [ pytest mock ];
-  checkPhase = ''
-    mkdir /tmp/homeless-shelter
-    HOME=/tmp/homeless-shelter py.test tests -k 'not test_missing_rc_dir and not test_quoted_db_uri and not test_port_db_uri'
-  '';
-
-  propagatedBuildInputs = with pythonPackages; [
-    click configobj humanize prompt_toolkit psycopg2
-    pygments sqlparse pgspecial setproctitle
+  propagatedBuildInputs = [
+    cli-helpers
+    click
+    configobj
+    humanize
+    prompt_toolkit
+    psycopg2
+    pygments
+    sqlparse
+    pgspecial
+    setproctitle
+    keyring
+    pendulum
   ];
 
-  postPatch = ''
-    substituteInPlace setup.py --replace "==" ">="
-    rm tests/test_rowlimit.py
-  '';
+  checkInputs = [ pytestCheckHook mock ];
+
+  disabledTests = lib.optionals stdenv.isDarwin [ "test_application_name_db_uri" ];
 
   meta = with lib; {
     description = "Command-line interface for PostgreSQL";
@@ -33,7 +54,9 @@ pythonPackages.buildPythonApplication rec {
       Rich command-line interface for PostgreSQL with auto-completion and
       syntax highlighting.
     '';
-    homepage = https://pgcli.com;
+    homepage = "https://pgcli.com";
+    changelog = "https://github.com/dbcli/pgcli/blob/v${version}/changelog.rst";
     license = licenses.bsd3;
+    maintainers = with maintainers; [ dywedir ];
   };
 }

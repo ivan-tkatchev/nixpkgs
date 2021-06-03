@@ -1,21 +1,24 @@
-{ lib, stdenv, fetchFromGitHub, autoreconfHook, pkgconfig
-, libX11, libXcomposite, libXft, pam, apacheHttpd, imagemagick
-, pamtester, xscreensaver }:
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, pkg-config
+, libX11, libXcomposite, libXft, libXmu, libXrandr, libXext, libXScrnSaver
+, pam, apacheHttpd, pamtester, xscreensaver }:
 
 stdenv.mkDerivation rec {
-  name = "xsecurelock-git-2018-07-10";
+  pname = "xsecurelock";
+  version = "1.7.0";
 
   src = fetchFromGitHub {
     owner = "google";
     repo = "xsecurelock";
-    rev = "0fa0d7dd87a4cc4bdb402323f95c3fcacc6f5049";
-    sha256 = "071b3gslszql1mgabs53r82jgbk9mn263m5v6adskfxbkamks8g0";
+    rev = "v${version}";
+    sha256 = "020y2mi4sshc5dghcz37aj5wwizbg6712rzq2a72f8z8m7mnxr5y";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  nativeBuildInputs = [
+    autoreconfHook pkg-config
+  ];
   buildInputs = [
-    libX11 libXcomposite libXft pam
-    apacheHttpd imagemagick pamtester
+    libX11 libXcomposite libXft libXmu libXrandr libXext libXScrnSaver
+    pam apacheHttpd pamtester
   ];
 
   configureFlags = [
@@ -23,9 +26,15 @@ stdenv.mkDerivation rec {
     "--with-xscreensaver=${xscreensaver}/libexec/xscreensaver"
   ];
 
+  preConfigure = ''
+    cat > version.c <<'EOF'
+      const char *const git_version = "${version}";
+    EOF
+  '';
+
   meta = with lib; {
     description = "X11 screen lock utility with security in mind";
-    homepage = https://github.com/google/xsecurelock;
+    homepage = "https://github.com/google/xsecurelock";
     license = licenses.asl20;
     maintainers = with maintainers; [ fpletz ];
     platforms = platforms.unix;

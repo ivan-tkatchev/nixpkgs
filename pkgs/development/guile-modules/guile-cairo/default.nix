@@ -1,22 +1,38 @@
-{ stdenv, fetchurl, pkgconfig, guile, guile-lib, cairo, expat }:
+{ lib
+, stdenv
+, fetchurl
+, cairo
+, expat
+, guile
+, guile-lib
+, pkg-config
+}:
 
 stdenv.mkDerivation rec {
-  name = "guile-cairo-${version}";
-  version = "1.4.1";
+  pname = "guile-cairo";
+  version = "1.11.2";
 
   src = fetchurl {
-    url = "http://download.gna.org/guile-cairo/${name}.tar.gz";
-    sha256 = "1f5nd9n46n6cwfl1byjml02q3y2hgn7nkx98km1czgwarxl7ws3x";
+    url = "mirror://savannah/${pname}/${pname}-${version}.tar.gz";
+    hash = "sha256-YjLU3Cxb2dMxE5s7AfQ0PD4fucp4mDYaaZIGcwlBoHs=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [
+    pkg-config
+  ];
+  buildInputs = [
+    cairo
+    expat
+    guile
+  ];
 
-  buildInputs = [ guile cairo expat ]
-    ++ stdenv.lib.optional doCheck guile-lib;
+  enableParallelBuilding = true;
 
-  doCheck = true;
+  doCheck = false; # Cannot find unit-test module from guile-lib
+  checkInputs = [ guile-lib ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
+    homepage = "https://www.nongnu.org/guile-cairo/";
     description = "Cairo bindings for GNU Guile";
     longDescription = ''
       Guile-Cairo wraps the Cairo graphics library for Guile Scheme.
@@ -27,7 +43,6 @@ stdenv.mkDerivation rec {
       maintained graphics library with all of the benefits of Scheme: memory
       management, exceptions, macros, and a dynamic programming environment.
     '';
-    homepage = "http://home.gna.org/guile-cairo/";
     license = licenses.lgpl3Plus;
     maintainers = with maintainers; [ vyp ];
     platforms = platforms.linux;

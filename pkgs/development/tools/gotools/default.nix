@@ -1,44 +1,56 @@
-{ stdenv, lib, go, buildGoPackage, fetchgit, fetchhg, fetchbzr, fetchsvn }:
+{ lib, buildGoModule, fetchgit }:
 
-buildGoPackage rec {
-  name = "gotools-${version}";
-  version = "20170807-${stdenv.lib.strings.substring 0 7 rev}";
-  rev = "5d2fd3ccab986d52112bf301d47a819783339d0e";
-
-  goPackagePath = "golang.org/x/tools";
-  goPackageAliases = [ "code.google.com/p/go.tools" ];
+buildGoModule rec {
+  pname = "gotools-unstable";
+  version = "2021-01-13";
+  rev = "8b4aab62c064010e8e875d2e5a8e63a96fefc87d";
 
   src = fetchgit {
     inherit rev;
     url = "https://go.googlesource.com/tools";
-    sha256 = "0r3fp7na6pg0bc5xfycjvv951f0vma1qfnpw5zy6l75yxm5r47kn";
+    sha256 = "1cmnm9fl2a6hiplj8s6x0l3czcw4xh3j3lvzbgccnp1l8kz8q2vm";
   };
 
-  goDeps = ./deps.nix;
+  # The gopls folder contains a Go submodule which causes a build failure.
+  # Given that, we can't have the gopls binary be part of the gotools
+  # derivation.
+  #
+  # The attribute "gopls" provides the gopls binary.
+  #
+  # Related
+  #
+  # * https://github.com/NixOS/nixpkgs/pull/85868
+  # * https://github.com/NixOS/nixpkgs/issues/88716
+  postPatch = ''
+    rm -rf gopls
+  '';
 
-  preConfigure = ''
+  vendorSha256 = "18qpjmmjpk322fvf81cafkpl3spv7hpdpymhympmld9isgzggfyz";
+
+  doCheck = false;
+
+  postConfigure = ''
     # Make the builtin tools available here
-    mkdir -p $bin/bin
+    mkdir -p $out/bin
     eval $(go env | grep GOTOOLDIR)
     find $GOTOOLDIR -type f | while read x; do
-      ln -sv "$x" "$bin/bin"
+      ln -sv "$x" "$out/bin"
     done
-    export GOTOOLDIR=$bin/bin
+    export GOTOOLDIR=$out/bin
   '';
 
   excludedPackages = "\\("
-    + stdenv.lib.concatStringsSep "\\|" ([ "testdata" ] ++ stdenv.lib.optionals (stdenv.lib.versionAtLeast go.meta.branch "1.5") [ "vet" "cover" ])
+    + lib.concatStringsSep "\\|" ([ "testdata" "vet" "cover" ])
     + "\\)";
+
+  # Set GOTOOLDIR for derivations adding this to buildInputs
+  postInstall = ''
+    mkdir -p $out/nix-support
+    substitute ${../../go-modules/tools/setup-hook.sh} $out/nix-support/setup-hook \
+      --subst-var-by bin $out
+  '';
 
   # Do not copy this without a good reason for enabling
   # In this case tools is heavily coupled with go itself and embeds paths.
   allowGoReference = true;
-
-  # Set GOTOOLDIR for derivations adding this to buildInputs
-  postInstall = ''
-    mkdir -p $bin/nix-support
-    substituteAll ${../../go-modules/tools/setup-hook.sh} $bin/nix-support/setup-hook.tmp
-    cat $bin/nix-support/setup-hook.tmp >> $bin/nix-support/setup-hook
-    rm $bin/nix-support/setup-hook.tmp
-  '';
 }

@@ -1,14 +1,14 @@
-{ stdenv, fetchFromGitHub, cmake, boost, qtbase }:
+{ lib, mkDerivation, fetchFromGitHub, cmake, boost, qtbase }:
 
-stdenv.mkDerivation rec {
-  name = "snowman-${version}";
-  version = "0.1.2";
+mkDerivation rec {
+  pname = "snowman";
+  version = "0.1.3";
 
   src = fetchFromGitHub {
     owner = "yegord";
     repo = "snowman";
     rev = "v${version}";
-    sha256 = "1ry14n8jydg6rzl52gyn0qhmv6bvivk7iwssp89lq5qk8k183x3k";
+    sha256 = "1mrmhj2nddi0d47c266vsg5vbapbqbcpj5ld4v1qcwnnk6z2zn0j";
   };
 
   nativeBuildInputs = [ cmake ];
@@ -19,9 +19,7 @@ stdenv.mkDerivation rec {
     export sourceRoot=$sourceRoot/src
   '';
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Native code to C/C++ decompiler";
     homepage = "http://derevenets.com/";
 

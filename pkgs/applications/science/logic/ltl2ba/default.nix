@@ -1,12 +1,12 @@
-{ fetchurl, stdenv }:
+{ fetchurl, lib, stdenv }:
 
 stdenv.mkDerivation rec {
-  name = "ltl2ba-${version}";
-  version = "1.2b1";
+  pname = "ltl2ba";
+  version = "1.3";
 
   src = fetchurl {
-    url    = "http://www.lsv.ens-cachan.fr/~gastin/ltl2ba/${name}.tar.gz";
-    sha256 = "1f4jnkfkyj8lcc5qfqbiypfc11rhhpqqi6xs9xx5dysg6r6303wm";
+    url    = "http://www.lsv.ens-cachan.fr/~gastin/ltl2ba/${pname}-${version}.tar.gz";
+    sha256 = "1bz9gjpvby4mnvny0nmxgd81rim26mqlcnjlznnxxk99575pfa4i";
   };
 
   hardeningDisable = [ "format" ];
@@ -24,8 +24,8 @@ stdenv.mkDerivation rec {
   meta = {
     description = "Fast translation from LTL formulae to Buchi automata";
     homepage    = "http://www.lsv.ens-cachan.fr/~gastin/ltl2ba";
-    license     = stdenv.lib.licenses.gpl2Plus;
-    platforms   = stdenv.lib.platforms.darwin ++ stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    license     = lib.licenses.gpl2Plus;
+    platforms   = lib.platforms.darwin ++ lib.platforms.linux;
+    maintainers = [ lib.maintainers.thoughtpolice ];
   };
 }

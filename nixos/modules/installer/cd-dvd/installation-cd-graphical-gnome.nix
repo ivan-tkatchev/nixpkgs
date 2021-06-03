@@ -1,78 +1,38 @@
-# This module defines a NixOS installation CD that contains X11 and
-# GNOME 3.
+# This module defines a NixOS installation CD that contains GNOME.
 
-{ config, lib, pkgs, ... }:
+{ lib, ... }:
 
 with lib;
 
 {
-  imports = [ ./installation-cd-base.nix ];
+  imports = [ ./installation-cd-graphical-base.nix ];
 
-  services.xserver = {
-    enable = true;
-    # GDM doesn't start in virtual machines with ISO
-    displayManager.slim = {
-      enable = true;
-      defaultUser = "root";
-      autoLogin = true;
-    };
-    desktopManager.gnome3 = {
-      enable = true;
-      extraGSettingsOverrides = ''
-        [org.gnome.desktop.background]
-        show-desktop-icons=true
+  isoImage.edition = "gnome";
 
-        [org.gnome.nautilus.desktop]
-        trash-icon-visible=false
-        volumes-visible=false
-        home-icon-visible=false
-        network-icon-visible=false
-      '';
-
-      extraGSettingsOverridePackages = [ pkgs.gnome3.nautilus ];
-    };
-  };
-
-  environment.systemPackages =
-    [ # Include gparted for partitioning disks.
-      pkgs.gparted
-
-      # Include some editors.
-      pkgs.vim
-      pkgs.bvi # binary editor
-      pkgs.joe
-
-      pkgs.glxinfo
-    ];
-
-  # Don't start the X server by default.
-  services.xserver.autorun = mkForce false;
-
-  # Auto-login as root.
-  services.xserver.displayManager.gdm.autoLogin = {
-    enable = true;
-    user = "root";
-  };
-
-  system.activationScripts.installerDesktop = let
-    # Must be executable
-    desktopFile = pkgs.writeScript "nixos-manual.desktop" ''
-      [Desktop Entry]
-      Version=1.0
-      Type=Link
-      Name=NixOS Manual
-      URL=${config.system.build.manual.manual}/share/doc/nixos/index.html
-      Icon=system-help
+  services.xserver.desktopManager.gnome = {
+    # Add firefox to favorite-apps
+    favoriteAppsOverride = ''
+      [org.gnome.shell]
+      favorite-apps=[ 'firefox.desktop', 'org.gnome.Geary.desktop', 'org.gnome.Calendar.desktop', 'org.gnome.Music.desktop', 'org.gnome.Photos.desktop', 'org.gnome.Nautilus.desktop' ]
     '';
+    enable = true;
+  };
 
-  # use cp and chmod +x, we must be sure the apps are in the nix store though
-  in ''
-    mkdir -p /root/Desktop
-    ln -sfT ${desktopFile} /root/Desktop/nixos-manual.desktop
-    cp ${pkgs.gnome3.gnome-terminal}/share/applications/gnome-terminal.desktop /root/Desktop/gnome-terminal.desktop
-    chmod a+rx /root/Desktop/gnome-terminal.desktop
-    cp ${pkgs.gparted}/share/applications/gparted.desktop /root/Desktop/gparted.desktop
-    chmod a+rx /root/Desktop/gparted.desktop
-  '';
+  services.xserver.displayManager = {
+    gdm = {
+      enable = true;
+      # autoSuspend makes the machine automatically suspend after inactivity.
+      # It's possible someone could/try to ssh'd into the machine and obviously
+      # have issues because it's inactive.
+      # See:
+      # * https://github.com/NixOS/nixpkgs/pull/63790
+      # * https://gitlab.gnome.org/GNOME/gnome-control-center/issues/22
+      autoSuspend = false;
+    };
+    autoLogin = {
+      enable = true;
+      user = "nixos";
+    };
+  };
 
 }

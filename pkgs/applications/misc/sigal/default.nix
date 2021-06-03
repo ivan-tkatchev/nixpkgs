@@ -1,35 +1,45 @@
-{ lib, buildPythonApplication, fetchPypi, pythonPackages, ffmpeg }:
+{ lib, python3Packages, ffmpeg }:
 
-buildPythonApplication rec {
-  version = "1.4.0";
+python3Packages.buildPythonApplication rec {
+  version = "2.2";
   pname   = "sigal";
 
-  src = fetchPypi {
+  src = python3Packages.fetchPypi {
     inherit version pname;
-    sha256 = "0da0n8jhjp2swr18zga87xc77r8c7qwqf5sp222ph9sn3yyyc35i";
+    sha256 = "sha256-49XsNdZuicsiYJZuF1UdqMA4q33Ly/Ug/Hc4ybJKmPo=";
   };
 
-  buildInputs = with pythonPackages; [ pytest ];
-  propagatedBuildInputs = with pythonPackages; [
+  disabled = !(python3Packages.pythonAtLeast "3.6");
+
+  propagatedBuildInputs = with python3Packages; [
+    # install_requires
     jinja2
     markdown
     pillow
     pilkit
-    clint
     click
     blinker
+    natsort
+    # extras_require
+    boto
+    brotli
+    feedgenerator
+    zopfli
+    cryptography
   ];
+
+  checkInputs = [
+    ffmpeg
+  ] ++ (with python3Packages; [
+    pytestCheckHook
+  ]);
 
   makeWrapperArgs = [ "--prefix PATH : ${ffmpeg}/bin" ];
 
-  # No tests included
-  doCheck = false;
-
   meta = with lib; {
     description = "Yet another simple static gallery generator";
-    homepage    = http://sigal.saimon.org/en/latest/index.html;
+    homepage    = "http://sigal.saimon.org/en/latest/index.html";
     license     = licenses.mit;
-    maintainers = with maintainers; [ domenkozar ];
+    maintainers = with maintainers; [ domenkozar matthiasbeyer ];
   };
 }
-

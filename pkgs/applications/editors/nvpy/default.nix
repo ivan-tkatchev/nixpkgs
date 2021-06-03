@@ -1,4 +1,4 @@
-{ pkgs, fetchurl, tk, python2Packages }:
+{ pkgs, fetchurl, python2Packages }:
 
 let
   pythonPackages = python2Packages;
@@ -30,7 +30,7 @@ in pythonPackages.buildPythonApplication rec {
 
   meta = with pkgs.lib; {
     description = "A simplenote-syncing note-taking tool inspired by Notational Velocity";
-    homepage = https://github.com/cpbotha/nvpy;
+    homepage = "https://github.com/cpbotha/nvpy";
     platforms = platforms.linux;
     license = licenses.bsd3;
   };

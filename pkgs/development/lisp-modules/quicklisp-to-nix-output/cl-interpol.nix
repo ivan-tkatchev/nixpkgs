@@ -1,17 +1,18 @@
+/* Generated file. */
 args @ { fetchurl, ... }:
 rec {
-  baseName = ''cl-interpol'';
-  version = ''20171227-git'';
+  baseName = "cl-interpol";
+  version = "20201220-git";
 
   parasites = [ "cl-interpol-test" ];
 
-  description = '''';
+  description = "System lacks description";
 
-  deps = [ args."cl-ppcre" args."cl-unicode" args."flexi-streams" ];
+  deps = [ args."cl-ppcre" args."cl-unicode" args."flexi-streams" args."named-readtables" ];
 
   src = fetchurl {
-    url = ''http://beta.quicklisp.org/archive/cl-interpol/2017-12-27/cl-interpol-20171227-git.tgz'';
-    sha256 = ''1m4vxw8hskgqi0mnkm7qknwbnri2m69ab7qyd4kbpm2igsi02kzy'';
+    url = "http://beta.quicklisp.org/archive/cl-interpol/2020-12-20/cl-interpol-20201220-git.tgz";
+    sha256 = "1q3zxsbl5br08lv481jsqmq8r9yayp44x6icixcxx5sdz6fbcd3d";
   };
 
   packageName = "cl-interpol";
@@ -19,12 +20,13 @@ rec {
   asdFilesToKeep = ["cl-interpol.asd"];
   overrides = x: x;
 }
-/* (SYSTEM cl-interpol DESCRIPTION NIL SHA256
-    1m4vxw8hskgqi0mnkm7qknwbnri2m69ab7qyd4kbpm2igsi02kzy URL
-    http://beta.quicklisp.org/archive/cl-interpol/2017-12-27/cl-interpol-20171227-git.tgz
-    MD5 e9d2f0238bb8f7a0c5b1ef1e6ef390ae NAME cl-interpol FILENAME cl-interpol
+/* (SYSTEM cl-interpol DESCRIPTION System lacks description SHA256
+    1q3zxsbl5br08lv481jsqmq8r9yayp44x6icixcxx5sdz6fbcd3d URL
+    http://beta.quicklisp.org/archive/cl-interpol/2020-12-20/cl-interpol-20201220-git.tgz
+    MD5 d678c521474e1774185b78883396da49 NAME cl-interpol FILENAME cl-interpol
     DEPS
     ((NAME cl-ppcre FILENAME cl-ppcre) (NAME cl-unicode FILENAME cl-unicode)
-     (NAME flexi-streams FILENAME flexi-streams))
-    DEPENDENCIES (cl-ppcre cl-unicode flexi-streams) VERSION 20171227-git
-    SIBLINGS NIL PARASITES (cl-interpol-test)) */
+     (NAME flexi-streams FILENAME flexi-streams)
+     (NAME named-readtables FILENAME named-readtables))
+    DEPENDENCIES (cl-ppcre cl-unicode flexi-streams named-readtables) VERSION
+    20201220-git SIBLINGS NIL PARASITES (cl-interpol-test)) */

@@ -1,28 +1,31 @@
-{ stdenv, buildPythonPackage, fetchPypi, pillow }:
+{ lib, buildPythonPackage, fetchFromGitHub, fetchpatch, pillow }:
 
 buildPythonPackage rec {
   pname = "piexif";
-  version = "1.0.13";
+  version = "1.1.3";
 
-  # pillow needed for unit tests
-  buildInputs = [ pillow ];
-
-  postPatch = ''
-    # incompatibility with pillow => 4.2.0
-    # has been resolved in https://github.com/hMatoba/Piexif/commit/c3a8272f5e6418f223b25f6486d8ddda201bbdf1
-    # remove this in the next version
-    sed -i -e 's/RGBA/RGB/' tests/s_test.py
-  '';
-
-  src = fetchPypi {
-    inherit pname version;
-    extension = "zip";
-    sha256 = "1d3dde03bd6298393645bc11d585b67a6ea98fd7e9e1aded6d5d6ec3e4cfbdda";
+  # patch does not apply to PyPI sdist due to different line endings
+  src = fetchFromGitHub {
+    owner = "hMatoba";
+    repo = "Piexif";
+    rev = version;
+    sha256 = "1akmaxq1cjr8wghwaaql1bd3sajl8psshl58lprgfsigrvnklp8b";
   };
 
-  meta = with stdenv.lib; {
+  patches = [
+    # Fix tests with Pillow >= 7.2.0: https://github.com/hMatoba/Piexif/pull/109
+    (fetchpatch {
+      url = "https://github.com/hMatoba/Piexif/commit/5209b53e9689ce28dcd045f384633378d619718f.patch";
+      sha256 = "0ak571jf76r1vszp2g3cd5c16fz2zkbi43scayy933m5qdrhd8g1";
+    })
+  ];
+
+  # Pillow needed for unit tests
+  checkInputs = [ pillow ];
+
+  meta = with lib; {
     description = "Simplify Exif manipulations with Python";
-    homepage = https://github.com/hMatoba/Piexif;
+    homepage = "https://github.com/hMatoba/Piexif";
     license = licenses.mit;
     maintainers = with maintainers; [ jluttine ];
   };

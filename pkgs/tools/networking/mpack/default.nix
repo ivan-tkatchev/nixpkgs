@@ -1,4 +1,4 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
   name = "mpack-1.6";
@@ -8,16 +8,11 @@ stdenv.mkDerivation rec {
     sha256 = "0k590z96509k96zxmhv72gkwhrlf55jkmyqlzi72m61r7axhhh97";
   };
 
-  patches = [ ./build-fix.patch ];
+  patches = [ ./build-fix.patch ./sendmail-via-execvp.diff ];
 
   postPatch = ''
     for f in *.{c,man,pl,unix} ; do
       substituteInPlace $f --replace /usr/tmp /tmp
-    done
-
-    for f in unixpk.c ; do
-      substituteInPlace $f \
-        --replace /usr/sbin /run/current-system/sw/bin
     done
 
     # this just shuts up some warnings
@@ -32,7 +27,7 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Utilities for encoding and decoding binary files in MIME";
     license = licenses.free;
     platforms = platforms.linux;

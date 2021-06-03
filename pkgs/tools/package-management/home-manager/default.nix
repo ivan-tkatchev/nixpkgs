@@ -1,18 +1,18 @@
 #Adapted from
-#https://github.com/rycee/home-manager/blob/9c1b3735b402346533449efc741f191d6ef578dd/home-manager/default.nix
+#https://github.com/rycee/home-manager/blob/2c07829be2bcae55e04997b19719ff902a44016d/home-manager/default.nix
 
-{ bash, coreutils, less, stdenv, makeWrapper, fetchFromGitHub }:
+{ bash, coreutils, findutils, gnused, less, lib, stdenv, makeWrapper, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
 
-  name = "home-manager-${version}";
-  version = "2018-06-14";
+  pname = "home-manager";
+  version = "2021-03-21";
 
-  src = fetchFromGitHub{
-    owner = "rycee";
+  src = fetchFromGitHub {
+    owner = "nix-community";
     repo = "home-manager";
-    rev = "5641ee3f942e700de35b28fc879b0d8a10a7a1fe";
-    sha256 = "0bqzwczbr5c2y3ms7m7ly0as9zsnqwljq61ci2y2gbqzw3md1x2j";
+    rev = "ddcd476603dfd3388b1dc8234fa9d550156a51f5";
+    sha256 = "sha256-E6ABXtzw6bHmrIirB1sJL6S2MEa3sfcvRLzRa92frCo=";
   };
 
   nativeBuildInputs = [ makeWrapper ];
@@ -24,14 +24,19 @@ stdenv.mkDerivation rec {
     substituteInPlace $out/bin/home-manager \
       --subst-var-by bash "${bash}" \
       --subst-var-by coreutils "${coreutils}" \
+      --subst-var-by findutils "${findutils}" \
+      --subst-var-by gnused "${gnused}" \
       --subst-var-by less "${less}" \
       --subst-var-by HOME_MANAGER_PATH '${src}'
+
+    install -D -m755 home-manager/completion.bash \
+      "$out/share/bash-completion/completions/home-manager"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A user environment configurator";
-    maintainers = with maintainers; [ rycee ];
-    platforms = platforms.linux;
+    homepage = "https://rycee.gitlab.io/home-manager/";
+    platforms = platforms.unix;
     license = licenses.mit;
   };
 

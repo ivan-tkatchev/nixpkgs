@@ -1,54 +1,28 @@
-{ stdenv, lib, makeWrapper, kodi, plugins }:
+{ lib, makeWrapper, buildEnv, kodi, addons }:
 
 let
-
-  p = builtins.parseDrvName kodi.name;
-
+  # linux distros are supposed to provide pillow and pycryptodome
+  requiredPythonPackages = with kodi.pythonPackages; [ pillow pycryptodome] ++ addons;
 in
 
-stdenv.mkDerivation {
+buildEnv {
+  name = "${kodi.name}-env";
 
-  name = "kodi-" + p.version;
-  version = p.version;
+  paths = [ kodi ] ++ addons;
+  pathsToLink = [ "/share" ];
 
   buildInputs = [ makeWrapper ];
 
-  buildCommand = ''
-    mkdir -p $out/share/kodi/addons
-    ${stdenv.lib.concatMapStrings
-        (plugin: "ln -s ${plugin.out
-                            + plugin.kodiPlugin
-                            + "/" + plugin.namespace
-                          } $out/share/kodi/addons/.;") plugins}
-    $(for plugin in ${kodi}/share/kodi/addons/*
+  postBuild = ''
+    mkdir $out/bin
+    for exe in kodi{,-standalone}
     do
-      $(ln -s $plugin/ $out/share/kodi/addons/.)
-    done)
-    $(for share in ${kodi}/share/kodi/*
-    do
-      $(ln -s $share $out/share/kodi/.)
-    done)
-    $(for passthrough in icons xsessions applications
-    do
-      ln -s ${kodi}/share/$passthrough $out/share/
-    done)
-    $(for exe in kodi{,-standalone}
-    do
-    makeWrapper ${kodi}/bin/$exe $out/bin/$exe \
-      --prefix KODI_HOME : $out/share/kodi;
-    done)
+      makeWrapper ${kodi}/bin/$exe $out/bin/$exe \
+        --prefix PYTHONPATH : ${kodi.pythonPackages.makePythonPath requiredPythonPackages} \
+        --prefix KODI_HOME : $out/share/kodi \
+        --prefix LD_LIBRARY_PATH ":" "${lib.makeLibraryPath
+          (lib.concatMap
+            (plugin: plugin.extraRuntimeDependencies or []) addons)}"
+    done
   '';
-
-  preferLocalBuild = true;
-
-  meta = with kodi.meta; {
-    inherit license homepage;
-    description = description
-                + " (with plugins: "
-                + lib.concatStrings (lib.intersperse ", " (map (x: ""+x.name) plugins))
-                + ")";
-
-    platforms = stdenv.lib.platforms.linux;
-  };
-
 }

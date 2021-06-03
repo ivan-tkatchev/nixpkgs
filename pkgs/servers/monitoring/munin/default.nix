@@ -1,31 +1,31 @@
-{ stdenv, fetchFromGitHub, makeWrapper, which, coreutils, rrdtool, perl, perlPackages
+{ lib, stdenv, fetchFromGitHub, makeWrapper, which, coreutils, rrdtool, perlPackages
 , python, ruby, jre, nettools, bc
 }:
 
 stdenv.mkDerivation rec {
-  version = "2.0.37";
-  name = "munin-${version}";
+  version = "2.0.66";
+  pname = "munin";
 
   src = fetchFromGitHub {
     owner = "munin-monitoring";
     repo = "munin";
     rev = version;
-    sha256 = "10niyzckx90dwdr4d7vj07d1qjy3nk7xzp30nqnlxzbaww7n5v78";
+    sha256 = "sha256-1aikMRY1YiSQNUnYqsw1Eew9D9JHbkX+BXNCof6YK50=";
   };
 
-  buildInputs = [ 
+  buildInputs = [
     makeWrapper
     which
     coreutils
     rrdtool
     nettools
-    perl
+    perlPackages.perl
     perlPackages.ModuleBuild
     perlPackages.HTMLTemplate
     perlPackages.NetCIDR
     perlPackages.NetSSLeay
     perlPackages.NetServer
-    perlPackages.Log4Perl
+    perlPackages.LogLog4perl
     perlPackages.IOSocketInet6
     perlPackages.Socket6
     perlPackages.URI
@@ -36,8 +36,7 @@ stdenv.mkDerivation rec {
     perlPackages.NetSNMP
     perlPackages.NetServer
     perlPackages.ListMoreUtils
-    perlPackages.TimeHiRes
-    perlPackages.LWPUserAgent
+    perlPackages.LWP
     perlPackages.DBDPg
     python
     ruby
@@ -52,13 +51,16 @@ stdenv.mkDerivation rec {
     perlPackages.IOStringy
   ];
 
+  # needs to find a local perl module during build
+  PERL_USE_UNSAFE_INC = "1";
+
   # TODO: tests are failing http://munin-monitoring.org/ticket/1390#comment:1
   # NOTE: important, test command always exits with 0, think of a way to abort the build once tests pass
   doCheck = false;
 
   checkPhase = ''
-   export PERL5LIB="$PERL5LIB:${rrdtool}/lib/perl5/site_perl"
-   LC_ALL=C make -j1 test 
+   export PERL5LIB="$PERL5LIB:${rrdtool}/${perlPackages.perl.libPrefix}"
+   LC_ALL=C make -j1 test
   '';
 
   patches = [
@@ -73,6 +75,7 @@ stdenv.mkDerivation rec {
   ];
 
   preBuild = ''
+    echo "${version}" > RELEASE
     substituteInPlace "Makefile" \
       --replace "/bin/pwd" "pwd" \
       --replace "HTMLOld.3pm" "HTMLOld.3"
@@ -89,16 +92,16 @@ stdenv.mkDerivation rec {
   # DESTDIR shouldn't be needed (and shouldn't have worked), but munin
   # developers have forgotten to use PREFIX everywhere, so we use DESTDIR to
   # ensure that everything is installed in $out.
-  makeFlags = ''
-    PREFIX=$(out)
-    DESTDIR=$(out)
-    PERLLIB=$(out)/lib/perl5/site_perl
-    PERL=${perl}/bin/perl
-    PYTHON=${python}/bin/python
-    RUBY=${ruby}/bin/ruby
-    JAVARUN=${jre}/bin/java
-    PLUGINUSER=munin
-  '';
+  makeFlags = [
+    "PREFIX=$(out)"
+    "DESTDIR=$(out)"
+    "PERLLIB=$(out)/${perlPackages.perl.libPrefix}"
+    "PERL=${perlPackages.perl.outPath}/bin/perl"
+    "PYTHON=${python.outPath}/bin/python"
+    "RUBY=${ruby.outPath}/bin/ruby"
+    "JAVARUN=${jre.outPath}/bin/java"
+    "PLUGINUSER=munin"
+  ];
 
   postFixup = ''
     echo "Removing references to /usr/{bin,sbin}/ from munin plugins..."
@@ -115,15 +118,15 @@ stdenv.mkDerivation rec {
             *.jar) continue;;
         esac
         wrapProgram "$file" \
-          --set PERL5LIB "$out/lib/perl5/site_perl:${with perlPackages; stdenv.lib.makePerlPath [
-                Log4Perl IOSocketInet6 Socket6 URI DBFile DateManip
+          --set PERL5LIB "$out/${perlPackages.perl.libPrefix}:${with perlPackages; makePerlPath [
+                LogLog4perl IOSocketInet6 Socket6 URI DBFile DateManip
                 HTMLTemplate FileCopyRecursive FCGI NetCIDR NetSNMP NetServer
-                ListMoreUtils TimeHiRes DBDPg LWPUserAgent rrdtool
+                ListMoreUtils DBDPg LWP rrdtool
                 ]}"
     done
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Networked resource monitoring tool";
     longDescription = ''
       Munin is a monitoring tool that surveys all your computers and remembers
@@ -131,9 +134,9 @@ stdenv.mkDerivation rec {
       interface. Munin can help analyze resource trends and 'what just happened
       to kill our performance?' problems.
     '';
-    homepage = http://munin-monitoring.org/;
+    homepage = "http://munin-monitoring.org/";
     license = licenses.gpl2;
-    maintainers = [ maintainers.domenkozar maintainers.bjornfor ];
+    maintainers = [ maintainers.bjornfor ];
     platforms = platforms.linux;
   };
 }

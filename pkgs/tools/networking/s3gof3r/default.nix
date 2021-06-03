@@ -1,10 +1,10 @@
-{ stdenv, lib, buildGoPackage, fetchgit, fetchhg, fetchbzr, fetchsvn }:
+{ lib, buildGoPackage, fetchgit }:
 
 buildGoPackage rec {
-  name = "s3gof3r-${version}";
-  version = "20151109-${stdenv.lib.strings.substring 0 7 rev}";
+  pname = "s3gof3r";
+  version = "20151109-${lib.strings.substring 0 7 rev}";
   rev = "31603a0dc94aefb822bfe2ceea75a6be6013b445";
-  
+
   goPackagePath = "github.com/rlmcpherson/s3gof3r";
 
   src = fetchgit {

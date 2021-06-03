@@ -1,20 +1,21 @@
-{ stdenv,
+{ lib, stdenv,
   fetchFromGitHub,
   autoreconfHook,
   bison,
   flex,
   glib,
-  pkgconfig,
+  pkg-config,
   json_c,
   xen,
   libvirt,
   xenSupport ? true }:
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "libvmi-${version}";
+  pname = "libvmi";
   version = "0.12.0";
+  libVersion = "0.0.12";
 
   src = fetchFromGitHub {
     owner = "libvmi";
@@ -24,11 +25,18 @@ stdenv.mkDerivation rec {
   };
 
   buildInputs = [ glib libvirt json_c ] ++ (optional xenSupport xen);
-  nativeBuildInputs = [ autoreconfHook bison flex pkgconfig ];
+  nativeBuildInputs = [ autoreconfHook bison flex pkg-config ];
 
   configureFlags = optional (!xenSupport) "--disable-xen";
 
-  meta = with stdenv.lib; {
+  # libvmi uses dlopen() for the xen libraries, however autoPatchelfHook doesn't work here
+  postFixup = optionalString xenSupport ''
+    libvmi="$out/lib/libvmi.so.${libVersion}"
+    oldrpath=$(patchelf --print-rpath "$libvmi")
+    patchelf --set-rpath "$oldrpath:${makeLibraryPath [ xen ]}" "$libvmi"
+  '';
+
+  meta = with lib; {
     homepage = "http://libvmi.com/";
     description = "A C library for virtual machine introspection";
     longDescription = ''
@@ -38,6 +46,6 @@ stdenv.mkDerivation rec {
     '';
     license = with licenses; [ gpl3 lgpl3 ];
     platforms = platforms.linux;
-    maintainers = with maintainers; [ lschuermann ];
+    maintainers = with maintainers; [ matthiasbeyer ];
   };
 }

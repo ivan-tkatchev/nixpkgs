@@ -1,28 +1,72 @@
-{ stdenv, fetchurl, pkgconfig, glib, gssdp, libsoup, libxml2, libuuid }:
- 
+{ lib, stdenv
+, fetchurl
+, meson
+, ninja
+, pkg-config
+, gobject-introspection
+, vala
+, gtk-doc
+, docbook_xsl
+, docbook_xml_dtd_412
+, docbook_xml_dtd_44
+, glib
+, gssdp
+, libsoup
+, libxml2
+, libuuid
+, gnome
+}:
+
 stdenv.mkDerivation rec {
-  name = "gupnp-${version}";
-  majorVersion = "1.0";
-  version = "${majorVersion}.2";
+  pname = "gupnp";
+  version = "1.2.4";
+
+  outputs = [ "out" "dev" "devdoc" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/gupnp/${majorVersion}/gupnp-${version}.tar.xz";
-    sha256 = "043nqxlj030a3wvd6x4c9z8fjarjjjsl2pjarl0nn70ig6kzswsi";
+    url = "mirror://gnome/sources/gupnp/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-96AwfqUfXkTRuDL0k92QRURKOk4hHvhd/Zql3W6up9E=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  propagatedBuildInputs = [ glib gssdp libsoup libxml2 libuuid ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+    gobject-introspection
+    vala
+    gtk-doc
+    docbook_xsl
+    docbook_xml_dtd_412
+    docbook_xml_dtd_44
+  ];
 
-  postInstall = ''
-    ln -sv ${libsoup.dev}/include/libsoup-2*/libsoup $out/include
-    ln -sv ${libxml2.dev}/include/*/libxml $out/include
-    ln -sv ${gssdp}/include/*/libgssdp $out/include
-  '';
+  buildInputs = [
+    libuuid
+  ];
 
-  meta = {
-    homepage = http://www.gupnp.org/;
+  propagatedBuildInputs = [
+    glib
+    gssdp
+    libsoup
+    libxml2
+  ];
+
+  mesonFlags = [
+    "-Dgtk_doc=true"
+  ];
+
+  doCheck = true;
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+    };
+  };
+
+  meta = with lib; {
+    homepage = "http://www.gupnp.org/";
     description = "An implementation of the UPnP specification";
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.lgpl2Plus;
+    platforms = platforms.linux;
   };
 }

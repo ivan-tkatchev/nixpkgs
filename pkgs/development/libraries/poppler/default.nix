@@ -1,48 +1,79 @@
-{ stdenv, lib, fetchurl, cmake, ninja, pkgconfig, libiconv, libintl, fetchpatch
-, zlib, curl, cairo, freetype, fontconfig, lcms, libjpeg, openjpeg
+{ stdenv
+, lib
+, fetchurl
+, fetchpatch
+, cmake
+, ninja
+, pkg-config
+, libiconv
+, libintl
+, zlib
+, curl
+, cairo
+, freetype
+, fontconfig
+, lcms
+, libjpeg
+, openjpeg
 , withData ? true, poppler_data
 , qt5Support ? false, qtbase ? null
-, introspectionSupport ? false, gobjectIntrospection ? null
+, introspectionSupport ? false, gobject-introspection ? null
 , utils ? false, nss ? null
-, minimal ? false, suffix ? "glib"
+, minimal ? false
+, suffix ? "glib"
+, inkscape
+, cups-filters
+, texlive
+, scribusUnstable
 }:
 
-let # beware: updates often break cups-filters build
-  version = "0.66.0";
+let
   mkFlag = optset: flag: "-DENABLE_${flag}=${if optset then "on" else "off"}";
 in
 stdenv.mkDerivation rec {
   name = "poppler-${suffix}-${version}";
-
-  src = fetchurl {
-    url = "${meta.homepage}/poppler-${version}.tar.xz";
-    sha256 = "1rzar5f27xzkjih07yi8kxcinvk4ny4nhimyacpvqx7vmlqn829c";
-  };
+  version = "21.05.0"; # beware: updates often break cups-filters build, check texlive and scribusUnstable too!
 
   outputs = [ "out" "dev" ];
 
-  buildInputs = [ libiconv libintl ] ++ lib.optional withData poppler_data;
+  src = fetchurl {
+    url = "${meta.homepage}/poppler-${version}.tar.xz";
+    sha256 = "sha256-2v1Te2gPrRIVvED8U9HzjoRJ18GFvGDVqJ4dJskNvYw=";
+  };
+
+  nativeBuildInputs = [
+    cmake
+    ninja
+    pkg-config
+  ];
+
+  buildInputs = [
+    libiconv
+    libintl
+  ] ++ lib.optional withData [
+    poppler_data
+  ];
 
   # TODO: reduce propagation to necessary libs
-  propagatedBuildInputs = with lib;
-    [ zlib freetype fontconfig libjpeg openjpeg ]
-    ++ optionals (!minimal) [ cairo lcms curl ]
-    ++ optional qt5Support qtbase
-    ++ optional utils nss
-    ++ optional introspectionSupport gobjectIntrospection;
-
-  nativeBuildInputs = [ cmake ninja pkgconfig ];
-
-  patches = lib.optional stdenv.isDarwin (fetchpatch {
-    url = "https://cgit.freedesktop.org/poppler/poppler/patch/?id=267228bb071016621c80fc8514927905164aaeea";
-    sha256 = "0i2sbxz1mrsnj75qgqaadayjgs48ay2mhrbkij95djy6am44m54k";
-  });
-
-  # Not sure when and how to pass it.  It seems an upstream bug anyway.
-  CXXFLAGS = stdenv.lib.optionalString stdenv.cc.isClang "-std=c++11";
+  propagatedBuildInputs = [
+    zlib
+    freetype
+    fontconfig
+    libjpeg
+    openjpeg
+  ] ++ lib.optionals (!minimal) [
+    cairo
+    lcms
+    curl
+    nss
+  ] ++ lib.optionals qt5Support [
+    qtbase
+  ] ++ lib.optionals introspectionSupport [
+    gobject-introspection
+  ];
 
   cmakeFlags = [
-    (mkFlag true "XPDF_HEADERS")
+    (mkFlag true "UNSTABLE_API_ABI_HEADERS") # previously "XPDF_HEADERS"
     (mkFlag (!minimal) "GLIB")
     (mkFlag (!minimal) "CPP")
     (mkFlag (!minimal) "LIBCURL")
@@ -50,8 +81,22 @@ stdenv.mkDerivation rec {
     (mkFlag qt5Support "QT5")
   ];
 
+  dontWrapQtApps = true;
+
+  # Workaround #54606
+  preConfigure = lib.optionalString stdenv.isDarwin ''
+    sed -i -e '1i cmake_policy(SET CMP0025 NEW)' CMakeLists.txt
+  '';
+
+  passthru = {
+    tests = {
+      # These depend on internal poppler code that frequently changes.
+      inherit inkscape cups-filters texlive scribusUnstable;
+    };
+  };
+
   meta = with lib; {
-    homepage = https://poppler.freedesktop.org/;
+    homepage = "https://poppler.freedesktop.org/";
     description = "A PDF rendering library";
 
     longDescription = ''
@@ -60,8 +105,8 @@ stdenv.mkDerivation rec {
       installed separately.
     '';
 
-    license = licenses.gpl2;
+    license = licenses.gpl2Plus;
     platforms = platforms.all;
-    maintainers = with maintainers; [ ttuegel ];
+    maintainers = with maintainers; [ ttuegel ] ++ teams.freedesktop.members;
   };
 }

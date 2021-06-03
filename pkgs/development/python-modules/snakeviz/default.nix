@@ -1,21 +1,21 @@
-{ stdenv, fetchPypi, buildPythonPackage, tornado }:
+{ lib, fetchPypi, buildPythonPackage, tornado }:
 
 buildPythonPackage rec {
   pname = "snakeviz";
-  version = "0.4.1";
+  version = "2.1.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "18vsaw1wmf903fg21zkk6a9b49gj47g52jm5h52g4iygngjhpx79";
+    sha256 = "0s6byw23hr2khqx2az36hpi52fk4v6bfm1bb7biaf0d2nrpqgbcj";
   };
 
   # Upstream doesn't run tests from setup.py
   doCheck = false;
   propagatedBuildInputs = [ tornado ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Browser based viewer for profiling data";
-    homepage = https://jiffyclub.github.io/snakeviz;
+    homepage = "https://jiffyclub.github.io/snakeviz";
     license = licenses.bsd3;
     maintainers = with maintainers; [ nixy ];
   };

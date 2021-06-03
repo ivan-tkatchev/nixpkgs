@@ -1,20 +1,20 @@
 { stdenv, lib, fetchurl, gnulib }:
 
 stdenv.mkDerivation rec {
-  name = "gnu-pw-mgr-${version}";
-  version = "2.3.3";
+  pname = "gnu-pw-mgr";
+  version = "2.7.4";
   src = fetchurl {
-    url = "http://ftp.gnu.org/gnu/gnu-pw-mgr/${name}.tar.xz";
-    sha256 = "04xh38j7l0sfnb01kp05xc908pvqfc0lph94k7n9bi46zy3qy7ma";
+    url = "https://ftp.gnu.org/gnu/gnu-pw-mgr/${pname}-${version}.tar.xz";
+    sha256 = "0fhwvsmsqpw0vnivarfg63l8pgwqfv7d5wi6l80jpb41dj6qpjz8";
   };
 
   buildInputs = [ gnulib ];
 
   meta = with lib; {
-    homepage = https://www.gnu.org/software/gnu-pw-mgr/;
+    homepage = "https://www.gnu.org/software/gnu-pw-mgr/";
     description = "A password manager designed to make it easy to reconstruct difficult passwords";
     license = with licenses; [ gpl3Plus lgpl3Plus ];
-    platforms = stdenv.lib.platforms.linux;
+    platforms = lib.platforms.linux;
     maintainers = with maintainers; [ qoelet ];
   };
 }

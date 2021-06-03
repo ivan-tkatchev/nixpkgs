@@ -1,13 +1,11 @@
-{ stdenvNoCC, callPackage }:
+{ stdenvNoCC, mingw_w64 }:
 
-let
-  inherit (callPackage ./common.nix {}) name src;
-
-in stdenvNoCC.mkDerivation {
-  name = name + "-headers";
-  inherit src;
+stdenvNoCC.mkDerivation {
+  name = "${mingw_w64.name}-headers";
+  inherit (mingw_w64) src meta;
 
   preConfigure = ''
     cd mingw-w64-headers
   '';
+
 }

@@ -19,11 +19,20 @@ in
       };
 
       interface = mkOption {
-        default = "lo";
+        default = "127.0.0.1";
         type = types.str;
         description = ''
           Listening interface for the web UI
           Set it to "any" to listen on all available interfaces
+        '';
+      };
+
+      user = mkOption {
+        default = "duplicati";
+        type = types.str;
+        description = ''
+          Duplicati runs as it's own user. It will only be able to backup world-readable files.
+          Run as root with special care.
         '';
       };
     };
@@ -37,18 +46,21 @@ in
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
-        User = "duplicati";
+        User = cfg.user;
         Group = "duplicati";
+        StateDirectory = "duplicati";
         ExecStart = "${pkgs.duplicati}/bin/duplicati-server --webservice-interface=${cfg.interface} --webservice-port=${toString cfg.port} --server-datafolder=/var/lib/duplicati";
         Restart = "on-failure";
       };
     };
 
-    users.users.duplicati = {
-      uid = config.ids.uids.duplicati;
-      home = "/var/lib/duplicati";
-      createHome = true;
-      group = "duplicati";
+    users.users = lib.optionalAttrs (cfg.user == "duplicati") {
+      duplicati = {
+        uid = config.ids.uids.duplicati;
+        home = "/var/lib/duplicati";
+        createHome = true;
+        group = "duplicati";
+      };
     };
     users.groups.duplicati.gid = config.ids.gids.duplicati;
 

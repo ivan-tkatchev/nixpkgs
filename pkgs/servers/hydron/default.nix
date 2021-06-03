@@ -1,33 +1,27 @@
-{ stdenv, buildGoPackage, fetchFromGitHub, pkgconfig, ffmpeg-full, graphicsmagick
-, quicktemplate, go-bindata, easyjson }:
+{ lib, buildGoModule, fetchFromGitHub, pkg-config, ffmpeg }:
 
-buildGoPackage rec {
-  name = "hydron-unstable-${version}";
-  version = "2018-07-15";
-  goPackagePath = "github.com/bakape/hydron";
-  goDeps = ./deps.nix;
+buildGoModule rec {
+  pname = "hydron";
+  version = "3.0.4";
 
   src = fetchFromGitHub {
-    rev = "3906ace0b4cf48ba9acccf372377c7feb0665be4";
     owner = "bakape";
     repo = "hydron";
-    sha256 = "079a88740wxgq73sq8w96zppfng7af76k7h484x3w695qk83j33r";
+    rev = "v${version}";
+    sha256 = "BfMkKwz7ITEnAIMGUHlBH/Dn9yLjWKoqFWupPo1s2cs=";
   };
 
-  enableParallelBuilding = true;
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ ffmpeg-full graphicsmagick quicktemplate go-bindata easyjson ];
+  nativeBuildInputs = [ pkg-config ];
 
-  # Temporary workaround for https://github.com/NixOS/nixpkgs/issues/43593
-  preBuild = ''
-    rm go/src/github.com/bakape/hydron/ico.syso
-  '';
+  vendorSha256 = "1ngig5zw0gf1mkjjsfvvn09rncb36rg274cbi3glp8wzfcr8aip3";
+  runVend = true;
 
-  meta = with stdenv.lib; {
+  buildInputs = [ ffmpeg ];
+
+  meta = with lib; {
     homepage = "https://github.com/bakape/hydron";
     description = "High performance media tagger and organizer";
     license = licenses.lgpl3Plus;
     maintainers = with maintainers; [ chiiruno ];
-    platforms = platforms.all;
   };
 }

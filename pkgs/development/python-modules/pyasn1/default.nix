@@ -1,17 +1,17 @@
-{ stdenv, buildPythonPackage, fetchPypi, }:
+{ lib, buildPythonPackage, fetchPypi, }:
 
 buildPythonPackage rec {
   pname = "pyasn1";
-  version = "0.4.3";
+  version = "0.4.8";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "fb81622d8f3509f0026b0683fe90fea27be7284d3826a5f2edf97f69151ab0fc";
+    sha256 = "aef77c9fb94a3ac588e87841208bdec464471d9871bd5050a287cc9a475cd0ba";
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "ASN.1 tools for Python";
-    homepage = http://pyasn1.sourceforge.net/;
+    homepage = "http://pyasn1.sourceforge.net/";
     license = "mBSD";
     platforms = platforms.unix;  # arbitrary choice
   };

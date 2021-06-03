@@ -1,47 +1,81 @@
-{stdenv, fetchurl, zlib, ncurses}:
+{ lib
+, stdenv
+, fetchurl
+, zlib
+, ncurses
+, findutils
+, systemd
+, python3
+# makes the package unfree via pynvml
+, withAtopgpu ? false
+}:
 
 stdenv.mkDerivation rec {
-  version = "2.3.0";
-  name = "atop-${version}";
+  pname = "atop";
+  version = "2.6.0";
 
   src = fetchurl {
     url = "https://www.atoptool.nl/download/atop-${version}.tar.gz";
-    sha256 = "0r5j9q89wpylmg0px5xymxi3jpihw9wq8bh37g3ciymsw1fp5r3k";
+    sha256 = "nsLKOlcWkvfvqglfmaUQZDK8txzCLNbElZfvBIEFj3I=";
   };
 
-  buildInputs = [zlib ncurses];
+  nativeBuildInputs = lib.optionals withAtopgpu [ python3.pkgs.wrapPython ];
+  buildInputs = [ zlib ncurses ] ++ lib.optionals withAtopgpu [ python3 ];
+  pythonPath = lib.optionals withAtopgpu [ python3.pkgs.pynvml ];
 
   makeFlags = [
-    ''SCRPATH=$out/etc/atop''
-    ''LOGPATH=/var/log/atop''
-    ''INIPATH=$out/etc/rc.d/init.d''
-    ''CRNPATH=$out/etc/cron.d''
-    ''ROTPATH=$out/etc/logrotate.d''
+    "DESTDIR=$(out)"
+    "BINPATH=/bin"
+    "SBINPATH=/bin"
+    "MAN1PATH=/share/man/man1"
+    "MAN5PATH=/share/man/man5"
+    "MAN8PATH=/share/man/man8"
+    "SYSDPATH=/lib/systemd/system"
+    "PMPATHD=/lib/systemd/system-sleep"
+  ];
+
+  patches = [
+    # Fix paths in atop.service, atop-rotate.service, atopgpu.service, atopacct.service,
+    # and atop-pm.sh
+    ./fix-paths.patch
+    # Don't fail on missing /etc/default/atop, make sure /var/log/atop exists pre-start
+    ./atop.service.patch
+    # Specify PIDFile in /run, not /var/run to silence systemd warning
+    ./atopacct.service.patch
   ];
 
   preConfigure = ''
-    sed -e "s@/usr/@$out/@g" -i $(find . -type f )
-    sed -e "/mkdir.*LOGPATH/s@mkdir@echo missing dir @" -i Makefile
-    sed -e "/touch.*LOGPATH/s@touch@echo should have created @" -i Makefile
-    sed -e 's/chown/true/g' -i Makefile
-    sed -e '/chkconfig/d' -i Makefile
-    sed -e 's/chmod 04711/chmod 0711/g' -i Makefile
+    for f in *.{sh,service}; do
+      findutils=${findutils} systemd=${systemd} substituteAllInPlace "$f"
+    done
+
+    substituteInPlace Makefile --replace 'chown' 'true'
+    substituteInPlace Makefile --replace 'chmod 04711' 'chmod 0711'
   '';
 
+  installTargets = [ "systemdinstall" ];
   preInstall = ''
-    mkdir -p "$out"/{bin,sbin}
-    make systemdinstall $makeFlags
+    mkdir -p $out/bin
   '';
+  postInstall = ''
+    # remove extra files we don't need
+    rm -r $out/{var,etc} $out/bin/atop{sar,}-${version}
+  '' + (if withAtopgpu then ''
+    wrapPythonPrograms
+  '' else ''
+    rm $out/lib/systemd/system/atopgpu.service $out/bin/atopgpud $out/share/man/man8/atopgpud.8
+  '');
 
-  meta = {
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = with stdenv.lib.maintainers; [raskin];
-    description = ''Console system performance monitor'';
+  meta = with lib; {
+    platforms = platforms.linux;
+    maintainers = with maintainers; [ raskin ];
+    description = "Console system performance monitor";
 
     longDescription = ''
       Atop is an ASCII full-screen performance monitor that is capable of reporting the activity of all processes (even if processes have finished during the interval), daily logging of system and process activity for long-term analysis, highlighting overloaded system resources by using colors, etc. At regular intervals, it shows system-level activity related to the CPU, memory, swap, disks and network layers, and for every active process it shows the CPU utilization, memory growth, disk utilization, priority, username, state, and exit code.
     '';
     inherit version;
-    downloadPage = http://atoptool.nl/downloadatop.php;
+    license = licenses.gpl2Plus;
+    downloadPage = "http://atoptool.nl/downloadatop.php";
   };
 }

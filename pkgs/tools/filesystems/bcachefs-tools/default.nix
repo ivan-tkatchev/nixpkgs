@@ -1,27 +1,53 @@
-{ stdenv, pkgs, fetchgit, pkgconfig, attr, libuuid, libscrypt, libsodium
-, keyutils, liburcu, zlib, libaio, zstd }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, attr, libuuid, libscrypt, libsodium, keyutils
+, liburcu, zlib, libaio, udev, zstd, lz4, valgrind, python3Packages, nixosTests
+, fuseSupport ? false, fuse3 ? null }:
 
-stdenv.mkDerivation rec {
-  name = "bcachefs-tools-unstable-2018-04-10";
+assert fuseSupport -> fuse3 != null;
 
-  src = fetchgit {
-    url = "https://evilpiepirate.org/git/bcachefs-tools.git";
-    rev = "c598d91dcb0c7e95abdacb2711898ae14ab52ca1";
-    sha256 = "1mglw6p1145nryn8babkg2hj778kqa0vrzjbdp9kxjlyb3fksmff";
+stdenv.mkDerivation {
+  pname = "bcachefs-tools";
+  version = "2020-11-17";
+
+  src = fetchFromGitHub {
+    owner = "koverstreet";
+    repo = "bcachefs-tools";
+    rev = "41bec63b265a38dd9fa168b6042ea5bf07135048";
+    sha256 = "1y3187kpw1bmnl97isv28k2sw8cmrnsn31a0dw745adwm0n7z6fj";
   };
 
-  enableParallelBuilding = true;
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ attr libuuid libscrypt libsodium keyutils liburcu zlib libaio zstd ];
-  patches = [ ./Makefile.patch ];
+  postPatch = ''
+    substituteInPlace Makefile \
+      --replace "pytest-3" "pytest --verbose" \
+      --replace "INITRAMFS_DIR=/etc/initramfs-tools" \
+                "INITRAMFS_DIR=${placeholder "out"}/etc/initramfs-tools"
+  '';
 
-  installFlags = [ "PREFIX=$(out)" ];
+  nativeBuildInputs = [ pkg-config ];
 
-  meta = with stdenv.lib; {
+  buildInputs = [
+    libuuid libscrypt libsodium keyutils liburcu zlib libaio
+    zstd lz4 python3Packages.pytest udev valgrind
+  ] ++ lib.optional fuseSupport fuse3;
+
+  doCheck = false; # needs bcachefs module loaded on builder
+  checkFlags = [ "BCACHEFS_TEST_USE_VALGRIND=no" ];
+  checkInputs = [ valgrind ];
+
+  preCheck = lib.optionalString fuseSupport ''
+    rm tests/test_fuse.py
+  '';
+
+  installFlags = [ "PREFIX=${placeholder "out"}" ];
+
+  passthru.tests = {
+    smoke-test = nixosTests.bcachefs;
+  };
+
+  meta = with lib; {
     description = "Tool for managing bcachefs filesystems";
-    homepage = https://bcachefs.org/;
+    homepage = "https://bcachefs.org/";
     license = licenses.gpl2;
-    maintainers = with maintainers; [ davidak chiiruno];
+    maintainers = with maintainers; [ davidak chiiruno ];
     platforms = platforms.linux;
   };
 }

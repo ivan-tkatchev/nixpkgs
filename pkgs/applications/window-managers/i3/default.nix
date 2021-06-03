@@ -1,30 +1,28 @@
-{ fetchurl, stdenv, which, pkgconfig, makeWrapper, libxcb, xcbutilkeysyms
+{ fetchurl, lib, stdenv, pkg-config, makeWrapper, meson, ninja, installShellFiles, libxcb, xcbutilkeysyms
 , xcbutil, xcbutilwm, xcbutilxrm, libstartup_notification, libX11, pcre, libev
-, yajl, xcb-util-cursor, coreutils, perl, pango, perlPackages, libxkbcommon
-, xorgserver, xvfb_run }:
+, yajl, xcb-util-cursor, perl, pango, perlPackages, libxkbcommon
+, xorgserver, xvfb-run }:
 
 stdenv.mkDerivation rec {
-  name = "i3-${version}";
-  version = "4.15";
+  pname = "i3";
+  version = "4.19.2";
 
   src = fetchurl {
-    url = "https://i3wm.org/downloads/${name}.tar.bz2";
-    sha256 = "09jk70hsdxab24lqvj2f30ijrkbv3f6q9xi5dcsax1dw3x6m4z91";
+    url = "https://i3wm.org/downloads/${pname}-${version}.tar.xz";
+    sha256 = "sha256-im7hd2idzyKWTSC2CTAU7k+gQZNF0/1RXVUS2ZgLsnk=";
   };
 
-  nativeBuildInputs = [ which pkgconfig makeWrapper ];
+  nativeBuildInputs = [ pkg-config makeWrapper meson ninja installShellFiles ];
 
   buildInputs = [
     libxcb xcbutilkeysyms xcbutil xcbutilwm xcbutilxrm libxkbcommon
     libstartup_notification libX11 pcre libev yajl xcb-util-cursor perl pango
     perlPackages.AnyEventI3 perlPackages.X11XCB perlPackages.IPCRun
-    perlPackages.ExtUtilsPkgConfig perlPackages.TestMore perlPackages.InlineC
-    xorgserver xvfb_run
+    perlPackages.ExtUtilsPkgConfig perlPackages.InlineC
+    xorgserver xvfb-run
   ];
 
   configureFlags = [ "--disable-builddir" ];
-
-  enableParallelBuilding = true;
 
   postPatch = ''
     patchShebangs .
@@ -36,9 +34,9 @@ stdenv.mkDerivation rec {
   # they shouldn't, and then even once that's fixed have some
   # perl-related errors later on. For more, see
   # https://github.com/NixOS/nixpkgs/issues/7957
-  doCheck = false; # stdenv.system == "x86_64-linux";
+  doCheck = false; # stdenv.hostPlatform.system == "x86_64-linux";
 
-  checkPhase = stdenv.lib.optionalString (stdenv.system == "x86_64-linux")
+  checkPhase = lib.optionalString (stdenv.hostPlatform.system == "x86_64-linux")
   ''
     (cd testcases && xvfb-run ./complete-run.pl -p 1 --keep-xserver-output)
     ! grep -q '^not ok' testcases/latest/complete-run.log
@@ -50,15 +48,15 @@ stdenv.mkDerivation rec {
       sed -i 's/which/command -v/' $program
     done
 
-    install -vD -t $out/share/man/man1 man/*.{1,man}
+    installManPage man/*.1
   '';
 
   separateDebugInfo = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A tiling window manager";
     homepage    = "https://i3wm.org";
-    maintainers = with maintainers; [ garbas modulistic fpletz ];
+    maintainers = with maintainers; [ modulistic fpletz globin ];
     license     = licenses.bsd3;
     platforms   = platforms.all;
 

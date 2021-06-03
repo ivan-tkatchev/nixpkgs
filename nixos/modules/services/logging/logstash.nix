@@ -4,25 +4,8 @@ with lib;
 
 let
   cfg = config.services.logstash;
-  atLeast54 = versionAtLeast (builtins.parseDrvName cfg.package.name).version "5.4";
-  pluginPath = lib.concatStringsSep ":" cfg.plugins;
-  havePluginPath = lib.length cfg.plugins > 0;
   ops = lib.optionalString;
-  verbosityFlag =
-    if atLeast54
-    then "--log.level " + cfg.logLevel
-    else {
-      debug = "--debug";
-      info  = "--verbose";
-      warn  = ""; # intentionally empty
-      error = "--quiet";
-      fatal = "--silent";
-    }."${cfg.logLevel}";
-
-  pluginsPath =
-    if atLeast54
-    then "--path.plugins ${pluginPath}"
-    else "--pluginpath ${pluginPath}";
+  verbosityFlag = "--log.level " + cfg.logLevel;
 
   logstashConf = pkgs.writeText "logstash.conf" ''
     input {
@@ -40,13 +23,21 @@ let
 
   logstashSettingsYml = pkgs.writeText "logstash.yml" cfg.extraSettings;
 
-  logstashSettingsDir = pkgs.runCommand "logstash-settings" {inherit logstashSettingsYml;} ''
+  logstashSettingsDir = pkgs.runCommand "logstash-settings" {
+      inherit logstashSettingsYml;
+      preferLocalBuild = true;
+    } ''
     mkdir -p $out
     ln -s $logstashSettingsYml $out/logstash.yml
   '';
 in
 
 {
+  imports = [
+    (mkRenamedOptionModule [ "services" "logstash" "address" ] [ "services" "logstash" "listenAddress" ])
+    (mkRemovedOptionModule [ "services" "logstash" "enableWeb" ] "The web interface was removed from logstash")
+  ];
+
   ###### interface
 
   options = {
@@ -95,12 +86,6 @@ in
         description = "The quantity of filter workers to run.";
       };
 
-      enableWeb = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Enable the logstash web interface.";
-      };
-
       listenAddress = mkOption {
         type = types.str;
         default = "127.0.0.1";
@@ -115,7 +100,7 @@ in
 
       inputConfig = mkOption {
         type = types.lines;
-        default = ''generator { }'';
+        default = "generator { }";
         description = "Logstash input configuration.";
         example = ''
           # Read from journal
@@ -146,7 +131,7 @@ in
 
       outputConfig = mkOption {
         type = types.lines;
-        default = ''stdout { codec => rubydebug }'';
+        default = "stdout { codec => rubydebug }";
         description = "Logstash output configuration.";
         example = ''
           redis { host => ["localhost"] data_type => "list" key => "logstash" codec => json }
@@ -174,33 +159,20 @@ in
   ###### implementation
 
   config = mkIf cfg.enable {
-    assertions = [
-      { assertion = atLeast54 -> !cfg.enableWeb;
-        message = ''
-          The logstash web interface is only available for versions older than 5.4.
-          So either set services.logstash.enableWeb = false,
-          or set services.logstash.package to an older logstash.
-        '';
-      }
-    ];
-
-    systemd.services.logstash = with pkgs; {
+    systemd.services.logstash = {
       description = "Logstash Daemon";
       wantedBy = [ "multi-user.target" ];
-      environment = { JAVA_HOME = jre; };
       path = [ pkgs.bash ];
       serviceConfig = {
         ExecStartPre = ''${pkgs.coreutils}/bin/mkdir -p "${cfg.dataDir}" ; ${pkgs.coreutils}/bin/chmod 700 "${cfg.dataDir}"'';
         ExecStart = concatStringsSep " " (filter (s: stringLength s != 0) [
           "${cfg.package}/bin/logstash"
-          (ops (!atLeast54) "agent")
           "-w ${toString cfg.filterWorkers}"
-          (ops havePluginPath pluginsPath)
+          (concatMapStringsSep " " (x: "--path.plugins ${x}") cfg.plugins)
           "${verbosityFlag}"
           "-f ${logstashConf}"
-          (ops atLeast54 "--path.settings ${logstashSettingsDir}")
-          (ops atLeast54 "--path.data ${cfg.dataDir}")
-          (ops cfg.enableWeb "-- web -a ${cfg.listenAddress} -p ${cfg.port}")
+          "--path.settings ${logstashSettingsDir}"
+          "--path.data ${cfg.dataDir}"
         ]);
       };
     };

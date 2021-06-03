@@ -1,9 +1,6 @@
-{ stdenv
+{ lib, stdenv
 , fetchFromGitHub
-, fetchpatch
 , autoreconfHook
-, libtool
-, gettext
 , pari
 , ntl
 , gmp
@@ -16,44 +13,35 @@
 assert withFlint -> flint != null;
 
 stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
   pname = "eclib";
-  version = "20180710"; # upgrade might break the sage interface
+  version = "20190909"; # upgrade might break the sage interface
   # sage tests to run:
   # src/sage/interfaces/mwrank.py
   # src/sage/libs/eclib
   # ping @timokau for more info
   src = fetchFromGitHub {
     owner = "JohnCremona";
-    repo = "${pname}";
+    repo = pname;
     rev = "v${version}";
-    sha256 = "1kmwpw971sipb4499c9b35q5pz6sms5qndqrvq7396d8hhwjg1i2";
+    sha256 = "0y1vdi4120gdw56gg2dn3wh625yr9wpyk3wpbsd25w4lv83qq5da";
   };
-  patches = [
-    # One of the headers doesn't get installed.
-    # See https://github.com/NixOS/nixpkgs/pull/43476.
-    (fetchpatch {
-      url = "https://github.com/JohnCremona/eclib/pull/42/commits/c9b96429815e31a6e3372c106e31eef2a96431f9.patch";
-      sha256 = "0cw26h94m66rbh8jjsfnb1bvc6z7ybh8zcp8xl5nhxjxiawhcl73";
-    })
-  ];
   buildInputs = [
     pari
     ntl
     gmp
-  ] ++ stdenv.lib.optionals withFlint [
+  ] ++ lib.optionals withFlint [
     flint
   ];
   nativeBuildInputs = [
     autoreconfHook
   ];
   doCheck = true;
-  meta = with stdenv.lib; {
+  meta = with lib; {
     inherit version;
-    description = ''Elliptic curve tools'';
-    homepage = https://github.com/JohnCremona/eclib;
+    description = "Elliptic curve tools";
+    homepage = "https://github.com/JohnCremona/eclib";
     license = licenses.gpl2Plus;
-    maintainers = with maintainers; [ raskin timokau ];
+    maintainers = teams.sage.members;
     platforms = platforms.all;
   };
 }

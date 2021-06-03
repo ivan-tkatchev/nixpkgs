@@ -1,6 +1,22 @@
-{ stdenv, fetchFromGitHub, fetchpatch, makeDesktopItem, makeWrapper, pkgconfig
-, cmake, epoxy, libzip, ffmpeg, imagemagick, SDL2, qtbase, qtmultimedia, libedit
-, qttools, minizip }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, SDL2
+, cmake
+, epoxy
+, ffmpeg
+, imagemagick
+, libedit
+, libelf
+, libzip
+, makeDesktopItem
+, minizip
+, pkg-config
+, qtbase
+, qtmultimedia
+, qttools
+, wrapQtAppsHook
+}:
 
 let
   desktopItem = makeDesktopItem {
@@ -14,53 +30,55 @@ let
     startupNotify = "false";
   };
 in stdenv.mkDerivation rec {
-  name = "mgba-${version}";
-  version = "0.6.3";
+  pname = "mgba";
+  version = "0.9.0";
 
   src = fetchFromGitHub {
     owner = "mgba-emu";
     repo = "mgba";
     rev = version;
-    sha256 = "0m1pkxa6i94gq95cankv390wsbp88b3x41c7hf415rp9rkfq25vk";
+    hash = "sha256-JVauGyHJVfiXVG4Z+Ydh1lRypy5rk9SKeTbeHFNFYJs=";
   };
 
-  enableParallelBuilding = true;
-  nativeBuildInputs = [ makeWrapper pkgconfig cmake ];
-
+  nativeBuildInputs = [
+    cmake
+    pkg-config
+    wrapQtAppsHook
+  ];
   buildInputs = [
-    libzip epoxy ffmpeg imagemagick SDL2 qtbase qtmultimedia libedit minizip
+    SDL2
+    epoxy
+    ffmpeg
+    imagemagick
+    libedit
+    libelf
+    libzip
+    minizip
+    qtbase
+    qtmultimedia
     qttools
   ];
 
-  patches = [(fetchpatch {
-      url = "https://github.com/mgba-emu/mgba/commit/7f41dd354176b720c8e3310553c6b772278b9dca.patch";
-      sha256 = "0j334v8wf594kg8s1hngmh58wv1pi003z8avy6fjhj5qpjmbbavh";
-  })];
-
   postInstall = ''
     cp -r ${desktopItem}/share/applications $out/share
-    wrapProgram $out/bin/mgba-qt --suffix QT_PLUGIN_PATH : \
-      ${qtbase.bin}/${qtbase.qtPluginPrefix}
   '';
 
-  meta = with stdenv.lib; {
-    homepage = https://mgba.io;
+  meta = with lib; {
+    homepage = "https://mgba.io";
     description = "A modern GBA emulator with a focus on accuracy";
-
     longDescription = ''
       mGBA is a new Game Boy Advance emulator written in C.
 
-      The project started in April 2013 with the goal of being fast
-      enough to run on lower end hardware than other emulators
-      support, without sacrificing accuracy or portability. Even in
-      the initial version, games generally play without problems. It
-      is loosely based on the previous GBA.js emulator, although very
-      little of GBA.js can still be seen in mGBA.
+      The project started in April 2013 with the goal of being fast enough to
+      run on lower end hardware than other emulators support, without
+      sacrificing accuracy or portability. Even in the initial version, games
+      generally play without problems. It is loosely based on the previous
+      GBA.js emulator, although very little of GBA.js can still be seen in mGBA.
 
-      Other goals include accurate enough emulation to provide a
-      development environment for homebrew software, a good workflow
-      for tool-assist runners, and a modern feature set for emulators
-      that older emulators may not support.
+      Other goals include accurate enough emulation to provide a development
+      environment for homebrew software, a good workflow for tool-assist
+      runners, and a modern feature set for emulators that older emulators may
+      not support.
     '';
 
     license = licenses.mpl20;
@@ -68,3 +86,4 @@ in stdenv.mkDerivation rec {
     platforms = platforms.linux;
   };
 }
+# TODO [ AndersonTorres ]: use desktopItem functions

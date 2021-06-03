@@ -1,32 +1,38 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, lightdm, gtk3 }:
+{ lib, stdenv, linkFarm, lightdm-mini-greeter, fetchFromGitHub, autoreconfHook, pkg-config, lightdm, gtk3, glib, gdk-pixbuf, wrapGAppsHook, librsvg }:
 
 stdenv.mkDerivation rec {
-  name = "lightdm-mini-greeter-${version}";
-  version = "0.3.2";
+  pname = "lightdm-mini-greeter";
+  version = "0.5.1";
 
   src = fetchFromGitHub {
     owner = "prikhi";
     repo = "lightdm-mini-greeter";
     rev = version;
-    sha256 = "1g3lrh034w38hiq96b0xmghmlf87hcycwdh06dwkdksr0hl08wxy";
+    sha256 = "sha256-Pm7ExfusFIPktX2C4UE07qgOVhcWhVxnaD3QARpmu7Y=";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
-  buildInputs = [ lightdm gtk3 ];
+  nativeBuildInputs = [ autoreconfHook pkg-config wrapGAppsHook ];
+  buildInputs = [ lightdm gtk3 glib gdk-pixbuf librsvg ];
 
   configureFlags = [ "--sysconfdir=/etc" ];
-  makeFlags = [ "configdir=$(out)/etc" ];
+  makeFlags = [ "configdir=${placeholder "out"}/etc" ];
 
   postInstall = ''
     substituteInPlace "$out/share/xgreeters/lightdm-mini-greeter.desktop" \
       --replace "Exec=lightdm-mini-greeter" "Exec=$out/bin/lightdm-mini-greeter"
   '';
 
-  meta = with stdenv.lib; {
+  passthru.xgreeters = linkFarm "lightdm-mini-greeter-xgreeters" [{
+    path = "${lightdm-mini-greeter}/share/xgreeters/lightdm-mini-greeter.desktop";
+    name = "lightdm-mini-greeter.desktop";
+  }];
+
+  meta = with lib; {
     description = "A minimal, configurable, single-user GTK3 LightDM greeter";
-    homepage = https://github.com/prikhi/lightdm-mini-greeter;
+    homepage = "https://github.com/prikhi/lightdm-mini-greeter";
     license = licenses.gpl3;
-    maintainers = with maintainers; [ mnacamura ];
+    maintainers = with maintainers; [ mnacamura prikhi ];
     platforms = platforms.linux;
+    changelog = "https://github.com/prikhi/lightdm-mini-greeter/blob/master/CHANGELOG.md";
   };
 }

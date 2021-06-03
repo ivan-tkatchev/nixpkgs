@@ -1,32 +1,27 @@
-{ stdenv, fetchurl, jre, makeWrapper, bash, coreutils, gnugrep, gnused,
+{ lib, stdenv, fetchurl, jdk8_headless, jdk11_headless, makeWrapper, bash, coreutils, gnugrep, gnused, ps,
   majorVersion ? "1.0" }:
 
 let
+  jre8 = jdk8_headless;
+  jre11 = jdk11_headless;
   versionMap = {
-    "0.9" = {
-      kafkaVersion = "0.9.0.1";
-      scalaVersion = "2.11";
-      sha256 = "0ykcjv5dz9i5bws9my2d60pww1g9v2p2nqr67h0i2xrjm7az8a6v";
-    };
-    "0.10" = {
-      kafkaVersion = "0.10.2.1";
+    "2.4" = {
+      kafkaVersion = "2.4.1";
       scalaVersion = "2.12";
-      sha256 = "0iszr6r0n9yjgq7kcp1hf00fg754m86gs4jzqc18542an94b88z5";
+      sha256 = "0ahsprmpjz026mhbr79187wfdrxcg352iipyfqfrx68q878wnxr1";
+      jre = jre8;
     };
-    "0.11" = {
-      kafkaVersion = "0.11.0.1";
+    "2.5" = {
+      kafkaVersion = "2.5.1";
       scalaVersion = "2.12";
-      sha256 = "1wj639h95aq5n132fq1rbyzqh5rsa4mlhbg3c5mszqglnzdz4xn7";
+      sha256 = "1wn4iszrm2rvsfyyr515zx79k5m86davjkcwcwpxcgc4k3q0z7lv";
+      jre = jre8;
     };
-    "1.0" = {
-      kafkaVersion = "1.0.1";
-      scalaVersion = "2.12";
-      sha256 = "1fxn6i0kanwksj1dhcnlni0cn542k50wdg8jkwhfmf4qq8yfl90m";
-    };
-    "1.1" = {
-      kafkaVersion = "1.1.0";
-      scalaVersion = "2.12";
-      sha256 = "04idhsr6pbkb0xkx38faxv2pn5nkjcflz6wl4s3ka82h1fbq74j9";
+    "2.6" = {
+      kafkaVersion = "2.6.1";
+      scalaVersion = "2.13";
+      sha256 = "1a2kd4r6f8z7qf886nnq9f350sblzzdi230j2hll7x156888573y";
+      jre = jre11;
     };
   };
 in
@@ -35,14 +30,15 @@ with versionMap.${majorVersion};
 
 stdenv.mkDerivation rec {
   version = "${scalaVersion}-${kafkaVersion}";
-  name = "apache-kafka-${version}";
+  pname = "apache-kafka";
 
   src = fetchurl {
     url = "mirror://apache/kafka/${kafkaVersion}/kafka_${version}.tgz";
     inherit sha256;
   };
 
-  buildInputs = [ jre makeWrapper bash gnugrep gnused coreutils ];
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [ jre bash gnugrep gnused coreutils ps ];
 
   installPhase = ''
     mkdir -p $out
@@ -56,6 +52,9 @@ stdenv.mkDerivation rec {
     substituteInPlace $out/bin/kafka-run-class.sh \
       --replace 'LOG_DIR="$base_dir/logs"' 'LOG_DIR="$KAFKA_LOG_DIR"'
 
+    substituteInPlace $out/bin/kafka-server-stop.sh \
+      --replace 'ps' '${ps}/bin/ps'
+
     for p in $out/bin\/*.sh; do
       wrapProgram $p \
         --set JAVA_HOME "${jre}" \
@@ -65,12 +64,12 @@ stdenv.mkDerivation rec {
     chmod +x $out/bin\/*
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://kafka.apache.org;
+  meta = with lib; {
+    homepage = "http://kafka.apache.org";
     description = "A high-throughput distributed messaging system";
     license = licenses.asl20;
     maintainers = [ maintainers.ragge ];
     platforms = platforms.unix;
   };
-
+  passthru = { inherit jre; };
 }

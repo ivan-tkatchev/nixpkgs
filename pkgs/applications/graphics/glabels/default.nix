@@ -1,36 +1,41 @@
-{ stdenv, fetchurl, barcode, gnome3, autoreconfHook
-, gtk3, gtk-doc, libxml2, librsvg , libtool, libe-book
-, intltool, itstool, makeWrapper, pkgconfig, which
+{ lib, stdenv, fetchurl, barcode, gnome, autoreconfHook
+, gtk3, gtk-doc, libxml2, librsvg , libtool, libe-book, gsettings-desktop-schemas
+, intltool, itstool, makeWrapper, pkg-config, yelp-tools
 }:
 
 stdenv.mkDerivation rec {
-  name = "glabels-${version}";
-  version = "3.4.0";
+  pname = "glabels";
+  version = "3.4.1";
 
   src = fetchurl {
-    url = "https://ftp.gnome.org/pub/GNOME/sources/glabels/3.4/glabels-3.4.0.tar.xz";
-    sha256 = "04345crf5yrhq6rlrymz630rxnm8yw41vx04hb6xn2nkjn9hf3nl";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "0f2rki8i27pkd9r0gz03cdl1g4vnmvp0j49nhxqn275vi8lmgr0q";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig makeWrapper intltool ];
+  nativeBuildInputs = [ autoreconfHook pkg-config makeWrapper intltool ];
   buildInputs = [
-    barcode gtk3 gtk-doc gnome3.yelp-tools
-    gnome3.gnome-common gnome3.gsettings-desktop-schemas
+    barcode gtk3 gtk-doc yelp-tools
+    gnome.gnome-common gsettings-desktop-schemas
     itstool libxml2 librsvg libe-book libtool
-    
   ];
 
   preFixup = ''
-    rm "$out/share/icons/hicolor/icon-theme.cache"
     wrapProgram "$out/bin/glabels-3" \
       --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH"
   '';
 
-  meta = {
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      versionPolicy = "none";
+    };
+  };
+
+  meta = with lib; {
     description = "Create labels and business cards";
-    homepage = http://glabels.org/;
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.unix;
-    maintainers = [ stdenv.lib.maintainers.nico202 ];
+    homepage = "https://glabels.org/";
+    license = with licenses; [ gpl3Plus lgpl3Plus ];
+    platforms = platforms.unix;
+    maintainers = [ maintainers.nico202 ];
   };
 }

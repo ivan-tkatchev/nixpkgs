@@ -1,21 +1,22 @@
-{ stdenv, fetchurl, unzip, SDL, libGLU_combined, openal, curl, libXxf86vm }:
+{ lib, stdenv, fetchurl, unzip, SDL, libGLU, libGL, openal, curl, libXxf86vm }:
 
 stdenv.mkDerivation rec {
-  name = "urbanterror-${version}";
-  version = "4.3.3";
+  pname = "urbanterror";
+  version = "4.3.4";
 
   srcs =
     [ (fetchurl {
-         url = "http://cdn.fs1.urbanterror.info/urt/43/releases/zips/UrbanTerror433_full.zip";
-         sha256 = "0rrh08ypnw805gd2wrs6af34nvp02x7vggfp0ymcmbr44wcjfn63";
+         url = "http://cdn.urbanterror.info/urt/43/releases/zips/UrbanTerror434_full.zip";
+         sha256 = "1rx4nnndsk88nvd7k4p35cw6znclkkzm2bl5j6vn6mjjdk66jrki";
        })
       (fetchurl {
-         url = "https://github.com/Barbatos/ioq3-for-UrbanTerror-4/archive/release-${version}.zip";
-         sha256 = "1624zsnr02nhdksmwnwmvw129lw3afd8h0hvv2j8qmcyxa7jw68b";
+         url = "https://github.com/FrozenSand/ioq3-for-UrbanTerror-4/archive/release-${version}.zip";
+         sha256 = "1s9pmw7rbnzwzl1llcs0kr2krf4daf8hhnz1j89qk4bq9a9qfp71";
        })
     ];
 
-  buildInputs = [ unzip SDL libGLU_combined openal curl libXxf86vm ];
+  nativeBuildInputs = [ unzip ];
+  buildInputs = [ SDL libGL libGLU openal curl libXxf86vm ];
   sourceRoot = "ioq3-for-UrbanTerror-4-release-${version}";
 
   configurePhase = ''
@@ -51,12 +52,12 @@ stdenv.mkDerivation rec {
   postFixup = ''
     p=$out/opt/urbanterror/Quake3-UrT
     cur_rpath=$(patchelf --print-rpath $p)
-    patchelf --set-rpath $cur_rpath:${libGLU_combined}/lib $p
+    patchelf --set-rpath $cur_rpath:${libGL}/lib:${libGLU}/lib $p
   '';
 
   hardeningDisable = [ "format" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A multiplayer tactical FPS on top of Quake 3 engine";
     longDescription = ''
       Urban Terror is a free multiplayer first person shooter developed by
@@ -65,7 +66,7 @@ stdenv.mkDerivation rec {
       tactical shooter; somewhat realism based, but the motto is "fun over
       realism". This results in a very unique, enjoyable and addictive game.
     '';
-    homepage = http://www.urbanterror.net;
+    homepage = "http://www.urbanterror.info";
     license = licenses.unfreeRedistributable;
     maintainers = with maintainers; [ astsmtl fpletz ];
     platforms = platforms.linux;

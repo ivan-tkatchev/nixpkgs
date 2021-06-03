@@ -3,9 +3,9 @@
 
 let
   inherit (builtins) head tail length;
-  inherit (lib.trivial) and or;
-  inherit (lib.strings) concatStringsSep;
-  inherit (lib.lists) fold concatMap concatLists all deepSeqList;
+  inherit (lib.trivial) and;
+  inherit (lib.strings) concatStringsSep sanitizeDerivationName;
+  inherit (lib.lists) fold concatMap concatLists;
 in
 
 rec {
@@ -60,7 +60,7 @@ rec {
       [ { name = head attrPath; value = setAttrByPath (tail attrPath) value; } ];
 
 
-  /* Like `getAttrPath' without a default value. If it doesn't find the
+  /* Like `attrByPath' without a default value. If it doesn't find the
      path it will throw.
 
      Example:
@@ -93,6 +93,15 @@ rec {
   */
   attrValues = builtins.attrValues or (attrs: attrVals (attrNames attrs) attrs);
 
+
+  /* Given a set of attribute names, return the set of the corresponding
+     attributes from the given set.
+
+     Example:
+       getAttrs [ "a" "b" ] { a = 1; b = 2; c = 3; }
+       => { a = 1; b = 2; }
+  */
+  getAttrs = names: attrs: genAttrs names (name: attrs.${name});
 
   /* Collect each attribute named `attr' from a list of attribute
      sets.  Sets that don't contain the named attribute are ignored.
@@ -145,7 +154,7 @@ rec {
   foldAttrs = op: nul: list_of_attrs:
     fold (n: a:
         fold (name: o:
-          o // (listToAttrs [{inherit name; value = op n.${name} (a.${name} or nul); }])
+          o // { ${name} = op n.${name} (a.${name} or nul); }
         ) a (attrNames n)
     ) {} list_of_attrs;
 
@@ -173,6 +182,24 @@ rec {
       concatMap (collect pred) (attrValues attrs)
     else
       [];
+
+  /* Return the cartesian product of attribute set value combinations.
+
+    Example:
+      cartesianProductOfSets { a = [ 1 2 ]; b = [ 10 20 ]; }
+      => [
+           { a = 1; b = 10; }
+           { a = 1; b = 20; }
+           { a = 2; b = 10; }
+           { a = 2; b = 20; }
+         ]
+  */
+  cartesianProductOfSets = attrsOfLists:
+    lib.foldl' (listOfAttrs: attrName:
+      concatMap (attrs:
+        map (listValue: attrs // { ${attrName} = listValue; }) attrsOfLists.${attrName}
+      ) listOfAttrs
+    ) [{}] (attrNames attrsOfLists);
 
 
   /* Utility function that creates a {name, value} pair as expected by
@@ -216,6 +243,10 @@ rec {
   /* Call a function for each attribute in the given set and return
      the result in a list.
 
+     Type:
+       mapAttrsToList ::
+         (String -> a -> b) -> AttrSet -> [b]
+
      Example:
        mapAttrsToList (name: value: name + value)
           { x = "a"; y = "b"; }
@@ -244,7 +275,7 @@ rec {
   /* Like `mapAttrsRecursive', but it takes an additional predicate
      function that tells it whether to recursive into an attribute
      set.  If it returns false, `mapAttrsRecursiveCond' does not
-     recurse, but does apply the map function.  It is returns true, it
+     recurse, but does apply the map function.  If it returns true, it
      does recurse, and does not apply the map function.
 
      Type:
@@ -301,7 +332,7 @@ rec {
       path' = builtins.storePath path;
       res =
         { type = "derivation";
-          name = builtins.unsafeDiscardStringContext (builtins.substring 33 (-1) (baseNameOf path'));
+          name = sanitizeDerivationName (builtins.substring 33 (-1) (baseNameOf path'));
           outPath = path';
           outputs = [ "out" ];
           out = res;
@@ -345,7 +376,7 @@ rec {
        => { a = ["x" "y"]; b = ["z"] }
   */
   zipAttrsWith = f: sets: zipAttrsWithNames (concatMap attrNames sets) f sets;
-  /* Like `zipAttrsWith' with `(name: values: value)' as the function.
+  /* Like `zipAttrsWith' with `(name: values: values)' as the function.
 
     Example:
       zipAttrs [{a = "x";} {a = "y"; b = "z";}]
@@ -384,11 +415,12 @@ rec {
   recursiveUpdateUntil = pred: lhs: rhs:
     let f = attrPath:
       zipAttrsWith (n: values:
+        let here = attrPath ++ [n]; in
         if tail values == []
-        || pred attrPath (head (tail values)) (head values) then
+        || pred here (head (tail values)) (head values) then
           head values
         else
-          f (attrPath ++ [n]) values
+          f here values
       );
     in f [] [rhs lhs];
 
@@ -434,12 +466,15 @@ rec {
     useful for deep-overriding.
 
     Example:
-      x = { a = { b = 4; c = 3; }; }
-      overrideExisting x { a = { b = 6; d = 2; }; }
-      => { a = { b = 6; d = 2; }; }
+      overrideExisting {} { a = 1; }
+      => {}
+      overrideExisting { b = 2; } { a = 1; }
+      => { b = 2; }
+      overrideExisting { a = 3; b = 2; } { a = 1; }
+      => { a = 1; b = 2; }
   */
   overrideExisting = old: new:
-    old // listToAttrs (map (attr: nameValuePair attr (attrByPath [attr] old.${attr} new)) (attrNames old));
+    mapAttrs (name: value: new.${name} or value) old;
 
   /* Get a package output.
      If no output is found, fallback to `.out` and then to the default.
@@ -456,14 +491,28 @@ rec {
   getBin = getOutput "bin";
   getLib = getOutput "lib";
   getDev = getOutput "dev";
+  getMan = getOutput "man";
 
   /* Pick the outputs of packages to place in buildInputs */
   chooseDevOutputs = drvs: builtins.map getDev drvs;
+
+  /* Make various Nix tools consider the contents of the resulting
+     attribute set when looking for what to build, find, etc.
+
+     This function only affects a single attribute set; it does not
+     apply itself recursively for nested attribute sets.
+   */
+  recurseIntoAttrs =
+    attrs: attrs // { recurseForDerivations = true; };
+
+  /* Undo the effect of recurseIntoAttrs.
+   */
+  dontRecurseIntoAttrs =
+    attrs: attrs // { recurseForDerivations = false; };
 
   /*** deprecated stuff ***/
 
   zipWithNames = zipAttrsWithNames;
   zip = builtins.trace
     "lib.zip is deprecated, use lib.zipAttrsWith instead" zipAttrsWith;
-
 }

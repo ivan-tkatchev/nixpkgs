@@ -9,12 +9,11 @@ in rec {
 
   shellEscape = s: (replaceChars [ "\\" ] [ "\\\\" ] s);
 
+  mkPathSafeName = lib.replaceChars ["@" ":" "\\" "[" "]"] ["-" "-" "-" "" ""];
+
   makeUnit = name: unit:
-    let
-      pathSafeName = lib.replaceChars ["@" ":" "\\" "[" "]"] ["-" "-" "-" "" ""] name;
-    in
     if unit.enable then
-      pkgs.runCommand "unit-${pathSafeName}"
+      pkgs.runCommand "unit-${mkPathSafeName name}"
         { preferLocalBuild = true;
           allowSubstitutes = false;
           inherit (unit) text;
@@ -24,7 +23,7 @@ in rec {
           echo -n "$text" > $out/${shellEscape name}
         ''
     else
-      pkgs.runCommand "unit-${pathSafeName}-disabled"
+      pkgs.runCommand "unit-${mkPathSafeName name}-disabled"
         { preferLocalBuild = true;
           allowSubstitutes = false;
         }
@@ -60,10 +59,15 @@ in rec {
     optional (attr ? ${name} && ! isMacAddress attr.${name})
       "Systemd ${group} field `${name}' must be a valid mac address.";
 
+  isPort = i: i >= 0 && i <= 65535;
+
+  assertPort = name: group: attr:
+    optional (attr ? ${name} && ! isPort attr.${name})
+      "Error on the systemd ${group} field `${name}': ${attr.name} is not a valid port number.";
 
   assertValueOneOf = name: values: group: attr:
     optional (attr ? ${name} && !elem attr.${name} values)
-      "Systemd ${group} field `${name}' cannot have value `${attr.${name}}'.";
+      "Systemd ${group} field `${name}' cannot have value `${toString attr.${name}}'.";
 
   assertHasField = name: group: attr:
     optional (!(attr ? ${name}))
@@ -73,17 +77,27 @@ in rec {
     optional (attr ? ${name} && !(min <= attr.${name} && max >= attr.${name}))
       "Systemd ${group} field `${name}' is outside the range [${toString min},${toString max}]";
 
+  assertMinimum = name: min: group: attr:
+    optional (attr ? ${name} && attr.${name} < min)
+      "Systemd ${group} field `${name}' must be greater than or equal to ${toString min}";
+
   assertOnlyFields = fields: group: attr:
     let badFields = filter (name: ! elem name fields) (attrNames attr); in
     optional (badFields != [ ])
       "Systemd ${group} has extra fields [${concatStringsSep " " badFields}].";
 
+  assertInt = name: group: attr:
+    optional (attr ? ${name} && !isInt attr.${name})
+      "Systemd ${group} field `${name}' is not an integer";
+
   checkUnitConfig = group: checks: attrs: let
     # We're applied at the top-level type (attrsOf unitOption), so the actual
-    # unit options might contain attributes from mkOverride that we need to
+    # unit options might contain attributes from mkOverride and mkIf that we need to
     # convert into single values before checking them.
     defs = mapAttrs (const (v:
-      if v._type or "" == "override" then v.content else v
+      if v._type or "" == "override" then v.content
+      else if v._type or "" == "if" then v.content
+      else v
     )) attrs;
     errors = concatMap (c: c group defs) checks;
   in if errors == [] then true
@@ -102,7 +116,9 @@ in rec {
         (if isList value then value else [value]))
         as));
 
-  generateUnits = type: units: upstreamUnits: upstreamWants:
+  generateUnits = generateUnits' true;
+
+  generateUnits' = allowCollisions: type: units: upstreamUnits: upstreamWants:
     pkgs.runCommand "${type}-units"
       { preferLocalBuild = true;
         allowSubstitutes = false;
@@ -140,7 +156,13 @@ in rec {
       done
 
       # Symlink all units provided listed in systemd.packages.
-      for i in ${toString cfg.packages}; do
+      packages="${toString cfg.packages}"
+
+      # Filter duplicate directories
+      declare -A unique_packages
+      for k in $packages ; do unique_packages[$k]=1 ; done
+
+      for i in ''${!unique_packages[@]}; do
         for fn in $i/etc/systemd/${type}/* $i/lib/systemd/${type}/*; do
           if ! [[ "$fn" =~ .wants$ ]]; then
             if [[ -d "$fn" ]]; then
@@ -164,8 +186,13 @@ in rec {
           if [ "$(readlink -f $i/$fn)" = /dev/null ]; then
             ln -sfn /dev/null $out/$fn
           else
-            mkdir -p $out/$fn.d
-            ln -s $i/$fn $out/$fn.d/overrides.conf
+            ${if allowCollisions then ''
+              mkdir -p $out/$fn.d
+              ln -s $i/$fn $out/$fn.d/overrides.conf
+            '' else ''
+              echo "Found multiple derivations configuring $fn!"
+              exit 1
+            ''}
           fi
        else
           ln -fs $i/$fn $out/

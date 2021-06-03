@@ -1,19 +1,35 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv
+, fetchurl
+, autoreconfHook
+, gettext
+, gnutls
+, nettle
+, pkg-config
+, libiconv
+, ApplicationServices
+}:
 
 stdenv.mkDerivation rec {
-  name = "libfilezilla-${version}";
-  version = "0.12.3";
+  pname = "libfilezilla";
+  version = "0.27.0";
 
   src = fetchurl {
-    url = "http://download.filezilla-project.org/libfilezilla/${name}.tar.bz2";
-    sha256 = "1v606kcz2rdmmlwxrv3xvwh7ia1nh6jfc9bhjw2r4ai3rm16gch5";
+    url = "https://download.filezilla-project.org/${pname}/${pname}-${version}.tar.bz2";
+    sha256 = "sha256-c3ClGHyrNgqhubLA2njRrebjupN1tIKniF3OBNZJqXs=";
   };
 
-  meta = with stdenv.lib; {
-    homepage = https://lib.filezilla-project.org/;
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
+
+  buildInputs = [ gettext gnutls nettle ]
+    ++ lib.optionals stdenv.isDarwin [ libiconv ApplicationServices ];
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
+    homepage = "https://lib.filezilla-project.org/";
     description = "A modern C++ library, offering some basic functionality to build high-performing, platform-independent programs";
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ pSub ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

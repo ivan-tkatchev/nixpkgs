@@ -1,32 +1,60 @@
-{ lib, buildPythonPackage, fetchFromGitHub, isPy3k
-, decorator, requests, simplejson
-, nose, mock }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, pythonOlder
+, decorator
+, requests
+, typing ? null
+, configparser
+, click
+, freezegun
+, mock
+, pytestCheckHook
+, pytest-vcr
+, python-dateutil
+, vcrpy
+}:
 
 buildPythonPackage rec {
   pname = "datadog";
-  version = "0.20.0";
+  version = "0.40.1";
 
-  # no tests in PyPI tarball
-  # https://github.com/DataDog/datadogpy/pull/259
-  src = fetchFromGitHub {
-    owner = "DataDog";
-    repo = "datadogpy";
-    rev = "v${version}";
-    sha256 = "1p4p14853yrsl8py4ca7za7a12qzw0xwgz64f5kzx8a6vpv3p3md";
+  src = fetchPypi {
+    inherit pname version;
+    sha256 = "438c1dde5462e68c5c792b7b4a1d87a0ddd970af3db31b3cf15980eed0c44311";
   };
 
-  propagatedBuildInputs = [ decorator requests simplejson ];
+  postPatch = ''
+    find . -name '*.pyc' -exec rm {} \;
+  '';
 
-  checkInputs = [ nose mock ];
+  propagatedBuildInputs = [ decorator requests ]
+    ++ lib.optional (pythonOlder "3.5") typing
+    ++ lib.optional (pythonOlder "3.0") configparser;
 
-  # v0.20.0 tests are nondeterministic:
-  # test_send_batch_metrics: https://hydra.nixos.org/build/74920933
-  # test_timed_decorator_threaded: https://hydra.nixos.org/build/74328993
-  doCheck = false;
+  checkInputs = [
+    click
+    freezegun
+    mock
+    pytestCheckHook
+    pytest-vcr
+    python-dateutil
+    vcrpy
+  ];
+
+  disabledTestPaths = [
+    "tests/performance"
+  ];
+
+  disabledTests = [
+    "test_default_settings_set"
+  ];
+
+  pythonImportsCheck = [ "datadog" ];
 
   meta = with lib; {
     description = "The Datadog Python library";
     license = licenses.bsd3;
-    homepage = https://github.com/DataDog/datadogpy;
+    homepage = "https://github.com/DataDog/datadogpy";
   };
 }

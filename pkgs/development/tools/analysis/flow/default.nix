@@ -1,33 +1,30 @@
-{ stdenv, fetchFromGitHub, lib, ocamlPackages, libelf, cf-private, CoreServices }:
-
-with lib;
+{ lib, stdenv, fetchFromGitHub, ocamlPackages, CoreServices }:
 
 stdenv.mkDerivation rec {
-  version = "0.76.0";
-  name = "flow-${version}";
+  pname = "flow";
+  version = "0.150.1";
 
   src = fetchFromGitHub {
-    owner = "facebook";
-    repo = "flow";
-    rev = "v${version}";
-    sha256 = "0r3yl4m7dhm1h4c431zp8hd2gg6k1d9bwd2371xav5q7hviwmjl6";
+    owner  = "facebook";
+    repo   = "flow";
+    rev    = "refs/tags/v${version}";
+    sha256 = "sha256-waQdS0HJVW2WFQFklmZJC0jr09JrDP5Fl7SxVS0dsgU=";
   };
 
   installPhase = ''
-    mkdir -p $out/bin
-    cp bin/flow $out/bin/
+    install -Dm755 bin/flow $out/bin/flow
+    install -Dm644 resources/shell/bash-completion $out/share/bash-completion/completions/flow
   '';
 
-  buildInputs = [ libelf
-  ] ++ (with ocamlPackages; [
-    ocaml findlib camlp4 sedlex ocamlbuild lwt_ppx lwt_log wtf8 dtoa
-  ]) ++ optionals stdenv.isDarwin [ cf-private CoreServices ];
+  buildInputs = (with ocamlPackages; [ ocaml findlib ocamlbuild ocaml-migrate-parsetree dtoa core_kernel sedlex_2 ocaml_lwt lwt_log lwt_ppx ppx_deriving ppx_gen_rec ppx_tools_versioned visitors wtf8 ])
+    ++ lib.optionals stdenv.isDarwin [ CoreServices ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A static type checker for JavaScript";
-    homepage = http://flowtype.org;
-    license = licenses.bsd3;
-    platforms = [ "x86_64-linux" "x86_64-darwin" ];
-    maintainers = with maintainers; [ puffnfresh globin ];
+    homepage = "https://flow.org/";
+    changelog = "https://github.com/facebook/flow/releases/tag/v${version}";
+    license = licenses.mit;
+    platforms = ocamlPackages.ocaml.meta.platforms;
+    maintainers = with maintainers; [ marsam puffnfresh ];
   };
 }

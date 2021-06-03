@@ -1,7 +1,7 @@
-{ stdenv, lib, fetchFromGitHub, makeWrapper, git, gnupg }:
+{ stdenv, lib, fetchFromGitHub, makeWrapper, git, gnupg, gawk }:
 
 let
-  version = "0.2.4";
+  version = "0.4.0";
   repo = "git-secret";
 
 in stdenv.mkDerivation {
@@ -11,16 +11,16 @@ in stdenv.mkDerivation {
     inherit repo;
     owner = "sobolevn";
     rev = "v${version}";
-    sha256 = "0lx2rjyhy3xh6ik755lbbl40v7a7ayyqk68jj8mnv42f2vhd66xl";
+    sha256 = "sha256-Mtuj+e/yCDr4XkmYkWUFJB3cqOT5yOMOq9P/QJV1S80=";
   };
 
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
     install -D git-secret $out/bin/git-secret
 
     wrapProgram $out/bin/git-secret \
-      --prefix PATH : "${lib.makeBinPath [ git gnupg ]}"
+      --prefix PATH : "${lib.makeBinPath [ git gnupg gawk ]}"
 
     mkdir $out/share
     cp -r man $out/share
@@ -28,9 +28,9 @@ in stdenv.mkDerivation {
 
   meta = {
     description = "A bash-tool to store your private data inside a git repository";
-    homepage = http://git-secret.io;
-    license = stdenv.lib.licenses.mit;
-    maintainers = [ stdenv.lib.maintainers.lo1tuma ];
-    platforms = stdenv.lib.platforms.all;
+    homepage = "https://git-secret.io";
+    license = lib.licenses.mit;
+    maintainers = [ lib.maintainers.lo1tuma ];
+    platforms = lib.platforms.all;
   };
 }

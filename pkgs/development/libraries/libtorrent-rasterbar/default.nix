@@ -1,48 +1,42 @@
-{ stdenv, lib, fetchFromGitHub, fetchpatch, pkgconfig, automake, autoconf, zlib
-, boost, openssl, libtool, python, libiconv, geoip }:
+{ lib, stdenv, fetchFromGitHub, cmake
+, zlib, boost, openssl, python, ncurses, SystemConfiguration
+}:
 
 let
-  version = "1.1.7";
-  formattedVersion = lib.replaceChars ["."] ["_"] version;
+  version = "2.0.3";
 
-  boostPython = boost.override { enablePython = true; };
+  # Make sure we override python, so the correct version is chosen
+  boostPython = boost.override { enablePython = true; inherit python; };
 
 in stdenv.mkDerivation {
-  name = "libtorrent-rasterbar-${version}";
+  pname = "libtorrent-rasterbar";
+  inherit version;
 
   src = fetchFromGitHub {
     owner = "arvidn";
     repo = "libtorrent";
-    rev = "libtorrent-${formattedVersion}";
-    sha256 = "073nb7yca5jg1i8z5h76qrmddl2hdy8fc1pnchkg574087an31r3";
+    rev = "v${version}";
+    sha256 = "0c5g2chylhkwwssfab9gw0b7bm3raj08yzgia7j4d044lp8gflnd";
+    fetchSubmodules = true;
   };
 
-  patches = [
-    (fetchpatch {
-      url = "https://github.com/arvidn/libtorrent/commit/64d6b4900448097b0157abb328621dd211e2947d.patch";
-      sha256 = "1bdv0icqzbg1il60sckcly4y22lkdbkkwdjadwdzxv7cdj586bzd";
-    })
-    (fetchpatch {
-      url = "https://github.com/arvidn/libtorrent/commit/9cd0ae67e74a507c1b9ff9c057ee97dda38ccb81.patch";
-      sha256 = "1cscqpc6fq9iwspww930dsxf0yb01bgrghzf5hdhl09a87r6q2zg";
-    })
+  nativeBuildInputs = [ cmake ];
+
+  buildInputs = [ boostPython openssl zlib python ncurses ]
+    ++ lib.optionals stdenv.isDarwin [ SystemConfiguration ];
+
+  postInstall = ''
+    moveToOutput "include" "$dev"
+    moveToOutput "lib/${python.libPrefix}" "$python"
+  '';
+
+  outputs = [ "out" "dev" "python" ];
+
+  cmakeFlags = [
+    "-Dpython-bindings=on"
   ];
 
-  enableParallelBuilding = true;
-  nativeBuildInputs = [ automake autoconf libtool pkgconfig ];
-  buildInputs = [ boostPython openssl zlib python libiconv geoip ];
-  preConfigure = "./autotool.sh";
-
-  configureFlags = [
-    "--enable-python-binding"
-    "--with-libgeoip=system"
-    "--with-libiconv=yes"
-    "--with-boost=${boostPython.dev}"
-    "--with-boost-libdir=${boostPython.out}/lib"
-    "--with-libiconv=yes"
-  ];
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://libtorrent.org/";
     description = "A C++ BitTorrent implementation focusing on efficiency and scalability";
     license = licenses.bsd3;

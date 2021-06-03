@@ -1,67 +1,103 @@
-{ stdenv
+{ lib, stdenv
 , buildPythonPackage
 , fetchPypi
+, fetchpatch
+, rustPlatform
+, setuptools-rust
 , openssl
 , cryptography_vectors
 , darwin
-, idna
-, asn1crypto
 , packaging
 , six
 , pythonOlder
-, enum34
-, ipaddress
 , isPyPy
 , cffi
 , pytest
+, pytest-subtests
 , pretend
+, libiconv
 , iso8601
 , pytz
 , hypothesis
 }:
 
-let
-  version = "2.2.2";
-in assert version == cryptography_vectors.version; buildPythonPackage rec {
-  # also bump cryptography_vectors
+buildPythonPackage rec {
   pname = "cryptography";
-  inherit version;
+  version = "3.4.7"; # Also update the hash in vectors.nix
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "9fc295bf69130a342e7a19a39d7bbeb15c0bcaabc7382ec33ef3b2b7d18d2f63";
+    sha256 = "04x7bhjkglxpllad10821vxddlmxdkd3gjvp35iljmnj2s0xw41x";
   };
+
+  cargoDeps = rustPlatform.fetchCargoTarball {
+    inherit src;
+    sourceRoot = "${pname}-${version}/${cargoRoot}";
+    name = "${pname}-${version}";
+    sha256 = "1m6smky4nahwlp4hn6yzibrcxlbsw4nx162dsq48vlw8h1lgjl62";
+  };
+
+  cargoRoot = "src/rust";
 
   outputs = [ "out" "dev" ];
 
-  buildInputs = [ openssl cryptography_vectors ]
-             ++ stdenv.lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
+  nativeBuildInputs = lib.optionals (!isPyPy) [
+    cffi
+  ] ++ [
+    rustPlatform.cargoSetupHook
+    setuptools-rust
+  ] ++ (with rustPlatform; [ rust.cargo rust.rustc ]);
+
+  buildInputs = [ openssl ]
+             ++ lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security libiconv ];
   propagatedBuildInputs = [
-    idna
-    asn1crypto
     packaging
     six
-  ] ++ stdenv.lib.optional (pythonOlder "3.4") enum34
-  ++ stdenv.lib.optional (pythonOlder "3.3") ipaddress
-  ++ stdenv.lib.optional (!isPyPy) cffi;
-
-  checkInputs = [
-    pytest
-    pretend
-    iso8601
-    pytz
-    hypothesis
+  ] ++ lib.optionals (!isPyPy) [
+    cffi
   ];
 
-  # The test assumes that if we're on Sierra or higher, that we use `getentropy`, but for binary
-  # compatibility with pre-Sierra for binary caches, we hide that symbol so the library doesn't
-  # use it. This boils down to them checking compatibility with `getentropy` in two different places,
-  # so let's neuter the second test.
-  postPatch = ''
-    substituteInPlace ./tests/hazmat/backends/test_openssl.py --replace '"16.0"' '"99.0"'
+  checkInputs = [
+    cryptography_vectors
+    hypothesis
+    iso8601
+    pretend
+    pytest
+    pytest-subtests
+    pytz
+  ];
+
+  pytestFlags = lib.concatStringsSep " " ([
+    "--disable-pytest-warnings"
+  ] ++
+    lib.optionals (stdenv.isDarwin && stdenv.isAarch64) [
+      # aarch64-darwin forbids W+X memory, but this tests depends on it:
+      # * https://cffi.readthedocs.io/en/latest/using.html#callbacks
+      "--ignore=tests/hazmat/backends/test_openssl_memleak.py"
+    ]
+  );
+
+  checkPhase = ''
+    py.test ${pytestFlags} tests
   '';
 
   # IOKit's dependencies are inconsistent between OSX versions, so this is the best we
   # can do until nix 1.11's release
   __impureHostDeps = [ "/usr/lib" ];
+
+  meta = with lib; {
+    description = "A package which provides cryptographic recipes and primitives";
+    longDescription = ''
+      Cryptography includes both high level recipes and low level interfaces to
+      common cryptographic algorithms such as symmetric ciphers, message
+      digests, and key derivation functions.
+      Our goal is for it to be your "cryptographic standard library". It
+      supports Python 2.7, Python 3.5+, and PyPy 5.4+.
+    '';
+    homepage = "https://github.com/pyca/cryptography";
+    changelog = "https://cryptography.io/en/latest/changelog/#v"
+      + replaceStrings [ "." ] [ "-" ] version;
+    license = with licenses; [ asl20 bsd3 psfl ];
+    maintainers = with maintainers; [ primeos ];
+  };
 }

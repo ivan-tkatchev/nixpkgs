@@ -4,7 +4,7 @@
 with import ./lib.nix { inherit config lib pkgs; };
 
 let
-  inherit (lib) concatStringsSep intersperse mapAttrsToList mkForce mkIf mkMerge mkOption optionalString types;
+  inherit (lib) concatStringsSep mkIf mkOption optionalString types;
 
   bosConfig = pkgs.writeText "BosConfig" (''
     restrictmode 1
@@ -61,6 +61,7 @@ in {
       };
 
       advertisedAddresses = mkOption {
+        type = types.listOf types.str;
         default = [];
         description = "List of IP addresses this server is advertised under. See NetInfo(5)";
       };
@@ -80,6 +81,7 @@ in {
 
       package = mkOption {
         default = pkgs.openafs.server or pkgs.openafs;
+        defaultText = "pkgs.openafs.server or pkgs.openafs";
         type = types.package;
         description = "OpenAFS package for the server binaries";
       };
@@ -250,7 +252,6 @@ in {
         wantedBy = [ "multi-user.target" ];
         restartIfChanged = false;
         unitConfig.ConditionPathExists = [
-          "|/etc/openafs/server/rxkad.keytab"
           "|/etc/openafs/server/KeyFileExt"
         ];
         preStart = ''

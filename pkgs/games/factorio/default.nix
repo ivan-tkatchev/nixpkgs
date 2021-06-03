@@ -1,10 +1,10 @@
-{ stdenv, callPackage, fetchurl, makeWrapper
-, alsaLib, libX11, libXcursor, libXinerama, libXrandr, libXi, libGL
-, factorio-utils
+{ lib, stdenv, fetchurl, makeWrapper, makeDesktopItem
+, alsaLib, libpulseaudio, libX11, libXcursor, libXinerama, libXrandr, libXi, libGL
+, libSM, libICE, libXext, factorio-utils
 , releaseType
 , mods ? []
-, username ? "" , password ? ""
-, experimental ? false
+, username ? "", token ? "" # get/reset token at https://factorio.com/profile
+, experimental ? false # true means to always use the latest branch
 }:
 
 assert releaseType == "alpha"
@@ -13,59 +13,102 @@ assert releaseType == "alpha"
 
 let
 
-  # NB If you nix-prefetch-url any of these, be sure to add a --name arg,
-  #    where the ultimate "_" (before the version) is changed to a "-".
-  branch = if experimental then "experimental" else "stable";
-  binDists = {
-    x86_64-linux = let bdist = bdistForArch { inUrl = "linux64"; inTar = "x64"; }; in {
-      alpha = {
-        stable        = bdist { sha256 = "0b4hbpdcrh5hgip9q5dkmw22p66lcdhnr0kmb0w5dw6yi7fnxxh0"; fetcher = authenticatedFetch; };
-        experimental  = bdist { sha256 = "1qwfivl5wf0ii8c4prdl4yili23qimsh2cj874r37q3ygpjk3bd3"; version = "0.16.50"; fetcher = authenticatedFetch; };
+  inherit (lib) importJSON;
+
+  helpMsg = ''
+
+    ===FETCH FAILED===
+    Please ensure you have set the username and token with config.nix, or
+    /etc/nix/nixpkgs-config.nix if on NixOS.
+
+    Your token can be seen at https://factorio.com/profile (after logging in). It is
+    not as sensitive as your password, but should still be safeguarded. There is a
+    link on that page to revoke/invalidate the token, if you believe it has been
+    leaked or wish to take precautions.
+
+    Example:
+    {
+      packageOverrides = pkgs: {
+        factorio = pkgs.factorio.override {
+          username = "FactorioPlayer1654";
+          token = "d5ad5a8971267c895c0da598688761";
+        };
       };
-      headless = {
-        stable        = bdist { sha256 = "0zrnpg2js0ysvx9y50h3gajldk16mv02dvrwnkazh5kzr1d9zc3c"; };
-        experimental  = bdist { sha256 = "00691kr85p58qpxf3889p20nrgsvsyspx3c8yd11dkg46wly06z1"; version = "0.16.50"; };
-      };
-      demo = {
-        stable        = bdist { sha256 = "0zf61z8937yd8pyrjrqdjgd0rjl7snwrm3xw86vv7s7p835san6a"; version = "0.16.51"; };
-        experimental  = bdist { };
-      };
-    };
-    i686-linux = let bdist = bdistForArch { inUrl = "linux32"; inTar = "i386"; }; in {
-      alpha = {
-        stable        = bdist { sha256 = "0nnfkxxqnywx1z05xnndgh71gp4izmwdk026nnjih74m2k5j086l"; version = "0.14.23"; nameMut = asGz; };
-        experimental  = bdist { };
-      };
-      headless = {
-        stable        = bdist { };
-        experimental  = bdist { };
-      };
-      demo = {
-        stable        = bdist { };
-        experimental  = bdist { };
-      };
-    };
+    }
+
+    Alternatively, instead of providing the username+token, you may manually
+    download the release through https://factorio.com/download , then add it to
+    the store using e.g.:
+
+      releaseType=alpha
+      version=0.17.74
+      nix-prefetch-url file://\''$HOME/Downloads/factorio_\''${releaseType}_x64_\''${version}.tar.xz --name factorio_\''${releaseType}_x64-\''${version}.tar.xz
+
+    Note the ultimate "_" is replaced with "-" in the --name arg!
+  '';
+
+  desktopItem = makeDesktopItem {
+    name = "factorio";
+    desktopName = "Factorio";
+    comment = "A game in which you build and maintain factories.";
+    exec = "factorio";
+    icon = "factorio";
+    type = "Application";
+    categories = "Game";
   };
-  actual = binDists.${stdenv.system}.${releaseType}.${branch} or (throw "Factorio: unsupported platform");
 
-  bdistForArch = arch: { sha256 ? null
-                       , version ? "0.16.51"
-                       , fetcher ? fetchurl
-                       , nameMut ? x: x
-                       }:
-    if sha256 == null then
-      throw "Factorio ${releaseType}-${arch.inTar} binaries are not (and were never?) available to download"
-    else {
-      inherit version arch;
-      src = fetcher {
-        inherit sha256;
-        url = "https://www.factorio.com/get-download/${version}/${releaseType}/${arch.inUrl}";
-        name = nameMut "factorio_${releaseType}_${arch.inTar}-${version}.tar.xz";
-      };
-    };
-  authenticatedFetch = callPackage ./fetch.nix { inherit username password; };
-  asGz = builtins.replaceStrings [".xz"] [".gz"];
+  branch = if experimental then "experimental" else "stable";
 
+  # NB `experimental` directs us to take the latest build, regardless of its branch;
+  # hence the (stable, experimental) pairs may sometimes refer to the same distributable.
+  versions = importJSON ./versions.json;
+  binDists = makeBinDists versions;
+
+  actual = binDists.${stdenv.hostPlatform.system}.${releaseType}.${branch} or (throw "Factorio ${releaseType}-${branch} binaries for ${stdenv.hostPlatform.system} are not available for download.");
+
+  makeBinDists = versions:
+    let f = path: name: value:
+      if builtins.isAttrs value then
+        if value ? "name" then
+          makeBinDist value
+        else
+          builtins.mapAttrs (f (path ++ [ name ])) value
+      else
+        throw "expected attrset at ${toString path} - got ${toString value}";
+    in
+      builtins.mapAttrs (f []) versions;
+  makeBinDist = { name, version, tarDirectory, url, sha256, needsAuth }: {
+    inherit version tarDirectory;
+    src =
+      if !needsAuth then
+        fetchurl { inherit name url sha256; }
+      else
+        (lib.overrideDerivation
+          (fetchurl {
+            inherit name url sha256;
+            curlOpts = [
+              "--get"
+              "--data-urlencode" "username@username"
+              "--data-urlencode" "token@token"
+            ];
+          })
+          (_: { # This preHook hides the credentials from /proc
+                preHook =
+                  if username != "" && token != "" then ''
+                    echo -n "${username}" >username
+                    echo -n "${token}"    >token
+                  '' else ''
+                    # Deliberately failing since username/token was not provided, so we can't fetch.
+                    # We can't use builtins.throw since we want the result to be used if the tar is in the store already.
+                    exit 1
+                  '';
+                failureHook = ''
+                  cat <<EOF
+                  ${helpMsg}
+                  EOF
+                '';
+              }));
+  };
 
   configBaseCfg = ''
     use-system-read-write-data-directories=false
@@ -100,11 +143,15 @@ let
     installPhase = ''
       mkdir -p $out/{bin,share/factorio}
       cp -a data $out/share/factorio
-      cp -a bin/${arch.inTar}/factorio $out/bin/factorio
+      cp -a bin/${tarDirectory}/factorio $out/bin/factorio
       patchelf \
         --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) \
         $out/bin/factorio
     '';
+
+    passthru.updateScript = if (username != "" && token != "") then [
+      ./update.py "--username=${username}" "--token=${token}"
+    ] else null;
 
     meta = {
       description = "A game in which you build and maintain factories";
@@ -117,13 +164,13 @@ let
         ingenious structures, apply management skills to keep it working and
         finally protect it from the creatures who don't really like you.
 
-        Factorio has been in development since spring of 2012 and it is
-        currently in late alpha.
+        Factorio has been in development since spring of 2012, and reached
+        version 1.0 in mid 2020.
       '';
-      homepage = https://www.factorio.com/;
-      license = stdenv.lib.licenses.unfree;
-      maintainers = with stdenv.lib.maintainers; [ Baughn elitak ];
-      platforms = [ "i686-linux" "x86_64-linux" ];
+      homepage = "https://www.factorio.com/";
+      license = lib.licenses.unfree;
+      maintainers = with lib.maintainers; [ Baughn elitak erictapen priegger lukegb ];
+      platforms = [ "x86_64-linux" ];
     };
   };
 
@@ -131,16 +178,21 @@ let
     headless = base;
     demo = base // {
 
-      buildInputs = [ makeWrapper ];
+      nativeBuildInputs = [ makeWrapper ];
+      buildInputs = [ libpulseaudio ];
 
-      libPath = stdenv.lib.makeLibraryPath [
+      libPath = lib.makeLibraryPath [
         alsaLib
+        libpulseaudio
         libX11
         libXcursor
         libXinerama
         libXrandr
         libXi
         libGL
+        libSM
+        libICE
+        libXext
       ];
 
       installPhase = base.installPhase + ''
@@ -176,6 +228,11 @@ let
         ${updateConfigSh}
         EOF
         ) $out/share/factorio/update-config.sh
+
+        mkdir -p $out/share/icons/hicolor/{64x64,128x128}/apps
+        cp -a data/core/graphics/factorio-icon.png $out/share/icons/hicolor/64x64/apps/factorio.png
+        cp -a data/core/graphics/factorio-icon@2x.png $out/share/icons/hicolor/128x128/apps/factorio.png
+        ln -s ${desktopItem}/share/applications $out/share/
       '';
     };
     alpha = demo // {

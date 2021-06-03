@@ -1,39 +1,53 @@
-{ stdenv, fetchurl, fetchpatch, pkgconfig, zlib, libjpeg, xz }:
+{ lib, stdenv
+, fetchurl
 
-let
-  version = "4.0.9";
-in
+, pkg-config
+, cmake
+
+, libdeflate
+, libjpeg
+, xz
+, zlib
+}:
+
 stdenv.mkDerivation rec {
-  name = "libtiff-${version}";
+  pname = "libtiff";
+  version = "4.2.0";
 
   src = fetchurl {
     url = "https://download.osgeo.org/libtiff/tiff-${version}.tar.gz";
-    sha256 = "1kfg4q01r4mqn7dj63ifhi6pmqzbf4xax6ni6kkk81ri5kndwyvf";
+    sha256 = "1jrkjv0xya9radddn8idxvs2gqzp3l2b1s8knlizmn7ad3jq817b";
   };
 
-  prePatch = let
-      debian = fetchurl {
-        url = http://http.debian.net/debian/pool/main/t/tiff/tiff_4.0.9-5.debian.tar.xz;
-        sha256 = "15lwcsd46gini27akms2ngyxnwi1hs2yskrv5x2wazs5fw5ii62w";
-      };
-    in ''
-      tar xf ${debian}
-      patches="$patches $(sed 's|^|debian/patches/|' < debian/patches/series)"
-    '';
+  cmakeFlags = if stdenv.isDarwin then [
+    "-DCMAKE_SKIP_BUILD_RPATH=OFF"
+  ] else null;
 
-  outputs = [ "bin" "dev" "out" "man" "doc" ];
+  # FreeImage needs this patch
+  patches = [ ./headers.patch ];
 
-  nativeBuildInputs = [ pkgconfig ];
+  outputs = [ "bin" "dev" "dev_private" "out" "man" "doc" ];
 
-  propagatedBuildInputs = [ zlib libjpeg xz ]; #TODO: opengl support (bogus configure detection)
+  postFixup = ''
+    moveToOutput include/tif_dir.h $dev_private
+    moveToOutput include/tif_config.h $dev_private
+    moveToOutput include/tiffiop.h $dev_private
+  '';
+
+  nativeBuildInputs = [ cmake pkg-config ];
+
+  propagatedBuildInputs = [ libjpeg xz zlib ]; #TODO: opengl support (bogus configure detection)
+
+  buildInputs = [ libdeflate ]; # TODO: move all propagatedBuildInputs to buildInputs.
 
   enableParallelBuilding = true;
 
-  doCheck = true; # not cross;
+  doInstallCheck = true;
+  installCheckTarget = "test";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Library and utilities for working with the TIFF image file format";
-    homepage = http://download.osgeo.org/libtiff;
+    homepage = "http://download.osgeo.org/libtiff";
     license = licenses.libtiff;
     platforms = platforms.unix;
   };

@@ -1,19 +1,20 @@
-{stdenv, fetchFromGitHub, python27, htslib, zlib, makeWrapper}:
+{lib, stdenv, fetchFromGitHub, python27, htslib, zlib, makeWrapper}:
 
 let python = python27.withPackages (ps: with ps; [ cython ]);
 
-in stdenv.mkDerivation rec {
-  name = "platypus-unstable-${version}";
-  version = "2017-03-07";
+in stdenv.mkDerivation {
+  pname = "platypus-unstable";
+  version = "2018-07-22";
 
   src = fetchFromGitHub {
     owner = "andyrimmer";
     repo = "Platypus";
-    rev = "cbbd914";
-    sha256 = "0xgj3pl7n4c12j5pp5qyjfk4rsvb5inwzrpcbhdf3br5f3mmdsb9";
+    rev = "3e72641c69800da0cd4906b090298e654d316ee1";
+    sha256 = "0nah6r54b8xm778gqyb8b7rsd76z8ji4g73sm6rvpw5s96iib1vw";
   };
 
-  buildInputs = [ htslib python zlib makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [ htslib python zlib ];
 
   buildPhase = ''
     patchShebangs .
@@ -28,10 +29,10 @@ in stdenv.mkDerivation rec {
     makeWrapper ${python}/bin/python $out/bin/platypus --add-flags "$out/libexec/platypus/bin/Platypus.py"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "The Platypus variant caller";
     license = licenses.gpl3;
-    homepage = https://github.com/andyrimmer/Platypus;
+    homepage = "https://github.com/andyrimmer/Platypus";
     maintainers = with maintainers; [ jbedo ];
     platforms = platforms.x86_64;
   };

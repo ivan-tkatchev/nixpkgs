@@ -1,22 +1,64 @@
-{ stdenv, fetchurl, pkgconfig, glib, gupnp }:
- 
+{ lib, stdenv
+, fetchurl
+, pkg-config
+, meson
+, ninja
+, gettext
+, gobject-introspection
+, gtk-doc
+, docbook_xsl
+, docbook_xml_dtd_412
+, glib
+, gupnp
+, gnome
+}:
+
 stdenv.mkDerivation rec {
-  name = "gupnp-igd-${version}";
-  majorVersion = "0.2";
-  version = "${majorVersion}.4";
+  pname = "gupnp-igd";
+  version = "1.2.0";
+
+  outputs = [ "out" "dev" "devdoc" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/gupnp-igd/${majorVersion}/${name}.tar.xz";
-    sha256 = "38c4a6d7718d17eac17df95a3a8c337677eda77e58978129ad3182d769c38e44";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-S1EgCYqhPt0ngYup7k1/6WG/VAv1DQVv9wPGFUXgK+E=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  propagatedBuildInputs = [ glib gupnp ];
+  nativeBuildInputs = [
+    pkg-config
+    meson
+    ninja
+    gettext
+    gobject-introspection
+    gtk-doc
+    docbook_xsl
+    docbook_xml_dtd_412
+  ];
 
-  meta = {
-    homepage = http://www.gupnp.org/;
-    license = stdenv.lib.licenses.lgpl21;
-    platforms = stdenv.lib.platforms.linux;
+  propagatedBuildInputs = [
+    glib
+    gupnp
+  ];
+
+  mesonFlags = [
+    "-Dgtk_doc=true"
+  ];
+
+  # Seems to get stuck sometimes.
+  # https://github.com/NixOS/nixpkgs/issues/119288
+  #doCheck = true;
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      versionPolicy = "odd-unstable";
+    };
+  };
+
+  meta = with lib; {
+    description = "Library to handle UPnP IGD port mapping";
+    homepage = "http://www.gupnp.org/";
+    license = licenses.lgpl21Plus;
+    platforms = platforms.linux;
   };
 }
-

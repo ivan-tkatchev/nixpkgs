@@ -1,32 +1,36 @@
-{ stdenv, fetchurl, meson, ninja, gettext, appstream-glib, gnome3 }:
+{ lib, stdenv, fetchurl, meson, ninja, gettext, appstream-glib, gnome }:
 
-let
+stdenv.mkDerivation rec {
   pname = "cantarell-fonts";
-  version = "0.100";
-in stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
+  version = "0.301";
 
   src = fetchurl {
-    url = "mirror://gnome/sources/${pname}/${gnome3.versionBranch version}/${name}.tar.xz";
-    sha256 = "1286rx1z7mrmi6snx957fprpcmd5p00l6drdfpbgf6mqapl6kb81";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "3d35db0ac03f9e6b0d5a53577591b714238985f4cfc31a0aa17f26cd74675e83";
   };
 
   nativeBuildInputs = [ meson ninja gettext appstream-glib ];
 
+  # ad-hoc fix for https://github.com/NixOS/nixpkgs/issues/50855
+  # until we fix gettext's envHook
+  preBuild = ''
+    export GETTEXTDATADIRS="$GETTEXTDATADIRS_FOR_BUILD"
+  '';
+
   outputHashAlgo = "sha256";
   outputHashMode = "recursive";
-  outputHash = "12ia41pr0rzjfay6y84asw3nxhyp1scq9zl0w4f6wkqj7vf1qfn1";
+  outputHash = "1sczskw2kv3qy39i9mzw2lkl94a90bjgv5ln9acy5kh4gb2zmy7z";
 
   passthru = {
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = pname;
     };
   };
 
   meta = {
     description = "Default typeface used in the user interface of GNOME since version 3.0";
-    platforms = stdenv.lib.platforms.all;
-    license = stdenv.lib.licenses.ofl;
-    maintainers = with stdenv.lib.maintainers; [ fuuzetsu ];
+    platforms = lib.platforms.all;
+    license = lib.licenses.ofl;
+    maintainers = with lib.maintainers; [ ];
   };
 }

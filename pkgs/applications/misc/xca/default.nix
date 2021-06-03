@@ -1,15 +1,15 @@
-{ mkDerivation, lib, fetchFromGitHub, autoreconfHook, perl, pkgconfig, which
+{ mkDerivation, lib, fetchFromGitHub, autoreconfHook, perl, pkg-config
 , libtool, openssl, qtbase, qttools }:
 
 mkDerivation rec {
-  name = "xca-${version}";
-  version = "2.0.1";
+  pname = "xca";
+  version = "2.2.1";
 
   src = fetchFromGitHub {
     owner  = "chris2511";
     repo   = "xca";
     rev    = "RELEASE.${version}";
-    sha256 = "0906xnmqzd9q5irxzm19361vhzig9yqsmf6wsc3rggniix5bk3a8";
+    sha256 = "0na2816lkfkkvssh9kmf5vwy6x8kd4x7h138jzy61wrvs69vhnbi";
   };
 
   postPatch = ''
@@ -17,17 +17,15 @@ mkDerivation rec {
       --replace /usr/bin/perl ${perl}/bin/perl
   '';
 
-  buildInputs = [ libtool openssl qtbase qttools ];
+  buildInputs = [ libtool openssl qtbase ];
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig which ];
+  nativeBuildInputs = [ autoreconfHook pkg-config qttools ];
 
   enableParallelBuilding = true;
 
-  configureFlags = [ "CXXFLAGS=-std=c++11" ];
-
   meta = with lib; {
-    description = "Interface for managing asymetric keys like RSA or DSA";
-    homepage    = http://xca.sourceforge.net/;
+    description = "An x509 certificate generation tool, handling RSA, DSA and EC keys, certificate signing requests (PKCS#10) and CRLs";
+    homepage    = "https://hohnstaedt.de/xca/";
     license     = licenses.bsd3;
     maintainers = with maintainers; [ offline peterhoeg ];
     platforms   = platforms.all;

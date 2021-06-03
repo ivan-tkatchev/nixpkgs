@@ -1,40 +1,25 @@
-{ stdenv, fetchFromGitHub, cmake, python }:
-
+{ lib, stdenv, fetchFromGitHub, cmake, python3, spirv-headers }:
 let
-
-spirv_sources = {
-  # `glslang` requires a specific version of `spirv-tools` and `spirv-headers` as specified in `known-good.json`.
-  tools = fetchFromGitHub {
-    owner = "KhronosGroup";
-    repo = "SPIRV-Tools";
-    rev = "f2c93c6e124836797311facb8449f9a0b76fefc2";
-    sha256 = "03w5xk2hjijj1rfbx5dw3lhy7vb9zrssfcwvp09q47f77vkgl105";
-  };
-  headers = fetchFromGitHub {
-    owner = "KhronosGroup";
-    repo = "SPIRV-Headers";
-    rev = "12f8de9f04327336b699b1b80aa390ae7f9ddbf4";
-    sha256 = "0fswk5ndvkmy64har3dmhpkv09zmvb0p4knbqc4fdl4qiggz0fvf";
-  };
-};
-
+  # Update spirv-headers rev in lockstep according to DEPs file
+  version = "2020.2";
 in
 
 stdenv.mkDerivation rec {
-  name = "spirv-tools-${version}";
-  version = "2018-06-06";
+  pname = "spirv-tools";
+  inherit version;
 
-  src = spirv_sources.tools;
-  patchPhase = ''ln -sv ${spirv_sources.headers} external/spirv-headers'';
-  enableParallelBuilding = true;
-
-  buildInputs = [ cmake python ];
-
-  passthru = {
-    headers = spirv_sources.headers;
+  src = fetchFromGitHub {
+    owner = "KhronosGroup";
+    repo = "SPIRV-Tools";
+    rev = "v${version}";
+    sha256 = "00b7xgyrcb2qq63pp3cnw5q1xqx2d9rfn65lai6n6r89s1vh3vg6";
   };
 
-  meta = with stdenv.lib; {
+  nativeBuildInputs = [ cmake python3 ];
+
+  cmakeFlags = [ "-DSPIRV-Headers_SOURCE_DIR=${spirv-headers.src}" ];
+
+  meta = with lib; {
     inherit (src.meta) homepage;
     description = "The SPIR-V Tools project provides an API and commands for processing SPIR-V modules";
     license = licenses.asl20;

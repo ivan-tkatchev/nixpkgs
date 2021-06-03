@@ -1,56 +1,56 @@
-{ stdenv, fetchFromGitHub, autoconf, automake, libtool, pcre
+{ lib, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, pcre
+, pkg-config
+, protobufc
 , withCrypto ? true, openssl
-, enableMagic ? true, file
 , enableCuckoo ? true, jansson
+, enableDex ? true
+, enableDotNet ? true
+, enableMacho ? true
+, enableMagic ? true, file
+, enableStatic ? false
 }:
 
 stdenv.mkDerivation rec {
-  version = "3.7.1";
-  name = "yara-${version}";
+  version = "4.1.1";
+  pname = "yara";
 
   src = fetchFromGitHub {
     owner = "VirusTotal";
     repo = "yara";
     rev = "v${version}";
-    sha256 = "05smkn4ii8irx6ccnzrhwa39pkmrjyxjmfrwh6mhdd8iz51v5cgz";
+    sha256 = "185j7firn7i5506rcp0va7sxdbminwrm06jsm4c70jf98qxmv522";
   };
 
-  # FIXME: this is probably not the right way to make it work
-  # make[2]: *** No rule to make target 'libyara/.libs/libyara.a', needed by 'yara'.  Stop.
-  prePatch = ''
-    cat >staticlibrary.patch <<EOF
-    --- a/Makefile.am 2015-11-01 11:39:12.000000000 +0100
-    +++ b/Makefile.am 2015-11-01 11:45:32.000000000 +0100
-    @@ -12 +12 @@
-    -yara_LDADD = libyara/.libs/libyara.a
-    +yara_LDADD = libyara/.libs/libyara${stdenv.hostPlatform.extensions.sharedLibrary}
-    @@ -15 +15 @@
-    -yarac_LDADD = libyara/.libs/libyara.a
-    +yarac_LDADD = libyara/.libs/libyara${stdenv.hostPlatform.extensions.sharedLibrary}
-    EOF
-  '';
-  patches = [
-    "staticlibrary.patch"
-  ];
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
 
-  buildInputs = [ autoconf automake libtool pcre]
-    ++ stdenv.lib.optionals withCrypto [ openssl ]
-    ++ stdenv.lib.optionals enableMagic [ file ]
-    ++ stdenv.lib.optionals enableCuckoo [ jansson ]
+  buildInputs = [ pcre protobufc ]
+    ++ lib.optionals withCrypto [ openssl ]
+    ++ lib.optionals enableMagic [ file ]
+    ++ lib.optionals enableCuckoo [ jansson ]
   ;
 
   preConfigure = "./bootstrap.sh";
 
-  configureFlags = ""
-    + stdenv.lib.optionalString withCrypto "--with-crypto "
-    + stdenv.lib.optionalString enableMagic "--enable-magic "
-    + stdenv.lib.optionalString enableCuckoo "--enable-cuckoo "
-  ;
+  configureFlags = [
+    (lib.withFeature withCrypto "crypto")
+    (lib.enableFeature enableCuckoo "cuckoo")
+    (lib.enableFeature enableDex "dex")
+    (lib.enableFeature enableDotNet "dotnet")
+    (lib.enableFeature enableMacho "macho")
+    (lib.enableFeature enableMagic "magic")
+    (lib.enableFeature enableStatic "static")
+  ];
 
-  meta = with stdenv.lib; {
+  doCheck = enableStatic;
+
+  meta = with lib; {
     description = "The pattern matching swiss knife for malware researchers";
-    homepage    = http://Virustotal.github.io/yara/;
-    license     = licenses.asl20;
-    platforms   = stdenv.lib.platforms.all;
+    homepage = "http://Virustotal.github.io/yara/";
+    license = licenses.asl20;
+    maintainers = with maintainers; [ fab ];
+    platforms = platforms.all;
   };
 }

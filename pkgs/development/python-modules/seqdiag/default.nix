@@ -1,15 +1,15 @@
-{ stdenv, fetchurl, buildPythonPackage, pep8, nose, unittest2, docutils
+{ lib, fetchurl, buildPythonPackage, isPy27, pep8, nose, unittest2, docutils
 , blockdiag
 }:
 
 buildPythonPackage rec {
   pname = "seqdiag";
-  version = "0.9.5";
-  name = pname + "-" + version;
+  version = "2.0.0";
+  disabled = isPy27;
 
   src = fetchurl {
-    url = "mirror://pypi/s/seqdiag/${name}.tar.gz";
-    sha256 = "994402cb19fef77ee113d18810aa397a7290553cda5f900be2bb44e2c7742657";
+    url = "mirror://pypi/s/seqdiag/${pname}-${version}.tar.gz";
+    sha256 = "0k7j4f9j3d0325piwvbv90nfh0wzfk2n6s73s6h6nsxmqshcgswk";
   };
 
   buildInputs = [ pep8 nose unittest2 docutils ];
@@ -21,11 +21,11 @@ buildPythonPackage rec {
   #   ERROR: Failure: OSError ([Errno 2] No such file or directory: '/tmp/nix-build-python2.7-seqdiag-0.9.0.drv-0/seqdiag-0.9.0/src/seqdiag/tests/diagrams/')
   doCheck = false;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Generate sequence-diagram image from spec-text file (similar to Graphviz)";
-    homepage = http://blockdiag.com/;
+    homepage = "http://blockdiag.com/";
     license = licenses.asl20;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
     maintainers = with maintainers; [ bjornfor ];
   };
 }

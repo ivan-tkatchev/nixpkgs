@@ -1,36 +1,45 @@
-{ stdenv, lib, fetchFromGitHub, qtbase, qtquickcontrols, cmake, libqmatrixclient }:
+{ mkDerivation, stdenv, lib, fetchFromGitHub, cmake
+, qtbase, qtquickcontrols, qtquickcontrols2, qtkeychain, qtmultimedia, qttools
+, libquotient, libsecret
+}:
 
-stdenv.mkDerivation rec {
-  name = "quaternion-${version}";
-  version = "0.0.9.2";
+mkDerivation rec {
+  pname = "quaternion";
+  version = "0.0.9.5-beta2";
 
   src = fetchFromGitHub {
-    owner  = "QMatrixClient";
-    repo   = "Quaternion";
-    rev    = "v${version}";
-    sha256 = "0zrr4khbbdf5ziq65gi0cb1yb1d0y5rv18wld22w1x96f7fkmrib";
+    owner = "QMatrixClient";
+    repo = "Quaternion";
+    rev = version;
+    sha256 = "sha256-K4SMB5kL0YO2OIeNUu4hWqU4E4n4vZDRRsJVYmCZqvM=";
   };
 
-  buildInputs = [ qtbase qtquickcontrols libqmatrixclient ];
+  buildInputs = [
+    qtbase
+    qtmultimedia
+    qtquickcontrols
+    qtquickcontrols2
+    qtkeychain
+    libquotient
+    libsecret
+  ];
 
-  nativeBuildInputs = [ cmake ];
+  nativeBuildInputs = [ cmake qttools ];
 
-  # libqmatrixclient is now compiled as a dynamic library but quarternion cannot use it yet
-  # https://github.com/QMatrixClient/Quaternion/issues/239
-  postPatch = ''
-    rm -rf lib
-    ln -s ${libqmatrixclient.src} lib
-  '';
-
-  postInstall = ''
-    substituteInPlace $out/share/applications/quaternion.desktop \
+  postInstall = if stdenv.isDarwin then ''
+    mkdir -p $out/Applications
+    mv $out/bin/quaternion.app $out/Applications
+    rmdir $out/bin || :
+  '' else ''
+    substituteInPlace $out/share/applications/com.github.quaternion.desktop \
       --replace 'Exec=quaternion' "Exec=$out/bin/quaternion"
   '';
 
   meta = with lib; {
-    description = "Cross-platform desktop IM client for the Matrix protocol";
-    homepage    = https://matrix.org/docs/projects/client/quaternion.html;
-    license     = licenses.gpl3;
+    description =
+      "Cross-platform desktop IM client for the Matrix protocol";
+    homepage = "https://matrix.org/docs/projects/client/quaternion.html";
+    license = licenses.gpl3;
     maintainers = with maintainers; [ peterhoeg ];
     inherit (qtbase.meta) platforms;
     inherit version;

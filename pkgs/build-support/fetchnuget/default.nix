@@ -1,4 +1,4 @@
-{ stdenvNoCC, fetchurl, buildDotnetPackage, unzip }:
+{ fetchurl, buildDotnetPackage, unzip }:
 
 attrs @
 { baseName
@@ -19,7 +19,7 @@ else
 
     sourceRoot = ".";
 
-    buildInputs = [ unzip ];
+    nativeBuildInputs = [ unzip ];
 
     dontBuild = true;
 

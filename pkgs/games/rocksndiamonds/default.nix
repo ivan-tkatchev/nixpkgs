@@ -1,13 +1,13 @@
-{ stdenv, fetchurl, makeDesktopItem, SDL2, SDL2_image, SDL2_mixer, SDL2_net }:
+{ lib, stdenv, fetchurl, makeDesktopItem, SDL2, SDL2_image, SDL2_mixer, SDL2_net }:
 
 stdenv.mkDerivation rec {
   name = "${project}-${version}";
   project = "rocksndiamonds";
-  version = "4.1.0.0";
+  version = "4.1.1.0";
 
   src = fetchurl {
     url = "https://www.artsoft.org/RELEASES/unix/${project}/${name}.tar.gz";
-    sha256 = "0bmszf2hqyh76p3lzmhljcjwlx7jzpirwx9zyzgfvwqcapf5i6af";
+    sha256 = "1k0m6l5g886d9mwwh6q0gw75qsb85mpf8i0rglh047app56nsk72";
   };
 
   desktopItem = makeDesktopItem {
@@ -39,9 +39,9 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Scrolling tile-based arcade style puzzle game";
-    homepage = https://www.artsoft.org/rocksndiamonds/;
+    homepage = "https://www.artsoft.org/rocksndiamonds/";
     license = licenses.gpl2;
     platforms = platforms.linux;
     maintainers = with maintainers; [ orivej ];

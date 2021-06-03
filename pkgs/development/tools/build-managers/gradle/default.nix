@@ -1,7 +1,16 @@
-{ stdenv, fetchurl, unzip, jdk, makeWrapper }:
+{ lib, stdenv, fetchurl, unzip, jdk, java ? jdk, makeWrapper }:
 
-rec {
-  gradleGen = {name, src, nativeVersion} : stdenv.mkDerivation rec {
+let
+  gradleSpec = { version, nativeVersion, sha256 }: rec {
+    inherit nativeVersion;
+    name = "gradle-${version}";
+    src = fetchurl {
+      inherit sha256;
+      url = "https://services.gradle.org/distributions/${name}-bin.zip";
+    };
+  };
+in rec {
+  gradleGen = {name, src, nativeVersion} : stdenv.mkDerivation {
     inherit name src nativeVersion;
 
     dontBuild = true;
@@ -12,8 +21,8 @@ rec {
 
       gradle_launcher_jar=$(echo $out/lib/gradle/lib/gradle-launcher-*.jar)
       test -f $gradle_launcher_jar
-      makeWrapper ${jdk}/bin/java $out/bin/gradle \
-        --set JAVA_HOME ${jdk} \
+      makeWrapper ${java}/bin/java $out/bin/gradle \
+        --set JAVA_HOME ${java} \
         --add-flags "-classpath $gradle_launcher_jar org.gradle.launcher.GradleMain"
     '';
 
@@ -33,7 +42,8 @@ rec {
         echo ${stdenv.cc.cc} > $out/nix-support/manual-runtime-dependencies
       '';
 
-    buildInputs = [ unzip jdk makeWrapper ];
+    nativeBuildInputs = [ makeWrapper unzip ];
+    buildInputs = [ java ];
 
     meta = {
       description = "Enterprise-grade build system";
@@ -45,49 +55,35 @@ rec {
         between the flexibility of Ant and the convenience of a
         build-by-convention behavior.
       '';
-      homepage = http://www.gradle.org/;
-      license = stdenv.lib.licenses.asl20;
-      platforms = stdenv.lib.platforms.unix;
+      homepage = "http://www.gradle.org/";
+      license = lib.licenses.asl20;
+      platforms = lib.platforms.unix;
     };
   };
 
-  gradle_latest = gradleGen rec {
-    name = "gradle-4.8.1";
+  gradle_latest = gradle_7;
+
+  gradle_7 = gradleGen (gradleSpec {
+    version = "7.0";
+    nativeVersion = "0.22-milestone-11";
+    sha256 = "01f3bjn8pbpni8kmxvx1dpwpf4zz04vj7cpm6025n0k188c8k2zb";
+  });
+
+  gradle_6_8 = gradleGen (gradleSpec {
+    version = "6.8.3";
+    nativeVersion = "0.22-milestone-9";
+    sha256 = "01fjrk5nfdp6mldyblfmnkq2gv1rz1818kzgr0k2i1wzfsc73akz";
+  });
+
+  gradle_5_6 = gradleGen (gradleSpec {
+    version = "5.6.4";
+    nativeVersion = "0.18";
+    sha256 = "1f3067073041bc44554d0efe5d402a33bc3d3c93cc39ab684f308586d732a80d";
+  });
+
+  gradle_4_10 = gradleGen (gradleSpec {
+    version = "4.10.3";
     nativeVersion = "0.14";
-
-    src = fetchurl {
-      url = "http://services.gradle.org/distributions/${name}-bin.zip";
-      sha256 = "0wgdf1iv0izi957hay1xfsk5xnl6s2vx5dammcwy8say9fclscxg";
-    };
-  };
-
-  gradle_3_5 = gradleGen rec {
-    name = "gradle-3.5";
-    nativeVersion = "0.14";
-
-    src = fetchurl {
-      url = "http://services.gradle.org/distributions/${name}-bin.zip";
-      sha256 = "046i268zkg89ps7c1sq8yx9lbn9kighh4gcskxmzf3qriiwm0x0b";
-    };
-  };
-
-  gradle_2_14 = gradleGen rec {
-    name = "gradle-2.14.1";
-    nativeVersion = "0.10";
-
-    src = fetchurl {
-      url = "http://services.gradle.org/distributions/${name}-bin.zip";
-      sha256 = "0fggjxpsnakdaviw7bn2jmsl06997phlqr1251bjmlgjf7d1xing";
-    };
-  };
-
-  gradle_2_5 = gradleGen rec {
-    name = "gradle-2.5";
-    nativeVersion = "0.10";
-
-    src = fetchurl {
-      url = "http://services.gradle.org/distributions/${name}-bin.zip";
-      sha256 = "0mc5lf6phkncx77r0papzmfvyiqm0y26x50ipvmzkcsbn463x59z";
-    };
-  };
+    sha256 = "0vhqxnk0yj3q9jam5w4kpia70i4h0q4pjxxqwynh3qml0vrcn9l6";
+  });
 }

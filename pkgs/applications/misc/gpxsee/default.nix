@@ -1,39 +1,44 @@
-{ stdenv, fetchFromGitHub, qmake, qtbase, qttools }:
+{ lib, stdenv, mkDerivation, fetchFromGitHub, qmake, qttools, qttranslations, substituteAll }:
 
-stdenv.mkDerivation rec {
-  name = "gpxsee-${version}";
-  version = "4.19";
+mkDerivation rec {
+  pname = "gpxsee";
+  version = "9.1";
 
   src = fetchFromGitHub {
     owner = "tumic0";
     repo = "GPXSee";
     rev = version;
-    sha256 = "1xjf2aawf633c1ydhpcsjhdlfkjkfsjbcgjd737xpfv1wjz99l4l";
+    sha256 = "sha256-szq1i2/NEtMK4paSkxtkKXc8yY8qGj2U/p6CzNIecAY=";
   };
+
+  patches = (substituteAll {
+    # See https://github.com/NixOS/nixpkgs/issues/86054
+    src = ./fix-qttranslations-path.diff;
+    inherit qttranslations;
+  });
 
   nativeBuildInputs = [ qmake qttools ];
 
   preConfigure = ''
-    substituteInPlace src/config.h --replace /usr/share/gpxsee $out/share/gpxsee
-    lrelease lang/*.ts
+    lrelease gpxsee.pro
   '';
 
-  preFixup = ''
-    install -Dm755 GPXSee $out/bin/GPXSee
-
-    mkdir -p $out/share/gpxsee
-    cp pkg/maps.txt $out/share/gpxsee
+  postInstall = with stdenv; lib.optionalString isDarwin ''
+    mkdir -p $out/Applications
+    mv GPXSee.app $out/Applications
+    wrapQtApp $out/Applications/GPXSee.app/Contents/MacOS/GPXSee
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://www.gpxsee.org/;
-    description = "GPX viewer and analyzer";
+  meta = with lib; {
+    description = "GPS log file viewer and analyzer";
     longDescription = ''
-      GPXSee is a Qt-based GPS log file viewer and analyzer that supports GPX,
-      TCX, KML, FIT, IGC and NMEA files.
+      GPXSee is a Qt-based GPS log file viewer and analyzer that supports
+      all common GPS log file formats.
     '';
-    license = licenses.gpl3;
-    maintainers = [ maintainers.womfoo ];
-    platforms = platforms.linux;
+    homepage = "https://www.gpxsee.org/";
+    changelog = "https://build.opensuse.org/package/view_file/home:tumic:GPXSee/gpxsee/gpxsee.changes";
+    license = licenses.gpl3Only;
+    maintainers = with maintainers; [ womfoo sikmir ];
+    platforms = platforms.unix;
   };
 }

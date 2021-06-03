@@ -1,35 +1,42 @@
-{ stdenv, fetchFromGitHub, qtbase, qttools, qmake, libGLU_combined, openssl, zlib }:
+{ stdenv, lib, fetchFromGitHub
+, qtbase, qttools, qmake, wrapQtAppsHook
+}:
 
 stdenv.mkDerivation rec {
-  name = "librepcb-${version}";
-  version = "20180628";
+  pname = "librepcb";
+  version = "0.1.5";
 
   src = fetchFromGitHub {
-    owner = "LibrePCB";
-    repo = "LibrePCB";
+    owner  = pname;
+    repo   = pname;
+    rev    = version;
+    sha256 = "0ag8h3id2c1k9ds22rfrvyhf2vjhkv82xnrdrz4n1hnlr9566vcx";
     fetchSubmodules = true;
-    rev = "68577ecf8f39299ef4d81ff964b01c3908d1f10b";
-    sha256 = "1ca4q8b8fhp19vq5yi55sq6xlsz14ihw3i0h7rq5fw0kigpjldmz";
   };
 
-  enableParallelBuilding = true;
-
-  nativeBuildInputs = [ qmake qttools ];
-
+  nativeBuildInputs = [ qmake qttools wrapQtAppsHook ];
   buildInputs = [ qtbase ];
 
   qmakeFlags = ["-r"];
 
-  postInstall = ''
-      mkdir -p $out/share/librepcb/fontobene
-      cp share/librepcb/fontobene/newstroke.bene $out/share/librepcb/fontobene/
-    '';
+  # the build system tries to use 'git' at build time to find the HEAD hash.
+  # that's a no-no, so replace it with a quick hack. NOTE: the # adds a comment
+  # at the end of the line to remove the git call.
+  postPatch = ''
+    substituteInPlace ./libs/librepcb/common/common.pro \
+      --replace 'GIT_COMMIT_SHA' 'GIT_COMMIT_SHA="\\\"${src.rev}\\\"" # '
+  '';
 
-  meta = with stdenv.lib; {
+  postInstall = ''
+    mkdir -p $out/share/librepcb/fontobene
+    cp share/librepcb/fontobene/newstroke.bene $out/share/librepcb/fontobene/
+  '';
+
+  meta = with lib; {
     description = "A free EDA software to develop printed circuit boards";
-    homepage = http://librepcb.org/;
-    maintainers = with maintainers; [ luz ];
-    license = licenses.gpl3;
-    platforms = platforms.linux;
+    homepage    = "https://librepcb.org/";
+    maintainers = with maintainers; [ luz thoughtpolice ];
+    license     = licenses.gpl3Plus;
+    platforms   = platforms.linux;
   };
 }

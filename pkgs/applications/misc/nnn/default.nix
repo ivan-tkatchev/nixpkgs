@@ -1,31 +1,60 @@
-{ stdenv, fetchFromGitHub, pkgconfig, ncurses, readline, conf ? null }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, installShellFiles
+, makeWrapper
+, pkg-config
+, file
+, ncurses
+, readline
+, which
+# options
+, conf ? null
+, withIcons ? false
+, withNerdIcons ? false
+}:
 
-with stdenv.lib;
+# Mutually exclusive options
+assert withIcons -> withNerdIcons == false;
+assert withNerdIcons -> withIcons == false;
 
 stdenv.mkDerivation rec {
-  name = "nnn-${version}";
-  version = "1.8";
+  pname = "nnn";
+  version = "4.0";
 
   src = fetchFromGitHub {
     owner = "jarun";
-    repo = "nnn";
+    repo = pname;
     rev = "v${version}";
-    sha256 = "0sd8djig56163k0b0y4a7kg3malxlg08gayjw4zmvqaihvbbkc6v";
+    sha256 = "0cbxgss9j0bvsp3czjx1kpm9id7c5xxmjfnvjyk3pfd69ygif2kl";
   };
 
-  configFile = optionalString (conf!=null) (builtins.toFile "nnn.h" conf);
-  preBuild = optionalString (conf!=null) "cp ${configFile} nnn.h";
+  configFile = lib.optionalString (conf != null) (builtins.toFile "nnn.h" conf);
+  preBuild = lib.optionalString (conf != null) "cp ${configFile} src/nnn.h";
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ ncurses readline ];
+  nativeBuildInputs = [ installShellFiles makeWrapper pkg-config ];
+  buildInputs = [ readline ncurses ];
 
-  installFlags = [ "DESTDIR=$(out)" "PREFIX=" ];
+  makeFlags = [ "PREFIX=${placeholder "out"}" ]
+    ++ lib.optional withIcons [ "O_ICONS=1" ]
+    ++ lib.optional withNerdIcons [ "O_NERD=1" ];
 
-  meta = {
+  binPath = lib.makeBinPath [ file which ];
+
+  postInstall = ''
+    installShellCompletion --bash --name nnn.bash misc/auto-completion/bash/nnn-completion.bash
+    installShellCompletion --fish misc/auto-completion/fish/nnn.fish
+    installShellCompletion --zsh misc/auto-completion/zsh/_nnn
+
+    wrapProgram $out/bin/nnn --prefix PATH : "$binPath"
+  '';
+
+  meta = with lib; {
     description = "Small ncurses-based file browser forked from noice";
-    homepage = https://github.com/jarun/nnn;
+    homepage = "https://github.com/jarun/nnn";
+    changelog = "https://github.com/jarun/nnn/blob/v${version}/CHANGELOG";
     license = licenses.bsd2;
     platforms = platforms.all;
-    maintainers = with maintainers; [ jfrankenau ];
+    maintainers = with maintainers; [ jfrankenau Br1ght0ne ];
   };
 }

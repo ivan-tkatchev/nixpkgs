@@ -1,65 +1,47 @@
-{ pkgs
-, stdenv
-, sage-src
-, env-locations
+{ stdenv
 , sage-with-env
-, sagelib
-, python2
-, psutil
-, future
-, sphinx
-, sagenb
+, python3
 , maxima-ecl
-, networkx
-, scipy
-, sympy
-, matplotlib
-, pillow
-, ipykernel
-, jupyter_client
 , tachyon
 , jmol
-, ipywidgets
-, typing
 , cddlib
-, pybrial
 }:
 
 stdenv.mkDerivation rec {
-  version = sage-src.version;
-  name = "sagedoc-${version}";
+  version = src.version;
+  pname = "sagedoc";
+  src = sage-with-env.env.lib.src;
 
 
   # Building the documentation has many dependencies, because all documented
   # modules are imported and because matplotlib is used to produce plots.
   buildInputs = [
-    sagelib
-    python2
+    sage-with-env.env.lib
+    python3
+    maxima-ecl
+    tachyon
+    jmol
+    cddlib
+  ] ++ (with python3.pkgs; [
+    sage_docbuild
     psutil
     future
     sphinx
-    sagenb
-    maxima-ecl
-    networkx
     scipy
     sympy
     matplotlib
     pillow
+    networkx
     ipykernel
-    jupyter_client
-    tachyon
-    jmol
     ipywidgets
-    typing
-    cddlib
-    pybrial
-  ];
+    jupyter_client
+  ]);
 
   unpackPhase = ''
     export SAGE_DOC_OVERRIDE="$PWD/share/doc/sage"
     export SAGE_DOC_SRC_OVERRIDE="$PWD/docsrc"
 
-    cp -r "${sage-src}/src/doc" "$SAGE_DOC_SRC_OVERRIDE"
+    cp -r "${src}/src/doc" "$SAGE_DOC_SRC_OVERRIDE"
     chmod -R 755 "$SAGE_DOC_SRC_OVERRIDE"
   '';
 
@@ -68,7 +50,16 @@ stdenv.mkDerivation rec {
     export HOME="$TMPDIR/sage_home"
     mkdir -p "$HOME"
 
-    ${sage-with-env}/bin/sage -python -m sage_setup.docbuild \
+    # needed to link them in the sage docs using intersphinx
+    export PPLPY_DOCS=${python3.pkgs.pplpy.doc}/share/doc/pplpy
+
+    # adapted from src/doc/bootstrap (which we don't run)
+    OUTPUT_DIR="$SAGE_DOC_SRC_OVERRIDE/en/reference/repl"
+    mkdir -p "$OUTPUT_DIR"
+    OUTPUT="$OUTPUT_DIR/options.txt"
+    ${sage-with-env}/bin/sage -advanced > "$OUTPUT"
+
+    ${sage-with-env}/bin/sage --docbuild \
       --mathjax \
       --no-pdf-links \
       all html
@@ -85,7 +76,7 @@ stdenv.mkDerivation rec {
     mv html/en/_static{,.tmp}
     for _dir in `find -name _static` ; do
           rm -r $_dir
-          ln -s /share/doc/sage/html/en/_static $_dir
+          ln -rs html/en/_static $_dir
     done
     mv html/en/_static{.tmp,}
   '';

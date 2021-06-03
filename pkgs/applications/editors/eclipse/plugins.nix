@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, fetchzip, unzip }:
+{ lib, stdenv, fetchurl, fetchzip, unzip }:
 
 rec {
 
@@ -105,12 +105,11 @@ rec {
       sha256 = "1cn64xj2bm69vnn9db2xxh6kq148v83w5nx3183mrqb59ym3v9kf";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://github.com/tobiasmelcher/EclipseAceJump;
+    meta = with lib; {
+      homepage = "https://github.com/tobiasmelcher/EclipseAceJump";
       description = "Provides fast jumps to text based on initial letter";
       license = licenses.mit;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -128,12 +127,11 @@ rec {
       sha256 = "1j42l0xxzs89shqkyn91lb0gia10mifzy0i73c3n7gj7sv2ddbjq";
     };
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       homepage = "https://mihai-nita.net/java/#ePluginAEC";
       description = "Adds support for ANSI escape sequences in the Eclipse console";
       license = licenses.asl20;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -141,7 +139,7 @@ rec {
     name = "antlr-runtime-4.5.3";
 
     src = fetchurl {
-      url = "http://www.antlr.org/download/${name}.jar";
+      url = "https://www.antlr.org/download/${name}.jar";
       sha256 = "0lm78i2annlczlc2cg5xvby0g1dyl0sh1y5xc2pymjlmr67a1g4k";
     };
 
@@ -151,12 +149,11 @@ rec {
       cp -v $src $dropinDir/${name}.jar
     '';
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = "A powerful parser generator for processing structured text or binary files";
-      homepage = http://www.antlr.org/;
+      homepage = "https://www.antlr.org/";
       license = licenses.bsd3;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -164,7 +161,7 @@ rec {
     name = "antlr-runtime-4.7.1";
 
     src = fetchurl {
-      url = "http://www.antlr.org/download/${name}.jar";
+      url = "https://www.antlr.org/download/${name}.jar";
       sha256 = "07f91mjclacrvkl8a307w2abq5wcqp0gcsnh0jg90ddfpqcnsla3";
     };
 
@@ -174,12 +171,11 @@ rec {
       cp -v $src $dropinDir/${name}.jar
     '';
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = "A powerful parser generator for processing structured text or binary files";
-      homepage = http://www.antlr.org/;
+      homepage = "https://www.antlr.org/";
       license = licenses.bsd3;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -197,12 +193,11 @@ rec {
       sha256 = "03iyb6j2srq74iigmg7dk098c2svyv0ygdfql5jqr44a32n07k8q";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://andrei.gmxhome.de/anyedit/;
+    meta = with lib; {
+      homepage = "http://andrei.gmxhome.de/anyedit/";
       description = "Adds new tools to the context menu of text-based editors";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -220,12 +215,11 @@ rec {
       sha256 = "1n2rzybfcwp3ss2qi0fhd8vm38vdwav8j837lqiqlfcnvzwsk86m";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://github.com/cypher256/eclipse-encoding-plugin;
+    meta = with lib; {
+      homepage = "https://github.com/cypher256/eclipse-encoding-plugin";
       description = "Show file encoding and line ending for the active editor in the eclipse status bar";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -243,27 +237,27 @@ rec {
       sha256 = "1vmsqv32jfl7anvdkw0vir342miv5sr9df7vd1w44lf1yf97vxlw";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://andrei.gmxhome.de/bytecode/;
+    meta = with lib; {
+      homepage = "http://andrei.gmxhome.de/bytecode/";
       description = "Shows disassembled bytecode of current java editor or class file";
       license = licenses.bsd2;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
   cdt = buildEclipseUpdateSite rec {
     name = "cdt-${version}";
-    version = "9.0.1";
+    # find current version at https://www.eclipse.org/cdt/downloads.php
+    version = "10.2.0";
 
     src = fetchzip {
       stripRoot = false;
-      url = "https://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/tools/cdt/releases/9.0/${name}.zip";
-      sha256 = "0vdx0j9ci533wnk7y17qjvjyqx38hlrdw67z6pi05vfv3r6ys39x";
+      url = "https://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/tools/cdt/releases/10.2/${name}/${name}.zip";
+      sha256 = "1r30cbpbzw3dfcsn54p6sqip86dqhydhsppjgaz60b6z138vzx49";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://eclipse.org/cdt/;
+    meta = with lib; {
+      homepage = "https://eclipse.org/cdt/";
       description = "C/C++ development tooling";
       license = licenses.epl10;
       platforms = platforms.all;
@@ -281,12 +275,11 @@ rec {
       sha256 = "07fymk705x4mwq7vh2i6frsf67jql4bzrkdzhb4n74zb0g1dib60";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://eclipse-cs.sourceforge.net/;
+    meta = with lib; {
+      homepage = "https://eclipse-cs.sourceforge.net/";
       description = "Checkstyle integration into the Eclipse IDE";
       license = licenses.lgpl21;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
 
   };
@@ -305,12 +298,11 @@ rec {
       sha256 = "0wz61909bhqwzpqwll27ia0cn3anyp81haqx3rj1iq42cbl42h0y";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://eclipsecolorthemes.org/;
+    meta = with lib; {
+      homepage = "http://eclipsecolorthemes.org/";
       description = "Plugin to switch color themes conveniently and without side effects";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -338,11 +330,35 @@ rec {
 
     propagatedBuildInputs = [ zest ];
 
-    meta = with stdenv.lib; {
-      homepage = http://www2.cs.tum.edu/projects/cup/eclipse.php;
+    meta = with lib; {
+      homepage = "http://www2.cs.tum.edu/projects/cup/eclipse.php";
       description = "IDE for developing CUP based parsers";
       platforms = platforms.all;
       maintainers = [ maintainers.romildo ];
+    };
+  };
+
+  drools = buildEclipseUpdateSite rec {
+    name = "drools-${version}";
+    version = "7.17.0.Final";
+
+    src = fetchzip {
+      url = "https://download.jboss.org/drools/release/${version}/droolsjbpm-tools-distribution-${version}.zip";
+      sha512 = "2qzc1iszqfrfnw8xip78n3kp6hlwrvrr708vlmdk7nv525xhs0ssjaxriqdhcr0s6jripmmazxivv3763rnk2bfkh31hmbnckpx4r3m";
+      extraPostFetch = ''
+        # update site is a couple levels deep, alongside some other irrelevant stuff
+        cd $out;
+        find . -type f -not -path ./binaries/org.drools.updatesite/\* -exec rm {} \;
+        rmdir sources;
+        mv binaries/org.drools.updatesite/* .;
+        rmdir binaries/org.drools.updatesite binaries;
+      '';
+    };
+
+    meta = with lib; {
+      homepage = "https://www.drools.org/";
+      description = "Drools is a Business Rules Management System (BRMS) solution";
+      license = licenses.asl20;
     };
   };
 
@@ -356,35 +372,11 @@ rec {
       sha256 = "0w1kwcjh45p7msv5vpc8i6dsqwrnfmjama6vavpnxlji56jd3c43";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://www.eclemma.org/;
+    meta = with lib; {
+      homepage = "https://www.eclemma.org/";
       description = "EclEmma is a free Java code coverage tool for Eclipse";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
-    };
-  };
-
-  emacsplus = buildEclipsePlugin rec {
-    name = "emacsplus-${version}";
-    version = "4.2.0";
-
-    srcFeature = fetchurl {
-      url = "http://www.mulgasoft.com/emacsplus/e4/update-site/features/com.mulgasoft.emacsplus.feature_${version}.jar";
-      sha256 = "0wja3cd7gq8w25797fxnafvcncjnmlv8qkl5iwqj7zja2f45vka8";
-    };
-
-    srcPlugin = fetchurl {
-      url = "http://www.mulgasoft.com/emacsplus/e4/update-site/plugins/com.mulgasoft.emacsplus_${version}.jar";
-      sha256 = "08yw45nr90mlpdzim74vsvdaxj41sgpxcrqk5ia6l2dzvrqlsjs1";
-    };
-
-    meta = with stdenv.lib; {
-      homepage = http://www.mulgasoft.com/emacsplus/;
-      description = "Provides a more Emacs-like experience in the Eclipse text editors";
-      license = licenses.epl10;
-      platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -402,12 +394,27 @@ rec {
       sha256 = "10p3mrbp9wi6jhlmmc23qv7frh605a23pqsc7w96569bsfb5wa8q";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://findbugs.sourceforge.net/;
+    meta = with lib; {
+      homepage = "http://findbugs.sourceforge.net/";
       description = "Plugin that uses static analysis to look for bugs in Java code";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
+    };
+  };
+
+  freemarker = buildEclipseUpdateSite rec {
+    name = "freemarker-${version}";
+    version = "1.5.305";
+
+    src = fetchzip {
+      url = "https://github.com/ddekany/jbosstools-freemarker/releases/download/v${version}/freemarker.site-${version}.zip";
+      sha256 = "1qrhi300vk07gi14r445wvy0bvghbjd6c4k7q09pqpaxv6raiczn";
+      stripRoot = false;
+    };
+
+    meta = with lib; {
+      homepage = "https://github.com/ddekany/jbosstools-freemarker";
+      description = "Plugin that provides an editor for Apache FreeMarker files";
     };
   };
 
@@ -421,8 +428,8 @@ rec {
       sha256 = "1g77jlhfa3csaxxps1z5lasrd9l2p5ajnddnq9ra5syw8ggkdc2h";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://gnuarmeclipse.livius.net/;
+    meta = with lib; {
+      homepage = "http://gnuarmeclipse.livius.net/";
       description = "GNU ARM Eclipse Plug-ins";
       license = licenses.epl10;
       platforms = platforms.all;
@@ -459,31 +466,11 @@ rec {
 
     propagatedBuildInputs = [ antlr-runtime_4_7 ];
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = "Adds support for JSON files to Eclipse";
-      homepage = https://github.com/boothen/Json-Eclipse-Plugin;
+      homepage = "https://github.com/boothen/Json-Eclipse-Plugin";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
-    };
-  };
-
-  jdt = buildEclipseUpdateSite rec {
-    name = "jdt-${version}";
-    version = "4.8";
-
-    src = fetchzip {
-      stripRoot = false;
-      url = https://www.eclipse.org/downloads/download.php?r=1&nf=1&file=/eclipse/downloads/drops4/R-4.8-201806110500/org.eclipse.jdt-4.8.zip;
-      sha256 = "1my0d1114mx5gzxmwqlx0rcny39ly97ixlwx53ljk6qcryhdnr88";
-    };
-
-    meta = with stdenv.lib; {
-      homepage = https://www.eclipse.org/jdt/;
-      description = "Eclipse Java development tools";
-      license = licenses.epl10;
-      platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -501,12 +488,11 @@ rec {
       sha256 = "0qdzlqcjcm2i4mwhmcdml0am83z1dayrcmf37ji7vmw6iwdk1xmp";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://github.com/angelozerr/jdt-codemining;
+    meta = with lib; {
+      homepage = "https://github.com/angelozerr/jdt-codemining";
       description = "Provides JDT Java CodeMining";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -527,8 +513,8 @@ rec {
         '';
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://github.com/RustDT;
+    meta = with lib; {
+      homepage = "https://github.com/RustDT";
       description = "Rust development tooling";
       license = licenses.epl10;
       platforms = platforms.all;
@@ -544,31 +530,29 @@ rec {
       sha256 = "13xgx2rwlll0l4bs0g6gyvrx5gcc0125vzn501fdj0wv2fqxn5lw";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://scala-ide.org/;
+    meta = with lib; {
+      homepage = "http://scala-ide.org/";
       description = "The Scala IDE for Eclipse";
       license = licenses.bsd3;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
   spotbugs = buildEclipseUpdateSite rec {
     name = "spotbugs-${version}";
-    version = "3.1.5";
+    version = "3.1.11";
 
     src = fetchzip {
       stripRoot = false;
       url = "https://github.com/spotbugs/spotbugs/releases/download/${version}/eclipsePlugin.zip";
-      sha256 = "0fxdirz6ik9rqykm2lcr720apsaqgngr4c7q793rjb9b3bn30c85";
+      sha256 = "0aanqwx3gy1arpbkqd846381hiy6272lzwhfjl94x8jhfykpqqbj";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://spotbugs.github.io/;
+    meta = with lib; {
+      homepage = "https://spotbugs.github.io/";
       description = "Plugin that uses static analysis to look for bugs in Java code";
       license = licenses.lgpl21;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -586,12 +570,11 @@ rec {
       sha256 = "1j4zw6392q3q6z3pcy803k3g0p220gk1x19fs99p0rmmdz83lc8d";
     };
 
-    meta = with stdenv.lib; {
-      homepage = http://testng.org/;
+    meta = with lib; {
+      homepage = "https://testng.org/doc/";
       description = "Eclipse plugin for the TestNG testing framework";
       license = licenses.asl20;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -608,7 +591,7 @@ rec {
       sha256 = "0nyirf6km97q211cxfy01kidxac20m8ba3kk9xj73ykrhsk3cxjp";
     };
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       homepage = "https://github.com/vrapper/vrapper";
       description = "A wrapper to provide a Vim-like input scheme for moving around and editing text";
       license = licenses.gpl3;
@@ -631,12 +614,11 @@ rec {
       sha256 = "1wpyw4z28ka60z36f8m71kz1giajcm26wb9bpv18sjiqwdgx9v0z";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://github.com/oyse/yedit;
+    meta = with lib; {
+      homepage = "https://github.com/oyse/yedit";
       description = "A YAML editor plugin for Eclipse";
       license = licenses.epl10;
       platforms = platforms.all;
-      maintainers = [ maintainers.rycee ];
     };
   };
 
@@ -649,8 +631,8 @@ rec {
       sha256 = "01scn7cmcrjcp387spjm8ifgwrwwi77ypildandbisfvhj3qqs7m";
     };
 
-    meta = with stdenv.lib; {
-      homepage = https://www.eclipse.org/gef/zest/;
+    meta = with lib; {
+      homepage = "https://www.eclipse.org/gef/zest/";
       description = "The Eclipse Visualization Toolkit";
       platforms = platforms.all;
       maintainers = [ maintainers.romildo ];

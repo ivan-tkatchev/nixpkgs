@@ -1,29 +1,38 @@
-{ stdenv, buildPythonPackage, fetchPypi
-, isPy33, isPy27, isPyPy, python, pycares, asyncio, trollius }:
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, pycares
+, pythonOlder
+, typing
+}:
 
 buildPythonPackage rec {
   pname = "aiodns";
-  version = "1.1.1";
+  version = "3.0.0";
+  disabled = pythonOlder "3.6";
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "d8677adc679ce8d0ef706c14d9c3d2f27a0e0cc11d59730cdbaf218ad52dd9ea";
+  src = fetchFromGitHub {
+    owner = "saghul";
+    repo = pname;
+    rev = "aiodns-${version}";
+    sha256 = "1i91a43gsq222r8212jn4m6bxc3fl04z1mf2h7s39nqywxkggvlp";
   };
 
-  propagatedBuildInputs = with stdenv.lib; [ pycares ]
-    ++ optional isPy33 asyncio
-    ++ optional (isPy27 || isPyPy) trollius;
+  propagatedBuildInputs = [
+    pycares
+  ] ++ lib.optional (pythonOlder "3.7") [
+    typing
+  ];
 
-  checkPhase = ''
-    ${python.interpreter} tests.py
-  '';
-
-  # 'Could not contact DNS servers'
+  # Could not contact DNS servers
   doCheck = false;
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/saghul/aiodns;
-    license = licenses.mit;
+  pythonImportsCheck = [ "aiodns" ];
+
+  meta = with lib; {
     description = "Simple DNS resolver for asyncio";
+    homepage = "https://github.com/saghul/aiodns";
+    license = licenses.mit;
+    maintainers = with maintainers; [ fab ];
   };
 }

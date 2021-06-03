@@ -1,28 +1,28 @@
-{ stdenv, fetchFromGitHub, pkgconfig
+{ lib, stdenv, fetchFromGitHub, pkg-config
 , ffmpeg, gtk3, imagemagick, libarchive, libspectre, libwebp, poppler
 }:
 
 stdenv.mkDerivation (rec {
-  name = "pqiv-${version}";
-  version = "2.10.4";
+  pname = "pqiv";
+  version = "2.12";
 
   src = fetchFromGitHub {
     owner = "phillipberndt";
     repo = "pqiv";
     rev = version;
-    sha256 = "04fawc3sd625y1bbgfgwmak56pq28sm58dwn5db4h183iy3awdl9";
+    sha256 = "18nvrqmlifh4m8nfs0d19sb9d1l3a95xc89qxqdr881jcxdsgflw";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ ffmpeg gtk3 imagemagick libarchive libspectre libwebp poppler ];
 
   prePatch = "patchShebangs .";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Powerful image viewer with minimal UI";
-    homepage = http://www.pberndt.com/Programme/Linux/pqiv;
-    license = licenses.gpl3;
-    maintainers = [ maintainers.ndowens ];
+    homepage = "https://www.pberndt.com/Programme/Linux/pqiv";
+    license = licenses.gpl3Plus;
+    maintainers = [];
     platforms = platforms.linux;
   };
 })

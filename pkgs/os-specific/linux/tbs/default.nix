@@ -1,4 +1,4 @@
-{ stdenv, lib, fetchFromGitHub, kernel, kmod, perl, patchutils, perlPackages, libelf }:
+{ stdenv, lib, fetchFromGitHub, kernel, kmod, perl, patchutils, perlPackages }:
 let
 
   media = fetchFromGitHub rec {
@@ -21,7 +21,7 @@ in stdenv.mkDerivation {
   name = "tbs-2018.04.18-${kernel.version}";
 
   srcs = [ media build ];
-  sourceRoot = "${build.name}";
+  sourceRoot = build.name;
 
   preConfigure = ''
     make dir DIR=../${media.name}
@@ -49,15 +49,15 @@ in stdenv.mkDerivation {
   ++ kernel.moduleBuildDependencies;
 
    postInstall = ''
-    xz $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/media/dvb-core/dvb-core.ko
-    xz $out/lib/modules/${kernel.modDirVersion}/kernel/drivers/media/v4l2-core/videodev.ko
+    find $out/lib/modules/${kernel.modDirVersion} -name "*.ko" -exec xz {} \;
   '';
 
   meta = with lib; {
-    homepage = https://www.tbsdtv.com/;
+    homepage = "https://www.tbsdtv.com/";
     description = "Linux driver for TBSDTV cards";
     license = licenses.gpl2;
     maintainers = with maintainers; [ ck3d ];
     priority = -1;
+    broken = lib.versionAtLeast kernel.version "4.18";
   };
 }

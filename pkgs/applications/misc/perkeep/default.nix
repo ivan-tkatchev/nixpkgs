@@ -1,72 +1,59 @@
-{ stdenv, lib, go, fetchzip, git, fetchpatch, fetchFromGitHub, fetchgit }:
+{ buildGoModule, fetchurl, fetchFromGitHub, lib }:
 
-# When perkeep is updated all deps in the let block should be removed
 let
-  gopherjs = fetchFromGitHub {
-    owner = "gopherjs";
-    repo = "gopherjs";
-    # Rev matching https://github.com/perkeep/perkeep/commit/2e46fca5cc1179dbd90bec49fec3870e6eca6c45
-    rev = "b40cd48c38f9a18eb3db20d163bad78de12cf0b7";
-    sha256 = "0kniz8dg5bymb03qriizza1h3gpymf97vsgq9vd222282pdj0vyc";
+  gouiJS = fetchurl {
+    url = "https://storage.googleapis.com/perkeep-release/gopherjs/goui.js";
+    sha256 = "0xbkdpd900gnmzj8p0x38dn4sv170pdvgzcvzsq70s80p6ykkh6g";
   };
 
-  gotool = fetchFromGitHub {
-    owner = "kisielk";
-    repo = "gotool";
-    rev = "80517062f582ea3340cd4baf70e86d539ae7d84d";
-    sha256 = "14af2pa0ssyp8bp2mvdw184s5wcysk6akil3wzxmr05wwy951iwn";
+  publisherJS = fetchurl {
+    url = "https://storage.googleapis.com/perkeep-release/gopherjs/publisher.js";
+    sha256 = "09hd7p0xscqnh612jbrjvh3njmlm4292zd5sbqx2lg0aw688q8p2";
   };
 
-  gcimporter15 = fetchgit {
-    url = "https://go.googlesource.com/tools";
-    rev = "f8f2f88271bf2c23f28a09d288d26507a9503c97";
-    sha256 = "1pchwizx1sdli59g8r0p4djfjkchcvh8msfpp3ibvz3xl250jh0n";
+  packages = [
+    "perkeep.org/server/perkeepd"
+    "perkeep.org/cmd/pk"
+    "perkeep.org/cmd/pk-get"
+    "perkeep.org/cmd/pk-put"
+    "perkeep.org/cmd/pk-mount"
+  ];
+
+in buildGoModule rec {
+  pname = "perkeep";
+  version = "0.11";
+
+  src = fetchFromGitHub {
+    owner = "perkeep";
+    repo = "perkeep";
+    rev = version;
+    sha256 = "07j5gplk4kcrbazyg4m4bwggzlz5gk89h90r14jvfcpms7v5nrll";
   };
 
-in
-stdenv.mkDerivation rec {
-  name = "perkeep-${version}";
-  version = "20170505";
+  vendorSha256 = "1af9a6r9qfrak0n5xyv9z8n7gn7xw2sdjn4s9bwwidkrdm81iq6b";
+  deleteVendor = true; # Vendor is out of sync with go.mod
 
-  src = fetchzip {
-    url = "https://perkeep.org/dl/monthly/camlistore-${version}-src.zip";
-    sha256 = "1vliyvkyzmhdi6knbh8rdsswmz3h0rpxdpq037jwbdbkjccxjdwa";
-  };
-
-  # When perkeep is updated postPatch should be removed
-  postPatch = ''
-    rm -r ./vendor/github.com/gopherjs/gopherjs/
-    cp -a ${gopherjs} ./vendor/github.com/gopherjs/gopherjs
-    mkdir -p ./vendor/github.com/kisielk/
-    cp -a ${gotool} ./vendor/github.com/kisielk/gotool
-    mkdir -p ./vendor/golang.org/x/tools/go
-    cp -a ${gcimporter15}/go/gcimporter15 ./vendor/golang.org/x/tools/go/gcimporter15
-
-    substituteInPlace vendor/github.com/gopherjs/gopherjs/build/build.go \
-      --replace '"github.com/fsnotify/fsnotify"' 'fsnotify "camlistore.org/pkg/misc/fakefsnotify"'
-
-    substituteInPlace ./make.go \
-      --replace "goVersionMinor  = '8'" "goVersionMinor  = '9'" \
-      --replace "gopherJSGoMinor = '8'" "gopherJSGoMinor = '9'"
-  '';
-
-  buildInputs = [ git go ];
-
-  goPackagePath = "";
   buildPhase = ''
-    go run make.go
+    cd "$NIX_BUILD_TOP/source"
+
+    # Skip network fetches
+    cp ${publisherJS} app/publisher/publisher.js
+    cp ${gouiJS} server/perkeepd/ui/goui.js
+
+    go run make.go -offline=true -targets=${lib.concatStringsSep "," packages}
   '';
 
-  installPhase = ''
-    mkdir -p $out/bin
-    cp bin/* $out/bin
+  # genfileembed gets built regardless of -targets, to embed static
+  # content into the Perkeep binaries. Remove it in post-install to
+  # avoid polluting paths.
+  postInstall = ''
+    rm -f $out/bin/genfileembed
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A way of storing, syncing, sharing, modelling and backing up content (née Camlistore)";
-    homepage = https://perkeep.org;
+    homepage = "https://perkeep.org";
     license = licenses.asl20;
-    maintainers = with maintainers; [ cstrahan ];
-    platforms = platforms.unix;
+    maintainers = with maintainers; [ cstrahan danderson kalbasit ];
   };
 }

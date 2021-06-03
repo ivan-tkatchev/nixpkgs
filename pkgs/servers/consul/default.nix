@@ -1,31 +1,49 @@
-{ stdenv, lib, buildGoPackage, consul-ui, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub, nixosTests }:
 
-buildGoPackage rec {
-  name = "consul-${version}";
-  version = "0.9.3";
+buildGoModule rec {
+  pname = "consul";
+  version = "1.9.5";
   rev = "v${version}";
 
-  goPackagePath = "github.com/hashicorp/consul";
-
+  # Note: Currently only release tags are supported, because they have the Consul UI
+  # vendored. See
+  #   https://github.com/NixOS/nixpkgs/pull/48714#issuecomment-433454834
+  # If you want to use a non-release commit as `src`, you probably want to improve
+  # this derivation so that it can build the UI's JavaScript from source.
+  # See https://github.com/NixOS/nixpkgs/pull/49082 for something like that.
+  # Or, if you want to patch something that doesn't touch the UI, you may want
+  # to apply your changes as patches on top of a release commit.
   src = fetchFromGitHub {
     owner = "hashicorp";
-    repo = "consul";
+    repo = pname;
     inherit rev;
-    sha256 = "1176frp7kimpycsmz9wrbizf46jgxr8jq7hz5w4q1x90lswvrxv3";
+    sha256 = "sha256-CKezHuCbL1I79gDz7ZQiSgPbSXo0NtssQro2MqqmeXw=";
   };
 
-  # Keep consul.ui for backward compatability
-  passthru.ui = consul-ui;
+  passthru.tests.consul = nixosTests.consul;
+
+  # This corresponds to paths with package main - normally unneeded but consul
+  # has a split module structure in one repo
+  subPackages = ["." "connect/certgen"];
+
+  vendorSha256 = "sha256-YqrW3PeFv1Y6lmjVmMMP0SZao57iPqfut3a1afIWkI0=";
+
+  doCheck = false;
+
+  deleteVendor = true;
 
   preBuild = ''
-    buildFlagsArray+=("-ldflags" "-X github.com/hashicorp/consul/version.GitDescribe=v${version} -X github.com/hashicorp/consul/version.Version=${version} -X github.com/hashicorp/consul/version.VersionPrerelease=")
+    buildFlagsArray+=("-ldflags"
+                      "-X github.com/hashicorp/consul/version.GitDescribe=v${version}
+                       -X github.com/hashicorp/consul/version.Version=${version}
+                       -X github.com/hashicorp/consul/version.VersionPrerelease=")
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Tool for service discovery, monitoring and configuration";
-    homepage = https://www.consul.io/;
+    homepage = "https://www.consul.io/";
     platforms = platforms.linux ++ platforms.darwin;
     license = licenses.mpl20;
-    maintainers = with maintainers; [ pradeepchhetri ];
+    maintainers = with maintainers; [ pradeepchhetri vdemeester nh2 ];
   };
 }

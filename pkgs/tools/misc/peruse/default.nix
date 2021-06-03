@@ -1,31 +1,55 @@
-{
-  mkDerivation, fetchFromGitHub, fetchurl, lib,
-  extra-cmake-modules, kdoctools, wrapGAppsHook,
-  baloo, karchive, kconfig, kcrash, kfilemetadata, kinit, kirigami2, knewstuff, plasma-framework
+{ mkDerivation
+, fetchFromGitHub
+, lib
+, extra-cmake-modules
+, kdoctools
+, wrapGAppsHook
+, baloo
+, karchive
+, kconfig
+, kcrash
+, kfilemetadata
+, kinit
+, kirigami2
+, knewstuff
+, plasma-framework
 }:
 
-let
+mkDerivation rec {
   pname = "peruse";
-  version = "1.2.20180219";
-
-in mkDerivation rec {
-  name = "${pname}-${version}";
+  version = "1.2.20200208";
 
   # The last formal release from 2016 uses kirigami1 which is deprecated
   src = fetchFromGitHub {
-    owner  = "KDE";
-    repo   = pname;
-    rev    = "4125d3149c45d196600258686610de701130113d";
-    sha256 = "1x8in7z17gzgiibshw7xfs6m6bhr3n5fys3nlpab77nm0dl3f4r5";
+    owner = "KDE";
+    repo = pname;
+    rev = "4a1b3f954d2fe7e4919c0c5dbee1917776da582e";
+    sha256 = "1s5yy240x4cvrk93acygnrp5m10xp7ln013gdfbm0r5xvd8xy19k";
   };
 
-  nativeBuildInputs = [ extra-cmake-modules kdoctools wrapGAppsHook ];
+  nativeBuildInputs = [
+    extra-cmake-modules
+    kdoctools
+    wrapGAppsHook
+  ];
 
-  propagatedBuildInputs = [ baloo karchive kconfig kcrash kfilemetadata kinit kirigami2 knewstuff plasma-framework ];
+  propagatedBuildInputs = [
+    baloo
+    karchive
+    kconfig
+    kcrash
+    kfilemetadata
+    kinit
+    kirigami2
+    knewstuff
+    plasma-framework
+  ];
 
-  pathsToLink = [ "/etc/xdg/peruse.knsrc"];
+  pathsToLink = [ "/etc/xdg/peruse.knsrc" ];
 
   meta = with lib; {
+    description = "A comic book reader";
+    homepage = "https://peruse.kde.org";
     license = licenses.gpl2;
     maintainers = with maintainers; [ peterhoeg ];
   };

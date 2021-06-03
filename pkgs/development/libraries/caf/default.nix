@@ -1,23 +1,36 @@
-{ stdenv, fetchFromGitHub, fetchpatch, cmake }:
+{ lib, stdenv, fetchFromGitHub, cmake, openssl }:
 
 stdenv.mkDerivation rec {
-  name = "actor-framework-${version}";
-  version = "0.15.7";
+  pname = "actor-framework";
+  version = "0.18.3";
 
   src = fetchFromGitHub {
     owner = "actor-framework";
     repo = "actor-framework";
-    rev = "${version}";
-    sha256 = "0qmb18k162xdvf8z03mybjazkwb2vqda5xd1qh5bwkvxracwq3sb";
+    rev = version;
+    sha256 = "sha256-9oQVsfh2mUVr64PjNXYD1wRBNJ8dCLO9eI5WnZ1SSww=";
   };
 
   nativeBuildInputs = [ cmake ];
 
-  meta = with stdenv.lib; {
+  buildInputs = [ openssl ];
+
+  cmakeFlags = [
+    "-DCAF_ENABLE_EXAMPLES:BOOL=OFF"
+  ];
+
+  doCheck = true;
+  checkTarget = "test";
+  preCheck = ''
+    export LD_LIBRARY_PATH=$PWD/libcaf_core:$PWD/libcaf_io
+    export DYLD_LIBRARY_PATH=$PWD/libcaf_core:$PWD/libcaf_io
+  '';
+
+  meta = with lib; {
     description = "An open source implementation of the actor model in C++";
-    homepage = http://actor-framework.org/;
+    homepage = "http://actor-framework.org/";
     license = licenses.bsd3;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ bobakker ];
+    maintainers = with maintainers; [ bobakker tobim ];
   };
 }

@@ -1,29 +1,45 @@
-{ stdenv, buildPythonPackage, fetchPypi
-, setuptools_scm, pathpy, nbconvert
-, pytest }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, nbconvert
+, pathpy
+, pytestCheckHook
+, setuptools-scm
+}:
 
 buildPythonPackage rec {
   pname = "zetup";
-  version = "0.2.43";
+  version = "0.2.64";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "ee92ba93a03336962525536f237ae0decf99a9b5d484ba34a3cf06ef017dae8e";
+    sha256 = "b8a9bdcfa4b705d72b55b218658bc9403c157db7b57a14158253c98d03ab713d";
   };
 
-  checkPhase = ''
-    py.test test
+  # Python > 3.7 compatibility
+  postPatch = ''
+    substituteInPlace zetup/zetup_config.py \
+      --replace "'3.7']" "'3.7', '3.8', '3.9', '3.10']"
   '';
 
-  checkInputs = [ pytest pathpy nbconvert ];
-  propagatedBuildInputs = [ setuptools_scm ];
+  checkPhase = ''
+    py.test test -k "not TestObject" --deselect=test/test_zetup_config.py::test_classifiers
+  '';
 
-  meta = with stdenv.lib; {
-    description = ''
-      Zimmermann's Extensible Tools for Unified Project setups
-    '';
-    homepage = https://github.com/zimmermanncode/zetup;
+  propagatedBuildInputs = [ setuptools-scm ];
+
+  checkInputs = [
+    pathpy
+    nbconvert
+    pytestCheckHook
+  ];
+
+  pythonImportsCheck = [ "zetup" ];
+
+  meta = with lib; {
+    description = "Zimmermann's Extensible Tools for Unified Project setups";
+    homepage = "https://github.com/zimmermanncode/zetup";
     license = licenses.gpl3Plus;
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

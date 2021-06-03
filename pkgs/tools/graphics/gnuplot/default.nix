@@ -1,8 +1,7 @@
-{ lib, stdenv, fetchurl, makeWrapper, pkgconfig, texinfo
+{ lib, stdenv, fetchurl, makeWrapper, pkg-config, texinfo
 , cairo, gd, libcerf, pango, readline, zlib
 , withTeXLive ? false, texlive
 , withLua ? false, lua
-, emacs ? null
 , libX11 ? null
 , libXt ? null
 , libXpm ? null
@@ -12,22 +11,23 @@
 , fontconfig ? null
 , gnused ? null
 , coreutils ? null
-, withQt ? false, qttools, qtbase, qtsvg
+, withQt ? false, mkDerivation, qttools, qtbase, qtsvg
 }:
 
 assert libX11 != null -> (fontconfig != null && gnused != null && coreutils != null);
 let
   withX = libX11 != null && !aquaterm && !stdenv.isDarwin;
 in
-stdenv.mkDerivation rec {
-  name = "gnuplot-5.2.4";
+(if withQt then mkDerivation else stdenv.mkDerivation) rec {
+  pname = "gnuplot";
+  version = "5.4.1";
 
   src = fetchurl {
-    url = "mirror://sourceforge/gnuplot/${name}.tar.gz";
-    sha256 = "1jvh8xmd2cvrhlsg88kxwh55wkwx31sg50v1n59slfippl0g058m";
+    url = "mirror://sourceforge/gnuplot/${pname}-${version}.tar.gz";
+    sha256 = "03jrqs5lvxmbbz2c4g17dn2hrxqwd3hfadk9q8wbkbkyas2h8sbb";
   };
 
-  nativeBuildInputs = [ makeWrapper pkgconfig texinfo ] ++ lib.optional withQt qttools;
+  nativeBuildInputs = [ makeWrapper pkg-config texinfo ] ++ lib.optional withQt qttools;
 
   buildInputs =
     [ cairo gd libcerf pango readline zlib ]
@@ -48,20 +48,33 @@ stdenv.mkDerivation rec {
     (if aquaterm then "--with-aquaterm" else "--without-aquaterm")
   ];
 
+  CXXFLAGS = lib.optionalString (stdenv.isDarwin && withQt) "-std=c++11";
+
   postInstall = lib.optionalString withX ''
     wrapProgram $out/bin/gnuplot \
        --prefix PATH : '${gnused}/bin' \
        --prefix PATH : '${coreutils}/bin' \
        --prefix PATH : '${fontconfig.bin}/bin' \
        --run '. ${./set-gdfontpath-from-fontconfig.sh}'
+  '' + lib.optionalString (stdenv.isDarwin && withQt) ''
+     wrapQtApp $out/bin/gnuplot
   '';
 
   enableParallelBuilding = true;
 
   meta = with lib; {
-    homepage = http://www.gnuplot.info/;
+    homepage = "http://www.gnuplot.info/";
     description = "A portable command-line driven graphing utility for many platforms";
     platforms = platforms.linux ++ platforms.darwin;
+    license = {
+      # Essentially a BSD license with one modifaction:
+      # Permission to modify the software is granted, but not the right to
+      # distribute the complete modified source code.  Modifications are to
+      # be distributed as patches to the released version.  Permission to
+      # distribute binaries produced by compiling modified sources is granted,
+      # provided you: ...
+      url = "https://sourceforge.net/p/gnuplot/gnuplot-main/ci/master/tree/Copyright";
+    };
     maintainers = with maintainers; [ lovek323 ];
   };
 }

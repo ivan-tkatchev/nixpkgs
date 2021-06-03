@@ -1,14 +1,15 @@
-{ stdenv, alsaLib, atk, cairo, cups, dbus, dpkg, expat, fontconfig, freetype
-, fetchurl, GConf, gdk_pixbuf, glib, gtk2, libpulseaudio, makeWrapper, nspr
+{ lib, stdenv, alsaLib, atk, at-spi2-atk, cairo, cups, dbus, dpkg, expat, fontconfig, freetype
+, fetchurl, GConf, gdk-pixbuf, glib, gtk2, gtk3, libpulseaudio, makeWrapper, nspr
 , nss, pango, udev, xorg
 }:
 
 let
-  version = "4.5.0";
+  version = "4.7.1";
 
   deps = [
     alsaLib
     atk
+    at-spi2-atk
     cairo
     cups
     dbus
@@ -16,9 +17,10 @@ let
     fontconfig
     freetype
     GConf
-    gdk_pixbuf
+    gdk-pixbuf
     glib
     gtk2
+    gtk3
     libpulseaudio
     nspr
     nss
@@ -42,15 +44,16 @@ let
 in
 
 stdenv.mkDerivation {
-  name = "google-play-music-desktop-player-${version}";
+  pname = "google-play-music-desktop-player";
+  inherit version;
 
   src = fetchurl {
     url = "https://github.com/MarshallOfSound/Google-Play-Music-Desktop-Player-UNOFFICIAL-/releases/download/v${version}/google-play-music-desktop-player_${version}_amd64.deb";
-    sha256 = "06h9g1yhd5q7gg8v55q143fr65frxg0khfgckr03gsaw0swin51q";
+    sha256 = "1ljm9c5sv6wa7pa483yq03wq9j1h1jdh8363z5m2imz407yzgm5r";
   };
 
   dontBuild = true;
-  buildInputs = [ dpkg makeWrapper ];
+  nativeBuildInputs = [ dpkg makeWrapper ];
 
   unpackPhase = ''
     dpkg -x $src .
@@ -66,14 +69,14 @@ stdenv.mkDerivation {
 
     wrapProgram $out/bin/google-play-music-desktop-player \
       --prefix LD_LIBRARY_PATH : "$out/share/google-play-music-desktop-player" \
-      --prefix LD_LIBRARY_PATH : "${stdenv.lib.makeLibraryPath deps}"
+      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath deps}"
   '';
 
   meta = {
-    homepage = https://www.googleplaymusicdesktopplayer.com/;
-    description = "A beautiful cross platform Desktop Player for Google Play Music";
-    license = stdenv.lib.licenses.mit;
+    homepage = "https://www.googleplaymusicdesktopplayer.com/";
+    description = "A beautiful cross platform Desktop Player for Google Play Music and YouTube Music";
+    license = lib.licenses.mit;
     platforms = [ "x86_64-linux" ];
-    maintainers = [ stdenv.lib.maintainers.SuprDewd ];
+    maintainers = with lib.maintainers; [ anna328p SuprDewd ];
   };
 }

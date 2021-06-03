@@ -1,36 +1,34 @@
-{ stdenv, fetchurl, pkgconfig, intltool, itstool, wrapGAppsHook
-, python3Packages, gst, gtk3, hicolor-icon-theme
-, gobjectIntrospection, librsvg, gnome3, libnotify
-, meson, ninja
+{ lib
+, fetchurl
+, pkg-config
+, gettext
+, itstool
+, python3
+, wrapGAppsHook
+, python3Packages
+, gst_all_1
+, gtk3
+, gobject-introspection
+, libpeas
+, librsvg
+, gnome
+, libnotify
+, gsound
+, meson
+, ninja
+, gsettings-desktop-schemas
 }:
 
-let
-  version = "0.99";
-
-  # gst-transcoder will eventually be merged with gstreamer (according to
-  # gst-transcoder 1.8.0 release notes). For now the only user is pitivi so we
-  # don't bother exposing the package to all of nixpkgs.
-  gst-transcoder = stdenv.mkDerivation rec {
-    version = "1.12.2";
-    name = "gst-transcoder-${version}";
-    src = fetchurl {
-      name = "${name}.tar.gz";
-      url = "https://github.com/pitivi/gst-transcoder/archive/${version}.tar.gz";
-      sha256 = "0cnwmrsd321s02ff91m3j27ydj7f8wks0jvmp5admlhka6z7zxm9";
-    };
-    nativeBuildInputs = [ pkgconfig meson ninja gobjectIntrospection ];
-    buildInputs = with gst; [ gstreamer gst-plugins-base ];
-  };
-
-in python3Packages.buildPythonApplication rec {
-  name = "pitivi-${version}";
-
-  src = fetchurl {
-    url = "mirror://gnome/sources/pitivi/${gnome3.versionBranch version}/${name}.tar.xz";
-    sha256 = "0z4gvcr0cvyz2by47f36nqf7x2kfv9wn382w9glhs7l0d7b2zl69";
-  };
+python3Packages.buildPythonApplication rec {
+  pname = "pitivi";
+  version = "2021.01";
 
   format = "other";
+
+  src = fetchurl {
+    url = "mirror://gnome/sources/pitivi/${lib.versions.major version}/${pname}-${version}.tar.xz";
+    sha256 = "0krzsrv19v3mwhbsm72ica6m3p8ijy0lbd0c3s87yd7pmbwld2c1";
+  };
 
   patches = [
     # By default, the build picks up environment variables like PYTHONPATH
@@ -39,35 +37,67 @@ in python3Packages.buildPythonApplication rec {
     ./prevent-closure-contamination.patch
   ];
 
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+    gettext
+    itstool
+    python3
+    wrapGAppsHook
+  ];
+
+  buildInputs = [
+    gobject-introspection
+    gtk3
+    libpeas
+    librsvg
+    gnome.gnome-desktop
+    gsound
+    gnome.adwaita-icon-theme
+    gsettings-desktop-schemas
+    libnotify
+  ] ++ (with gst_all_1; [
+    gstreamer
+    gst-editing-services
+    gst-plugins-base
+    (gst-plugins-good.override { gtkSupport = true; })
+    gst-plugins-bad
+    gst-plugins-ugly
+    gst-libav
+    gst-devtools
+  ]);
+
+  pythonPath = with python3Packages; [
+    pygobject3
+    gst-python
+    pyxdg
+    numpy
+    pycairo
+    matplotlib
+    dbus-python
+  ];
+
   postPatch = ''
     patchShebangs ./getenvvar.py
   '';
 
-  nativeBuildInputs = [ meson ninja pkgconfig intltool itstool wrapGAppsHook ];
-
-  buildInputs = [
-    gobjectIntrospection gtk3 librsvg gnome3.gnome-desktop gnome3.gsound
-    gnome3.defaultIconTheme
-    gnome3.gsettings-desktop-schemas libnotify
-    gst-transcoder
-  ] ++ (with gst; [
-    gstreamer gst-editing-services
-    gst-plugins-base (gst-plugins-good.override { gtkSupport = true; })
-    gst-plugins-bad gst-plugins-ugly gst-libav gst-validate
-  ]);
-
-  pythonPath = with python3Packages; [ pygobject3 gst-python pyxdg numpy pycairo matplotlib dbus-python ];
+  # Fixes error
+  #     Couldn’t recognize the image file format for file ".../share/pitivi/pixmaps/asset-proxied.svg"
+  # at startup, see https://github.com/NixOS/nixpkgs/issues/56943
+  # and https://github.com/NixOS/nixpkgs/issues/89691#issuecomment-714398705.
+  strictDeps = false;
 
   passthru = {
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = "pitivi";
       versionPolicy = "none"; # we are using dev version, since the stable one is too old
     };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Non-Linear video editor utilizing the power of GStreamer";
-    homepage = http://pitivi.org/;
+    homepage = "http://pitivi.org/";
     longDescription = ''
       Pitivi is a video editor built upon the GStreamer Editing Services.
       It aims to be an intuitive and flexible application

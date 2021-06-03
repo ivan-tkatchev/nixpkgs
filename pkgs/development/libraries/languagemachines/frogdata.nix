@@ -1,7 +1,5 @@
-{ stdenv, fetchurl
-, automake, autoconf, libtool, pkgconfig, autoconf-archive
-, libxml2, icu
-, languageMachines
+{ lib, stdenv, fetchurl
+, automake, autoconf, libtool, pkg-config, autoconf-archive
 }:
 
 let
@@ -13,7 +11,7 @@ stdenv.mkDerivation {
   version = release.version;
   src = fetchurl { inherit (release) url sha256;
                    name = "frogdata-${release.version}.tar.gz"; };
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ automake autoconf libtool autoconf-archive
                 ];
 
@@ -21,9 +19,9 @@ stdenv.mkDerivation {
     sh bootstrap.sh
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Data for Frog, a Tagger-Lemmatizer-Morphological-Analyzer-Dependency-Parser for Dutch";
-    homepage    = https://languagemachines.github.io/frog;
+    homepage    = "https://languagemachines.github.io/frog";
     license     = licenses.gpl3;
     platforms   = platforms.all;
     maintainers = with maintainers; [ roberth ];

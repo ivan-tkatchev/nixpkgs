@@ -1,11 +1,10 @@
 { stdenv
+, pkgsHostHost
 , callPackage
 , fetchgit
 , ghcjsSrcJson ? null
 , ghcjsSrc ? fetchgit (builtins.fromJSON (builtins.readFile ghcjsSrcJson))
 , bootPkgs
-, alex
-, happy
 , stage0
 , haskellLib
 , cabal-install
@@ -13,10 +12,9 @@
 , makeWrapper
 , xorg
 , gmp
-, pkgconfig
+, pkg-config
 , gcc
 , lib
-, nodePackages
 , ghcjsDepOverrides ? (_:_:{})
 , haskell
 }:
@@ -24,8 +22,8 @@
 let
   passthru = {
     configuredSrc = callPackage ./configured-ghcjs-src.nix {
-      inherit ghcjsSrc alex happy;
-      inherit (bootPkgs) ghc;
+      inherit ghcjsSrc;
+      inherit (bootPkgs) ghc alex happy;
     };
     genStage0 = callPackage ./mk-stage0.nix { inherit (passthru) configuredSrc; };
     bootPkgs = bootPkgs.extend (lib.foldr lib.composeExtensions (_:_:{}) [
@@ -34,18 +32,21 @@ let
         inherit (self) callPackage;
       })
 
-      (callPackage ./common-overrides.nix { inherit haskellLib alex happy; })
+      (callPackage ./common-overrides.nix {
+        inherit haskellLib;
+      })
       ghcjsDepOverrides
     ]);
 
     targetPrefix = "";
     inherit bootGhcjs;
     inherit (bootGhcjs) version;
+    ghcVersion = bootPkgs.ghc.version;
     isGhcjs = true;
 
     enableShared = true;
 
-    socket-io = nodePackages."socket.io";
+    socket-io = pkgsHostHost.nodePackages."socket.io";
 
     # Relics of the old GHCJS build system
     stage1Packages = [];
@@ -59,7 +60,7 @@ let
   };
 
   bootGhcjs = haskellLib.justStaticExecutables passthru.bootPkgs.ghcjs;
-  libexec = "${bootGhcjs}/libexec/${builtins.replaceStrings ["darwin" "i686"] ["osx" "i386"] stdenv.system}-${passthru.bootPkgs.ghc.name}/${bootGhcjs.name}";
+  libexec = "${bootGhcjs}/libexec/${builtins.replaceStrings ["darwin" "i686"] ["osx" "i386"] stdenv.buildPlatform.system}-${passthru.bootPkgs.ghc.name}/${bootGhcjs.name}";
 
 in stdenv.mkDerivation {
     name = bootGhcjs.name;
@@ -72,7 +73,7 @@ in stdenv.mkDerivation {
       makeWrapper
       xorg.lndir
       gmp
-      pkgconfig
+      pkg-config
     ] ++ lib.optionals stdenv.isDarwin [
       gcc # https://github.com/ghcjs/ghcjs/issues/663
     ];
@@ -102,4 +103,7 @@ in stdenv.mkDerivation {
     inherit passthru;
 
     meta.platforms = passthru.bootPkgs.ghc.meta.platforms;
+    meta.maintainers = [lib.maintainers.elvishjerricco];
+    meta.hydraPlatforms = [];
+    meta.broken = true;    # https://hydra.nixos.org/build/129701778
   }

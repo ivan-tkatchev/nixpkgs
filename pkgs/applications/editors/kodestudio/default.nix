@@ -1,6 +1,6 @@
-{ stdenv, lib, callPackage, fetchurl, makeDesktopItem, makeWrapper
+{ stdenv, lib, fetchurl, makeDesktopItem, makeWrapper
 , # Patchelf dependencies:
-  alsaLib, atomEnv, boehmgc, flac, libogg, libvorbis, libXScrnSaver, libGLU_combined
+  alsaLib, atomEnv, boehmgc, flac, libogg, libvorbis, libXScrnSaver, libGLU, libGL
 , openssl, xorg, zlib
 }:
 
@@ -8,27 +8,29 @@ let
 
   version = "17.1";
 
-  sha256 = if stdenv.system == "x86_64-linux"  then "1kddisnvlk48jip6k59mw3wlkrl7rkck2lxpaghn0gfx02cvms5f"
-      else if stdenv.system == "i686-cygwin"   then "1izp42afrlh4yd322ax9w85ki388gnkqfqbw8dwnn4k3j7r5487z"
-      else throw "Unsupported system: ${stdenv.system}";
+  sha256 = if stdenv.hostPlatform.system == "x86_64-linux"  then "1kddisnvlk48jip6k59mw3wlkrl7rkck2lxpaghn0gfx02cvms5f"
+      else if stdenv.hostPlatform.system == "i686-cygwin"   then "1izp42afrlh4yd322ax9w85ki388gnkqfqbw8dwnn4k3j7r5487z"
+      else throw "Unsupported system: ${stdenv.hostPlatform.system}";
 
   urlBase = "https://github.com/Kode/KodeStudio/releases/download/v${version}/KodeStudio-";
 
-  urlStr = if stdenv.system == "x86_64-linux"  then urlBase + "linux64.tar.gz"
-      else if stdenv.system == "i686-cygwin"   then urlBase + "win32.zip"
-      else throw "Unsupported system: ${stdenv.system}";
+  urlStr = if stdenv.hostPlatform.system == "x86_64-linux"  then urlBase + "linux64.tar.gz"
+      else if stdenv.hostPlatform.system == "i686-cygwin"   then urlBase + "win32.zip"
+      else throw "Unsupported system: ${stdenv.hostPlatform.system}";
 
 in
 
-  stdenv.mkDerivation rec {
-    name = "kodestudio-${version}";
+  stdenv.mkDerivation {
+    pname = "kodestudio";
+    inherit version;
 
     src = fetchurl {
         url = urlStr;
         inherit sha256;
     };
 
-    buildInputs = [ makeWrapper libXScrnSaver ];
+    nativeBuildInputs = [ makeWrapper ];
+    buildInputs = [ libXScrnSaver ];
 
     desktopItem = makeDesktopItem {
       name = "kodestudio";
@@ -47,7 +49,7 @@ in
       cp -r ./* $out
     '';
 
-    postFixup = lib.optionalString (stdenv.system == "i686-linux" || stdenv.system == "x86_64-linux") ''
+    postFixup = lib.optionalString (stdenv.hostPlatform.system == "i686-linux" || stdenv.hostPlatform.system == "x86_64-linux") ''
       # Patch Binaries
       patchelf \
           --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
@@ -55,7 +57,7 @@ in
           $out/kodestudio
       patchelf \
           --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
-          --set-rpath ".:${stdenv.cc.libc}/lib:${xorg.libXinerama}/lib:${xorg.libX11}/lib:${alsaLib}/lib:${libGLU_combined}/lib:${openssl.out}/lib" \
+          --set-rpath ".:${stdenv.cc.libc}/lib:${xorg.libXinerama}/lib:${xorg.libX11}/lib:${alsaLib}/lib:${libGL}/lib:${libGLU}/lib:${openssl.out}/lib" \
           $out/resources/app/extensions/krom/Krom/linux/Krom
       patchelf \
           --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
@@ -110,10 +112,10 @@ in
 
       # Wrap preload libXss
       wrapProgram $out/bin/kodestudio \
-          --prefix LD_PRELOAD : ${stdenv.lib.makeLibraryPath [ libXScrnSaver ]}/libXss.so.1
+          --prefix LD_PRELOAD : ${lib.makeLibraryPath [ libXScrnSaver ]}/libXss.so.1
     '';
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = ''
         An IDE for Kha based on Visual Studio Code
       '';
@@ -124,8 +126,8 @@ in
         (with JavaScript coming soon). Using Kha or Kore you can access all
         hardware at the lowest possible level in a completely portable way.
       '';
-      homepage = http://kode.tech/;
-      downloadPage = https://github.com/Kode/KodeStudio/releases;
+      homepage = "http://kode.tech/";
+      downloadPage = "https://github.com/Kode/KodeStudio/releases";
       license = licenses.mit;
       maintainers = [ maintainers.patternspandemic ];
       platforms = [ "x86_64-linux" "i686-cygwin" ];

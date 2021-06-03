@@ -1,47 +1,49 @@
-{ stdenv, fetchurl, nasm
-, alsaLib, flac, fluidsynth, freetype, libjpeg, libmad, libmpeg2, libogg, libvorbis, libGLU_combined, SDL2, zlib
-, hostPlatform
+{ lib, stdenv, fetchurl, nasm
+, alsaLib, curl, flac, fluidsynth, freetype, libjpeg, libmad, libmpeg2, libogg, libvorbis, libGLU, libGL, SDL2, zlib
+, Cocoa, AudioToolbox, Carbon, CoreMIDI, AudioUnit, cctools
 }:
 
 stdenv.mkDerivation rec {
-  name = "scummvm-${version}";
-  version = "2.0.0";
+  pname = "scummvm";
+  version = "2.2.0";
 
   src = fetchurl {
-    url = "http://scummvm.org/frs/scummvm/${version}/${name}.tar.xz";
-    sha256 = "0q6aiw97wsrf8cjw9vjilzhqqsr2rw2lll99s8i5i9svan6l314p";
+    url = "http://scummvm.org/frs/scummvm/${version}/${pname}-${version}.tar.xz";
+    sha256 = "FGllflk72Ky8+sC4ObCG9kDr8SBjPpPxFsq2UrWyc4c=";
   };
 
   nativeBuildInputs = [ nasm ];
 
-  buildInputs = [
-    alsaLib freetype flac fluidsynth libjpeg libmad libmpeg2 libogg libvorbis libGLU_combined SDL2 zlib
+  buildInputs = lib.optionals stdenv.isLinux [
+    alsaLib
+  ] ++ lib.optionals stdenv.isDarwin [
+    Cocoa AudioToolbox Carbon CoreMIDI AudioUnit
+  ] ++ [
+    curl freetype flac fluidsynth libjpeg libmad libmpeg2 libogg libvorbis libGLU libGL SDL2 zlib
   ];
+
+  dontDisableStatic = true;
 
   enableParallelBuilding = true;
 
+  configurePlatforms = [ "host" ];
   configureFlags = [
     "--enable-c++11"
     "--enable-release"
   ];
 
-  crossAttrs = {
-    preConfigure = ''
-      # Remove the --build flag set by the gcc cross wrapper setup
-      # hook
-      export configureFlags="--host=${hostPlatform.config}"
-    '';
-    postConfigure = ''
-      # They use 'install -s', that calls the native strip instead of the cross
-      sed -i 's/-c -s/-c/' ports.mk;
-    '';
-  };
+  # They use 'install -s', that calls the native strip instead of the cross
+  postConfigure = ''
+    sed -i "s/-c -s/-c -s --strip-program=''${STRIP@Q}/" ports.mk
+  '' + lib.optionalString stdenv.isDarwin ''
+    substituteInPlace config.mk --replace x86_64-apple-darwin-ranlib ${cctools}/bin/ranlib
+  '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Program to run certain classic graphical point-and-click adventure games (such as Monkey Island)";
-    homepage = https://www.scummvm.org/;
+    homepage = "https://www.scummvm.org/";
     license = licenses.gpl2;
     maintainers = [ maintainers.peterhoeg ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

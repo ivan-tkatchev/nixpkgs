@@ -1,27 +1,40 @@
-{ stdenv, pkgs, darwin, defaultCrateOverrides, fetchFromGitHub }:
+{ stdenv
+, lib
+, rustPlatform
+, fetchFromGitHub
+, pkg-config
+, openssl
+, libiconv
+, Security
+, zlib
+}:
 
-((import ./cargo-edit.nix { inherit pkgs; }).cargo_edit {}).override {
-  crateOverrides = defaultCrateOverrides // {
-    cargo-edit = attrs: rec {
-      name = "cargo-edit-${version}";
-      version = "0.2.0";
+rustPlatform.buildRustPackage rec {
+  pname = "cargo-edit";
+  version = "0.7.0";
 
-      src = fetchFromGitHub {
-        owner = "killercup";
-        repo = "cargo-edit";
-        rev = "v${version}";
-        sha256 = "1jxppbb7s50pwg24qxf79fqvm1clwm2zdnv0xlkay7y05nd5bc0c";
-      };
+  src = fetchFromGitHub {
+    owner = "killercup";
+    repo = pname;
+    rev = "v${version}";
+    hash = "sha256:0fh1lq793k4ddpqsf2av447hcb74vcq53afkm3g4672k48mjjw1y";
+  };
 
-      propagatedBuildInputs = stdenv.lib.optionals stdenv.isDarwin [ darwin.apple_sdk.frameworks.Security ];
+  cargoSha256 = "0ah3zjx36ibax4gi66g13finh4m2k0aidxkg2nxx1c2aqj847mm1";
 
-      meta = with stdenv.lib; {
-        description = "A utility for managing cargo dependencies from the command line";
-        homepage = https://github.com/killercup/cargo-edit;
-        license = with licenses; [ mit ];
-        maintainers = with maintainers; [ gerschtli jb55 ];
-        platforms = platforms.all;
-      };
-    };
+  nativeBuildInputs = [ pkg-config ];
+
+  buildInputs = [ openssl zlib ] ++ lib.optionals stdenv.isDarwin [
+    libiconv
+    Security
+  ];
+
+  doCheck = false; # integration tests depend on changing cargo config
+
+  meta = with lib; {
+    description = "A utility for managing cargo dependencies from the command line";
+    homepage = "https://github.com/killercup/cargo-edit";
+    license = with licenses; [ asl20 /* or */ mit ];
+    maintainers = with maintainers; [ gerschtli jb55 Br1ght0ne killercup ];
   };
 }

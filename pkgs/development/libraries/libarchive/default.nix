@@ -1,44 +1,39 @@
 {
-  fetchurl, fetchpatch, stdenv, pkgconfig,
-  acl, attr, bzip2, e2fsprogs, libxml2, lzo, openssl, sharutils, xz, zlib,
+  fetchFromGitHub, lib, stdenv, pkg-config, autoreconfHook,
+  acl, attr, bzip2, e2fsprogs, libxml2, lzo, openssl, sharutils, xz, zlib, zstd,
 
-  # Optional but increases closure only negligibly.
-  xarSupport ? true,
+  # Optional but increases closure only negligibly. Also, while libxml2
+  # builds fine on windows, but libarchive has trouble linking windows
+  # things it depends on for some reason.
+  xarSupport ? stdenv.hostPlatform.isUnix,
 }:
 
 assert xarSupport -> libxml2 != null;
 
 stdenv.mkDerivation rec {
-  name = "libarchive-${version}";
-  version = "3.3.2";
+  pname = "libarchive";
+  version = "3.5.1";
 
-  src = fetchurl {
-    url = "${meta.homepage}/downloads/${name}.tar.gz";
-    sha256 = "1km0mzfl6in7l5vz9kl09a88ajx562rw93ng9h2jqavrailvsbgd";
+  src = fetchFromGitHub {
+    owner = "libarchive";
+    repo = "libarchive";
+    rev = "v${version}";
+    sha256 = "sha256-RFPhe4PCq8OLwa6c7ir+5u9jBsUxS5M/fcZYAG9W6R0=";
   };
-
-  patches = [
-    ./CVE-2017-14166.patch
-    ./CVE-2017-14502.patch
-
-    # LibreSSL patch; this is from upstream, and can be removed when the next release is made.
-    (fetchpatch {
-      url = "https://github.com/libarchive/libarchive/commit/5da00ad75b09e262774ec3675bbe4d5a4502a852.patch";
-      sha256 = "0np1i9r6mfxmbksj7mmf5abpnmlmg63704p9z3ihjh2rnq596c1v";
-    })
-  ];
 
   outputs = [ "out" "lib" "dev" ];
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ sharutils zlib bzip2 openssl xz lzo ]
-    ++ stdenv.lib.optionals stdenv.isLinux [ e2fsprogs attr acl ]
-    ++ stdenv.lib.optional xarSupport libxml2;
+  nativeBuildInputs = [ pkg-config autoreconfHook ];
+  buildInputs =
+    lib.optional stdenv.hostPlatform.isUnix sharutils
+    ++ [ zlib bzip2 openssl xz lzo zstd ]
+    ++ lib.optionals stdenv.isLinux [ e2fsprogs attr acl ]
+    ++ lib.optional xarSupport libxml2;
 
-  # Without this, pkgconfig-based dependencies are unhappy
-  propagatedBuildInputs = stdenv.lib.optionals stdenv.isLinux [ attr acl ];
+  # Without this, pkg-config-based dependencies are unhappy
+  propagatedBuildInputs = lib.optionals stdenv.isLinux [ attr acl ];
 
-  configureFlags = stdenv.lib.optional (!xarSupport) "--without-xml2";
+  configureFlags = lib.optional (!xarSupport) "--without-xml2";
 
   preBuild = if stdenv.isCygwin then ''
     echo "#include <windows.h>" >> config.h
@@ -61,9 +56,10 @@ stdenv.mkDerivation rec {
       compressions formats including (but not limited to) tar, shar, cpio, zip, and
       compressed with gzip, bzip2, lzma, xz, ...
     '';
-    homepage = http://libarchive.org;
-    license = stdenv.lib.licenses.bsd3;
-    platforms = with stdenv.lib.platforms; all;
-    maintainers = with stdenv.lib.maintainers; [ jcumming ];
+    homepage = "http://libarchive.org";
+    changelog = "https://github.com/libarchive/libarchive/releases/tag/v${version}";
+    license = lib.licenses.bsd3;
+    platforms = with lib.platforms; all;
+    maintainers = with lib.maintainers; [ jcumming ];
   };
 }

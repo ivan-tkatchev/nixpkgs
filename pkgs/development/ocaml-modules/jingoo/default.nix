@@ -1,21 +1,29 @@
-{stdenv, buildOcaml, fetchurl, batteries, pcre}:
+{ lib, buildDunePackage, fetchFromGitHub
+, menhir, ppxlib, ppx_deriving, re, uutf, uucp, ounit2 }:
 
-buildOcaml rec {
-  name = "jingoo";
-  version = "1.2.7";
+buildDunePackage rec {
+  pname = "jingoo";
+  version = "1.4.2";
 
-  src = fetchurl {
-    url = "https://github.com/tategakibunko/jingoo/archive/v${version}.tar.gz";
-    sha256 = "8ffc5723d77b323a12761981d048c046af77db47543a4b1076573aa5f4003009";
+  useDune2 = true;
+
+  minimumOCamlVersion = "4.04";
+
+  src = fetchFromGitHub {
+    owner = "tategakibunko";
+    repo = "jingoo";
+    rev = "v${version}";
+    sha256 = "0q947aik4i4z5wjllhwlkxh60qczwgra21yyrrzwhi9y5bnf8346";
   };
 
-  propagatedBuildInputs = [ batteries pcre ];
+  buildInputs = [ menhir ];
+  propagatedBuildInputs = [ ppxlib ppx_deriving re uutf uucp ];
+  checkInputs = [ ounit2 ];
+  doCheck = true;
 
-  preInstall = "mkdir -p $out/bin";
-  installFlags = "BINDIR=$(out)/bin";
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/tategakibunko/jingoo;
+  meta = with lib; {
+    homepage = "https://github.com/tategakibunko/jingoo";
     description = "OCaml template engine almost compatible with jinja2";
     license = licenses.mit;
     maintainers = [ maintainers.ericbmerritt ];

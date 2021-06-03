@@ -1,13 +1,13 @@
-{ stdenv, fetchurl, elfutils
+{ lib, stdenv, fetchurl, elfutils
 , xorg, patchelf, openssl, libdrm, udev
 , libxcb, libxshmfence, epoxy, perl, zlib
-, fetchFromGitHub, ncurses
+, ncurses
 , libsOnly ? false, kernel ? null
 }:
 
 assert (!libsOnly) -> kernel != null;
 
-with stdenv.lib;
+with lib;
 
 let
 
@@ -16,9 +16,9 @@ let
   bitness = if stdenv.is64bit then "64" else "32";
 
   libArch =
-    if stdenv.system == "i686-linux" then
+    if stdenv.hostPlatform.system == "i686-linux" then
       "i386-linux-gnu"
-    else if stdenv.system == "x86_64-linux" then
+    else if stdenv.hostPlatform.system == "x86_64-linux" then
       "x86_64-linux-gnu"
     else throw "amdgpu-pro is Linux only. Sorry. The build was stopped.";
 
@@ -171,9 +171,9 @@ in stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "AMDGPU-PRO drivers";
-    homepage =  http://support.amd.com/en-us/kb-articles/Pages/AMDGPU-PRO-Beta-Driver-for-Vulkan-Release-Notes.aspx ;
+    homepage =  "http://support.amd.com/en-us/kb-articles/Pages/AMDGPU-PRO-Beta-Driver-for-Vulkan-Release-Notes.aspx";
     license = licenses.unfree;
     platforms = platforms.linux;
     maintainers = with maintainers; [ corngood ];

@@ -1,25 +1,26 @@
-{ stdenv, buildPythonPackage, fetchPypi, fetchpatch, isPy3k
+{ lib, buildPythonPackage, fetchPypi, isPy3k, pythonAtLeast, setuptools
 , transitions, websockets, passlib, docopt, pyyaml, nose }:
 
 buildPythonPackage rec {
   pname = "hbmqtt";
-  version = "0.9.2";
+  version = "0.9.6";
 
-  disabled = !isPy3k;
+  # https://github.com/beerfactory/hbmqtt/issues/223
+  disabled = !isPy3k || pythonAtLeast "3.9";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "6f61e05007648a4f33e300fafcf42776ca95508ba1141799f94169427ce5018c";
+    sha256 = "1n9c8yj11npiq9qxivwmfhib1qkjpcyw42a7q0w641bdrz3x6r37";
   };
 
-  patches = [
-    (fetchpatch {
-      url = "https://github.com/beerfactory/hbmqtt/commit/75a85d1ea4cb41f2a15f2681d3114da7158942ae.patch";
-      sha256 = "0bl4v5zxp4kz2w7riwrx48f7yqmp7pxg79g9qavkda0i85lxswnp";
-    })
+  propagatedBuildInputs = [
+    transitions websockets passlib docopt pyyaml setuptools
   ];
 
-  propagatedBuildInputs = [ transitions websockets passlib docopt pyyaml ];
+  postPatch = ''
+    # test tries to bind same port multiple times and fails
+    rm tests/test_client.py
+  '';
 
   checkInputs = [ nose ];
 
@@ -27,8 +28,8 @@ buildPythonPackage rec {
     nosetests -e test_connect_tcp
   '';
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/beerfactory/hbmqtt;
+  meta = with lib; {
+    homepage = "https://github.com/beerfactory/hbmqtt";
     description = "MQTT client/broker using Python asynchronous I/O";
     license = licenses.mit;
     maintainers = with maintainers; [ dotlambda ];

@@ -1,37 +1,120 @@
-{ stdenv, fetchurl, pkgconfig, glib, babl, libpng, cairo, libjpeg, which
-, librsvg, pango, gtk, bzip2, json-glib, intltool, autoreconfHook, libraw
-, libwebp, gnome3, libintl }:
+{ lib
+, stdenv
+, fetchurl
+, pkg-config
+, vala
+, gobject-introspection
+, gtk-doc
+, docbook-xsl-nons
+, docbook_xml_dtd_43
+, glib
+, babl
+, libpng
+, cairo
+, libjpeg
+, librsvg
+, lensfun
+, libspiro
+, maxflow
+, netsurf
+, pango
+, poly2tri-c
+, poppler
+, bzip2
+, json-glib
+, gettext
+, meson
+, ninja
+, libraw
+, gexiv2
+, libwebp
+, luajit
+, openexr
+, OpenCL
+, suitesparse
+}:
 
-let
-  version = "0.4.4";
-in stdenv.mkDerivation rec {
-  name = "gegl-${version}";
+stdenv.mkDerivation rec {
+  pname = "gegl";
+  version = "0.4.30";
+
+  outputs = [ "out" "dev" "devdoc" ];
+  outputBin = "dev";
 
   src = fetchurl {
-    url = "https://download.gimp.org/pub/gegl/${stdenv.lib.versions.majorMinor version}/${name}.tar.bz2";
-    sha256 = "143qwn92xc5wm09p9iwrpw9y0ahha5lcyx1bb0lzwcb1fgd4bjzq";
+    url = "https://download.gimp.org/pub/gegl/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-wRJ4LPQJaWniMhfM36vkIoTjXVQ1/wxD1A5McPrsqN0=";
   };
 
-  # needs fonts otherwise, don't know how to pass them
-  configureFlags = [ "--disable-docs" ];
-
-  enableParallelBuilding = true;
-
-  doCheck = true;
-
-  buildInputs = [
-    libpng cairo libjpeg librsvg pango gtk bzip2
-    libraw libwebp gnome3.gexiv2
+  nativeBuildInputs = [
+    pkg-config
+    gettext
+    meson
+    ninja
+    vala
+    gobject-introspection
+    gtk-doc
+    docbook-xsl-nons
+    docbook_xml_dtd_43
   ];
 
-  propagatedBuildInputs = [ glib json-glib babl ]; # for gegl-4.0.pc
+  buildInputs = [
+    libpng
+    cairo
+    libjpeg
+    librsvg
+    lensfun
+    libspiro
+    maxflow
+    netsurf.libnsgif
+    pango
+    poly2tri-c
+    poppler
+    bzip2
+    libraw
+    libwebp
+    gexiv2
+    luajit
+    openexr
+    suitesparse
+  ] ++ lib.optional stdenv.isDarwin OpenCL;
 
-  nativeBuildInputs = [ pkgconfig intltool which autoreconfHook libintl ];
+  # for gegl-4.0.pc
+  propagatedBuildInputs = [
+    glib
+    json-glib
+    babl
+  ];
 
-  meta = with stdenv.lib; {
+  mesonFlags = [
+    "-Ddocs=true"
+    "-Dmrg=disabled" # not sure what that is
+    "-Dsdl2=disabled"
+    "-Dpygobject=disabled"
+    "-Dlibav=disabled"
+    "-Dlibv4l=disabled"
+    "-Dlibv4l2=disabled"
+    # Disabled due to multiple vulnerabilities, see
+    # https://github.com/NixOS/nixpkgs/pull/73586
+    "-Djasper=disabled"
+  ];
+
+  # TODO: Fix missing math symbols in gegl seamless clone.
+  # It only appears when we use packaged poly2tri-c instead of vendored one.
+  NIX_CFLAGS_COMPILE = "-lm";
+
+  postPatch = ''
+    chmod +x tests/opencl/opencl_test.sh
+    patchShebangs tests/ff-load-save/tests_ff_load_save.sh tests/opencl/opencl_test.sh tools/xml_insert.sh
+  '';
+
+  # tests fail to connect to the com.apple.fonts daemon in sandboxed mode
+  doCheck = !stdenv.isDarwin;
+
+  meta = with lib; {
     description = "Graph-based image processing framework";
-    homepage = http://www.gegl.org;
-    license = licenses.gpl3;
+    homepage = "https://www.gegl.org";
+    license = licenses.lgpl3Plus;
     maintainers = with maintainers; [ jtojnar ];
     platforms = platforms.unix;
   };

@@ -1,31 +1,23 @@
-{ stdenv, fetchFromGitHub, ocaml, findlib, jbuilder
-, ppx_tools_versioned
-, ounit
-}:
+{ lib, fetchFromGitHub, buildDunePackage, stdlib-shims }:
 
-stdenv.mkDerivation rec {
-  name = "ocaml${ocaml.version}-bitstring-${version}";
-  version = "3.0.0";
+buildDunePackage rec {
+  pname = "bitstring";
+  version = "4.1.0";
+
+  useDune2 = true;
+
   src = fetchFromGitHub {
     owner = "xguerin";
-    repo = "bitstring";
+    repo = pname;
     rev = "v${version}";
-    sha256 = "0r49qax7as48jgknzaq6p9rbpmrvnmlic713wzz5bj60j5h0396f";
+    sha256 = "0mghsl8b2zd2676mh1r9142hymhvzy9cw8kgkjmirxkn56wbf56b";
   };
 
-  buildInputs = [ ocaml findlib jbuilder ppx_tools_versioned ounit ];
+  propagatedBuildInputs = [ stdlib-shims ];
 
-  buildPhase = "jbuilder build";
-
-  doCheck = true;
-  checkPhase = "jbuilder runtest";
-
-  inherit (jbuilder) installPhase;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "This library adds Erlang-style bitstrings and matching over bitstrings as a syntax extension and library for OCaml";
-    homepage = https://github.com/xguerin/bitstring;
-    inherit (ocaml.meta) platforms;
+    homepage = "https://github.com/xguerin/bitstring";
     license = licenses.lgpl21Plus;
     maintainers = [ maintainers.maurer ];
   };

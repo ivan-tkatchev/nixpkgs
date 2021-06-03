@@ -1,30 +1,40 @@
-{ stdenv, fetchurl, perl, read-edid }:
+{ lib
+, stdenv
+, fetchgit
+, perl
+, read-edid
+}:
 
 stdenv.mkDerivation rec {
-  name = "i2c-tools-${version}";
-  version = "4.0";
+  pname = "i2c-tools";
+  version = "4.2";
 
-  src = fetchurl {
-    url = "https://www.kernel.org/pub/software/utils/i2c-tools/${name}.tar.xz";
-    sha256 = "1mi8mykvl89y6liinc9jv1x8m2q093wrdc2hm86a47n524fcl06r";
+  src = fetchgit {
+    url = "https://git.kernel.org/pub/scm/utils/i2c-tools/i2c-tools.git";
+    rev = "v${version}";
+    sha256 = "0vqrbp10klr7ylarr6cy1q7nafiqaky4iq5my5dqy101h93vg4pg";
   };
 
   buildInputs = [ perl ];
 
-  patchPhase = ''
+  postPatch = ''
     substituteInPlace eeprom/decode-edid --replace "/usr/sbin/parse-edid" "${read-edid}/bin/parse-edid"
     substituteInPlace stub/i2c-stub-from-dump --replace "/sbin/" ""
   '';
 
-  installPhase = ''
-    make install prefix=$out
+  makeFlags = [ "PREFIX=${placeholder "out"}" ];
+
+  outputs = [ "out" "man" ];
+
+  postInstall = ''
     rm -rf $out/include # Installs include/linux/i2c-dev.h that conflics with kernel headers
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Set of I2C tools for Linux";
-    homepage = http://www.lm-sensors.org/wiki/I2CTools;
-    license = licenses.gpl2;
+    homepage = "https://i2c.wiki.kernel.org/index.php/I2C_Tools";
+    # library is LGPL 2.1 or later; "most tools" GPL 2 or later
+    license = with licenses; [ lgpl21Plus gpl2Plus ];
     maintainers = [ maintainers.dezgeg ];
     platforms = platforms.linux;
   };

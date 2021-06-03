@@ -1,29 +1,43 @@
-{ stdenv, buildGoPackage, fetchFromGitHub, fetchgx }:
+{ lib, buildGoModule, fetchurl, nixosTests }:
 
-buildGoPackage rec {
-  name = "ipfs-${version}";
-  version = "0.4.15";
+buildGoModule rec {
+  pname = "ipfs";
+  version = "0.8.0";
   rev = "v${version}";
 
-  goPackagePath = "github.com/ipfs/go-ipfs";
-
-  extraSrcPaths = [
-    (fetchgx {
-      inherit name src;
-      sha256 = "0bysfh2hd040i8lnyzhy96frflls4kdnlw748cl51ngqg3rwbhgz";
-    })
-  ];
-
-  src = fetchFromGitHub {
-    owner = "ipfs";
-    repo = "go-ipfs";
-    inherit rev;
-    sha256 = "1ry4a4pq26dbwy2b9cwi3xjaiyq6sng9lxnb1n30zxhp4w7rla2h";
+  # go-ipfs makes changes to it's source tarball that don't match the git source.
+  src = fetchurl {
+    url = "https://github.com/ipfs/go-ipfs/releases/download/${rev}/go-ipfs-source.tar.gz";
+    sha256 = "sha256-uK3+Ekr5AM6mmGmjFSj1Rotm5pbH657BYUlP9B39WEw=";
   };
 
-  meta = with stdenv.lib; {
+  # tarball contains multiple files/directories
+  postUnpack = ''
+    mkdir ipfs-src
+    shopt -s extglob
+    mv !(ipfs-src) ipfs-src || true
+    cd ipfs-src
+  '';
+
+  sourceRoot = ".";
+
+  subPackages = [ "cmd/ipfs" ];
+
+  passthru.tests.ipfs = nixosTests.ipfs;
+
+  vendorSha256 = null;
+
+  postInstall = ''
+    install --mode=444 -D misc/systemd/ipfs.service $out/etc/systemd/system/ipfs.service
+    install --mode=444 -D misc/systemd/ipfs-api.socket $out/etc/systemd/system/ipfs-api.socket
+    install --mode=444 -D misc/systemd/ipfs-gateway.socket $out/etc/systemd/system/ipfs-gateway.socket
+    substituteInPlace $out/etc/systemd/system/ipfs.service \
+      --replace /usr/bin/ipfs $out/bin/ipfs
+  '';
+
+  meta = with lib; {
     description = "A global, versioned, peer-to-peer filesystem";
-    homepage = https://ipfs.io/;
+    homepage = "https://ipfs.io/";
     license = licenses.mit;
     platforms = platforms.unix;
     maintainers = with maintainers; [ fpletz ];

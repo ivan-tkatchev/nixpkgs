@@ -1,15 +1,15 @@
-{ stdenv, SDL, fetchurl, gzip, libvorbis, libmad }:
+{ lib, stdenv, SDL, fetchurl, gzip, libvorbis, libmad }:
 stdenv.mkDerivation rec {
-  name = "quakespasm-${version}";
-  majorVersion = "0.92";
+  pname = "quakespasm";
+  majorVersion = "0.93";
   version = "${majorVersion}.1";
 
   src = fetchurl {
     url = "mirror://sourceforge/quakespasm/quakespasm-${version}.tgz";
-    sha256 = "0vhycjg97sn4cd85ph6qz68rplzrm4apijdkrlj9mycnqjv5l100";
+    sha256 = "1bimv18f6rzhyjz78yvw2vqr5n0kdqbcqmq7cb3m951xgsxfcgpd";
   };
 
-  sourceRoot = "${name}/Quake";
+  sourceRoot = "${pname}-${version}/Quake";
 
   buildInputs = [
     gzip SDL libvorbis libmad
@@ -26,7 +26,7 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "An engine for iD software's Quake";
-    homepage = http://quakespasm.sourceforge.net/;
+    homepage = "http://quakespasm.sourceforge.net/";
     longDescription = ''
       QuakeSpasm is a modern, cross-platform Quake 1 engine based on FitzQuake.
       It includes support for 64 bit CPUs and custom music playback, a new sound driver,
@@ -36,7 +36,7 @@ stdenv.mkDerivation rec {
       and smoother mouse input - though no CD support.
     '';
 
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.m3tti ];
+    platforms = lib.platforms.linux;
+    maintainers = [ lib.maintainers.m3tti ];
   };
 }

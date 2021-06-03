@@ -41,16 +41,18 @@ rec {
     let x = builtins.parseDrvName name; in "${x.name}-${suffix}-${x.version}");
 
 
-  /* Apply a function to each derivation and only to derivations in an attrset
+  /* Apply a function to each derivation and only to derivations in an attrset.
   */
   mapDerivationAttrset = f: set: lib.mapAttrs (name: pkg: if lib.isDerivation pkg then (f pkg) else pkg) set;
 
+  /* Set the nix-env priority of the package.
+  */
+  setPrio = priority: addMetaAttrs { inherit priority; };
 
   /* Decrease the nix-env priority of the package, i.e., other
      versions/variants of the package will be preferred.
   */
-  lowPrio = drv: addMetaAttrs { priority = 10; } drv;
-
+  lowPrio = setPrio 10;
 
   /* Apply lowPrio to an attrset with derivations
   */
@@ -60,8 +62,7 @@ rec {
   /* Increase the nix-env priority of the package, i.e., this
      version/variant of the package will be preferred.
   */
-  hiPrio = drv: addMetaAttrs { priority = -10; } drv;
-
+  hiPrio = setPrio (-10);
 
   /* Apply hiPrio to an attrset with derivations
   */
@@ -86,4 +87,16 @@ rec {
         then { system = elem; }
         else { parsed = elem; };
     in lib.matchAttrs pattern platform;
+
+  /* Check if a package is available on a given platform.
+
+     A package is available on a platform if both
+
+       1. One of `meta.platforms` pattern matches the given platform.
+
+       2. None of `meta.badPlatforms` pattern matches the given platform.
+  */
+  availableOn = platform: pkg:
+    lib.any (platformMatch platform) pkg.meta.platforms &&
+    lib.all (elem: !platformMatch platform elem) (pkg.meta.badPlatforms or []);
 }

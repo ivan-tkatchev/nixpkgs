@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, cmake, libminc, bicpl }:
+{ lib, stdenv, fetchFromGitHub, cmake }:
 
 stdenv.mkDerivation rec {
   pname = "arguments";
@@ -16,13 +16,12 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake ];
   buildInputs = [ ];
 
-  #cmakeFlags = [ "-DLIBMINC_DIR=${libminc}/lib" "-DBICPL_DIR=${bicpl}/lib" "-DBUILD_TESTING=FALSE" ];
+  #cmakeFlags = [ "-DLIBMINC_DIR=${libminc}/lib" "-DBICPL_DIR=${bicpl}/lib" ];
 
-  checkPhase = "ctest --output-on-failure";
   doCheck = false;
   # internal_volume_io.h: No such file or directory
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     homepage = "https://github.com/${owner}/${pname}";
     description = "Library for argument handling for MINC programs";
     maintainers = with maintainers; [ bcdarwin ];

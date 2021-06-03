@@ -1,27 +1,28 @@
-{ stdenv, fetchurl, openssl, zlib, asciidoc, libxml2, libxslt
-, docbook_xsl, pkgconfig, luajit
-, gzip, bzip2, xz
+{ lib, stdenv, fetchurl, openssl, zlib, asciidoc, libxml2, libxslt
+, docbook_xsl, pkg-config, luajit
+, coreutils, gnused, groff, docutils
+, gzip, bzip2, lzip, xz, zstd
 , python, wrapPython, pygments, markdown
 }:
 
 stdenv.mkDerivation rec {
-  name = "cgit-${version}";
-  version = "1.1";
+  pname = "cgit";
+  version = "1.2.3";
 
   src = fetchurl {
-    url = "https://git.zx2c4.com/cgit/snapshot/${name}.tar.xz";
-    sha256 = "142qcgs8dwnzhymn0a7xx47p9fc2z5wrb86ah4a9iz0mpqlsz288";
+    url = "https://git.zx2c4.com/cgit/snapshot/${pname}-${version}.tar.xz";
+    sha256 = "193d990ym10qlslk0p8mjwp2j6rhqa7fq0y1iff65lvbyv914pss";
   };
 
   # cgit is tightly coupled with git and needs a git source tree to build.
   # IMPORTANT: Remember to check which git version cgit needs on every version
   # bump (look for "GIT_VER" in the top-level Makefile).
   gitSrc = fetchurl {
-    url    = "mirror://kernel/software/scm/git/git-2.10.2.tar.xz";
-    sha256 = "0wc64dzcxrzgi6kwcljz6y3cwm3ajdgf6aws7g58azbhvl1jk04l";
+    url    = "mirror://kernel/software/scm/git/git-2.25.1.tar.xz";
+    sha256 = "09lzwa183nblr6l8ib35g2xrjf9wm9yhk3szfvyzkwivdv69c9r2";
   };
 
-  nativeBuildInputs = [ pkgconfig ] ++ [ python wrapPython ];
+  nativeBuildInputs = [ pkg-config ] ++ [ python wrapPython ];
   buildInputs = [
     openssl zlib asciidoc libxml2 libxslt docbook_xsl luajit
   ];
@@ -30,8 +31,16 @@ stdenv.mkDerivation rec {
   postPatch = ''
     sed -e 's|"gzip"|"${gzip}/bin/gzip"|' \
         -e 's|"bzip2"|"${bzip2.bin}/bin/bzip2"|' \
+        -e 's|"lzip"|"${lzip}/bin/lzip"|' \
         -e 's|"xz"|"${xz.bin}/bin/xz"|' \
+        -e 's|"zstd"|"${zstd}/bin/zstd"|' \
         -i ui-snapshot.c
+
+    substituteInPlace filters/html-converters/man2html \
+      --replace 'groff' '${groff}/bin/groff'
+
+    substituteInPlace filters/html-converters/rst2html \
+      --replace 'rst2html.py' '${docutils}/bin/rst2html.py'
   '';
 
   # Give cgit a git source tree and pass configuration parameters (as make
@@ -54,14 +63,20 @@ stdenv.mkDerivation rec {
     cp cgitrc.5 "$out/share/man/man5"
 
     wrapPythonProgramsIn "$out/lib/cgit/filters" "$out $pythonPath"
+
+    for script in $out/lib/cgit/filters/*.sh $out/lib/cgit/filters/html-converters/txt2html; do
+      wrapProgram $script --prefix PATH : '${lib.makeBinPath [ coreutils gnused ]}'
+    done
   '';
 
+  stripDebugList = [ "cgit" ];
+
   meta = {
-    homepage = https://git.zx2c4.com/cgit/about/;
-    repositories.git = git://git.zx2c4.com/cgit;
+    homepage = "https://git.zx2c4.com/cgit/about/";
+    repositories.git = "git://git.zx2c4.com/cgit";
     description = "Web frontend for git repositories";
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = with stdenv.lib.maintainers; [ bjornfor ];
+    license = lib.licenses.gpl2;
+    platforms = lib.platforms.linux;
+    maintainers = with lib.maintainers; [ bjornfor ];
   };
 }

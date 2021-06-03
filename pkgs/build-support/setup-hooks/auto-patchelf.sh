@@ -1,39 +1,52 @@
+#!/usr/bin/env bash
+
 declare -a autoPatchelfLibs
+declare -Ag autoPatchelfFailedDeps
 
 gatherLibraries() {
     autoPatchelfLibs+=("$1/lib")
 }
 
+# wrapper around patchelf to raise proper error messages
+# containing the tried file name and command
+runPatchelf() {
+  patchelf "$@" || (echo "Command failed: patchelf $*" && exit 1)
+}
+
+# shellcheck disable=SC2154
+# (targetOffset is referenced but not assigned.)
 addEnvHooks "$targetOffset" gatherLibraries
 
 isExecutable() {
-    [ "$(file -b -N --mime-type "$1")" = application/x-executable ]
-}
-
-findElfs() {
-    find "$1" -type f -exec "$SHELL" -c '
-        while [ -n "$1" ]; do
-            mimeType="$(file -b -N --mime-type "$1")"
-            if [ "$mimeType" = application/x-executable \
-              -o "$mimeType" = application/x-pie-executable \
-              -o "$mimeType" = application/x-sharedlib ]; then
-                echo "$1"
-            fi
-            shift
-        done
-    ' -- {} +
+    # For dynamically linked ELF files it would be enough to check just for the
+    # INTERP section. However, we won't catch statically linked executables as
+    # they only have an ELF type of EXEC but no INTERP.
+    #
+    # So what we do here is just check whether *either* the ELF type is EXEC
+    # *or* there is an INTERP section. This also catches position-independent
+    # executables, as they typically have an INTERP section but their ELF type
+    # is DYN.
+    isExeResult="$(LANG=C $READELF -h -l "$1" 2> /dev/null \
+        | grep '^ *Type: *EXEC\>\|^ *INTERP\>')"
+    # not using grep -q, because it can cause Broken pipe
+    [ -n "$isExeResult" ]
 }
 
 # We cache dependencies so that we don't need to search through all of them on
 # every consecutive call to findDependency.
-declare -a cachedDependencies
+declare -Ag autoPatchelfCachedDepsAssoc
+declare -ag autoPatchelfCachedDeps
+
 
 addToDepCache() {
-    local existing
-    for existing in "${cachedDependencies[@]}"; do
-        if [ "$existing" = "$1" ]; then return; fi
-    done
-    cachedDependencies+=("$1")
+    if [[ ${autoPatchelfCachedDepsAssoc[$1]+f} ]]; then return; fi
+
+    # store deps in an assoc. array for efficient lookups
+    # otherwise findDependency would have quadratic complexity
+    autoPatchelfCachedDepsAssoc["$1"]=""
+
+    # also store deps in normal array to maintain their order
+    autoPatchelfCachedDeps+=("$1")
 }
 
 declare -gi depCacheInitialised=0
@@ -46,9 +59,8 @@ getDepsFromSo() {
 
 populateCacheWithRecursiveDeps() {
     local so found foundso
-    for so in "${cachedDependencies[@]}"; do
+    for so in "${autoPatchelfCachedDeps[@]}"; do
         for found in $(getDepsFromSo "$so"); do
-            local libdir="${found%/*}"
             local base="${found##*/}"
             local soname="${base%.so*}"
             for foundso in "${found%/*}/$soname".so*; do
@@ -79,7 +91,7 @@ findDependency() {
         depCacheInitialised=1
     fi
 
-    for dep in "${cachedDependencies[@]}"; do
+    for dep in "${autoPatchelfCachedDeps[@]}"; do
         if [ "$filename" = "${dep##*/}" ]; then
             if [ "$(getSoArch "$dep")" = "$arch" ]; then
                 foundDependency="$dep"
@@ -104,9 +116,12 @@ findDependency() {
 autoPatchelfFile() {
     local dep rpath="" toPatch="$1"
 
-    local interpreter="$(< "$NIX_CC/nix-support/dynamic-linker")"
+    local interpreter
+    interpreter="$(< "$NIX_CC/nix-support/dynamic-linker")"
     if isExecutable "$toPatch"; then
-        patchelf --set-interpreter "$interpreter" "$toPatch"
+        runPatchelf --set-interpreter "$interpreter" "$toPatch"
+        # shellcheck disable=SC2154
+        # (runtimeDependencies is referenced but not assigned.)
         if [ -n "$runtimeDependencies" ]; then
             for dep in $runtimeDependencies; do
                 rpath="$rpath${rpath:+:}$dep/lib"
@@ -118,17 +133,19 @@ autoPatchelfFile() {
 
     # We're going to find all dependencies based on ldd output, so we need to
     # clear the RPATH first.
-    patchelf --remove-rpath "$toPatch"
+    runPatchelf --remove-rpath "$toPatch"
 
-    local missing="$(
+    # If the file is not a dynamic executable, ldd/sed will fail,
+    # in which case we return, since there is nothing left to do.
+    local missing
+    missing="$(
         ldd "$toPatch" 2> /dev/null | \
             sed -n -e 's/^[\t ]*\([^ ]\+\) => not found.*/\1/p'
-    )"
+    )" || return 0
 
     # This ensures that we get the output of all missing dependencies instead
     # of failing at the first one, because it's more useful when working on a
     # new package where you don't yet know its dependencies.
-    local -i depNotFound=0
 
     for dep in $missing; do
         echo -n "  $dep -> " >&2
@@ -137,39 +154,97 @@ autoPatchelfFile() {
             echo "found: $foundDependency" >&2
         else
             echo "not found!" >&2
-            depNotFound=1
+            autoPatchelfFailedDeps["$dep"]="$toPatch"
         fi
     done
 
-    # This makes sure the builder fails if we didn't find a dependency, because
-    # the stdenv setup script is run with set -e. The actual error is emitted
-    # earlier in the previous loop.
-    [ $depNotFound -eq 0 ]
-
     if [ -n "$rpath" ]; then
         echo "setting RPATH to: $rpath" >&2
-        patchelf --set-rpath "$rpath" "$toPatch"
+        runPatchelf --set-rpath "$rpath" "$toPatch"
     fi
 }
 
+# Can be used to manually add additional directories with shared object files
+# to be included for the next autoPatchelf invocation.
+addAutoPatchelfSearchPath() {
+    local -a findOpts=()
+
+    # XXX: Somewhat similar to the one in the autoPatchelf function, maybe make
+    #      it DRY someday...
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --) shift; break;;
+            --no-recurse) shift; findOpts+=("-maxdepth" 1);;
+            --*)
+                echo "addAutoPatchelfSearchPath: ERROR: Invalid command line" \
+                     "argument: $1" >&2
+                return 1;;
+            *) break;;
+        esac
+    done
+
+    while IFS= read -r -d '' file; do
+    addToDepCache "$file"
+    done <  <(find "$@" "${findOpts[@]}" \! -type d \
+            \( -name '*.so' -o -name '*.so.*' \) -print0)
+}
+
 autoPatchelf() {
+    local norecurse=
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --) shift; break;;
+            --no-recurse) shift; norecurse=1;;
+            --*)
+                echo "autoPatchelf: ERROR: Invalid command line" \
+                     "argument: $1" >&2
+                return 1;;
+            *) break;;
+        esac
+    done
+
+    if [ $# -eq 0 ]; then
+        echo "autoPatchelf: No paths to patch specified." >&2
+        return 1
+    fi
+
     echo "automatically fixing dependencies for ELF files" >&2
 
     # Add all shared objects of the current output path to the start of
-    # cachedDependencies so that it's choosen first in findDependency.
-    cachedDependencies+=(
-        $(find "$prefix" \! -type d \( -name '*.so' -o -name '*.so.*' \))
-    )
-    local elffile
+    # autoPatchelfCachedDeps so that it's chosen first in findDependency.
+    addAutoPatchelfSearchPath ${norecurse:+--no-recurse} -- "$@"
 
-    # Here we actually have a subshell, which also means that
-    # $cachedDependencies is final at this point, so whenever we want to run
-    # findDependency outside of this, the dependency cache needs to be rebuilt
-    # from scratch, so keep this in mind if you want to run findDependency
-    # outside of this function.
-    findElfs "$prefix" | while read -r elffile; do
-        autoPatchelfFile "$elffile"
+    while IFS= read -r -d $'\0' file; do
+      isELF "$file" || continue
+      segmentHeaders="$(LANG=C $READELF -l "$file")"
+      # Skip if the ELF file doesn't have segment headers (eg. object files).
+      # not using grep -q, because it can cause Broken pipe
+      [ -n "$(echo "$segmentHeaders" | grep '^Program Headers:')" ] || continue
+      if isExecutable "$file"; then
+          # Skip if the executable is statically linked.
+          [ -n "$(echo "$segmentHeaders" | grep "^ *INTERP\\>")" ] || continue
+      fi
+      # Jump file if patchelf is unable to parse it
+      # Some programs contain binary blobs for testing,
+      # which are identified as ELF but fail to be parsed by patchelf
+      patchelf "$file" || continue
+      autoPatchelfFile "$file"
+    done < <(find "$@" ${norecurse:+-maxdepth 1} -type f -print0)
+
+    # fail if any dependencies were not found and
+    # autoPatchelfIgnoreMissingDeps is not set
+    local depsMissing=0
+    for failedDep in "${!autoPatchelfFailedDeps[@]}"; do
+      echo "autoPatchelfHook could not satisfy dependency $failedDep wanted by ${autoPatchelfFailedDeps[$failedDep]}"
+      depsMissing=1
     done
+    # shellcheck disable=SC2154
+    # (autoPatchelfIgnoreMissingDeps is referenced but not assigned.)
+    if [[ $depsMissing == 1 && -z "$autoPatchelfIgnoreMissingDeps" ]]; then
+      echo "Add the missing dependencies to the build inputs or set autoPatchelfIgnoreMissingDeps=true"
+      exit 1
+    fi
 }
 
 # XXX: This should ultimately use fixupOutputHooks but we currently don't have
@@ -180,6 +255,11 @@ autoPatchelf() {
 # So what we do here is basically run in postFixup and emulate the same
 # behaviour as fixupOutputHooks because the setup hook for patchelf is run in
 # fixupOutput and the postFixup hook runs later.
-postFixupHooks+=(
-    'for output in $outputs; do prefix="${!output}" autoPatchelf; done'
-)
+postFixupHooks+=('
+    if [ -z "${dontAutoPatchelf-}" ]; then
+        autoPatchelf -- $(for output in $outputs; do
+            [ -e "${!output}" ] || continue
+            echo "${!output}"
+        done)
+    fi
+')

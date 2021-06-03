@@ -1,26 +1,23 @@
-{stdenv, fetchurl, alsaLib, gettext, ncurses, libsamplerate}:
+{lib, stdenv, fetchurl, alsaLib, gettext, ncurses, libsamplerate}:
 
 stdenv.mkDerivation rec {
-  name = "alsa-oss-1.1.6";
+  pname = "alsa-oss";
+  version = "1.1.8";
 
   src = fetchurl {
-    url = "mirror://alsa/oss-lib/${name}.tar.bz2";
-    sha256 = "1sj512wyci5qv8cisps96xngh7y9r5mv18ybqnazy18zwr1zgly3";
+    url = "mirror://alsa/oss-lib/${pname}-${version}.tar.bz2";
+    sha256 = "13nn6n6wpr2sj1hyqx4r9nb9bwxnhnzw8r2f08p8v13yjbswxbb4";
   };
 
   buildInputs = [ alsaLib ncurses libsamplerate ];
   nativeBuildInputs = [ gettext ];
 
-  configureFlags = "--disable-xmlto";
+  configureFlags = [ "--disable-xmlto" ];
 
-  installFlags = "ASOUND_STATE_DIR=$(TMPDIR)/dummy";
+  installFlags = [ "ASOUND_STATE_DIR=$(TMPDIR)/dummy" ];
 
-  preConfigure =
-    ''
-    '';
-
-  meta = {
-    homepage = http://www.alsa-project.org/;
+  meta = with lib; {
+    homepage = "http://www.alsa-project.org/";
     description = "ALSA, the Advanced Linux Sound Architecture alsa-oss emulation";
 
     longDescription = ''
@@ -28,6 +25,7 @@ stdenv.mkDerivation rec {
       MIDI functionality to the Linux-based operating system.
     '';
 
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.gpl2;
+    platforms = platforms.linux;
   };
 }

@@ -1,8 +1,14 @@
-{ stdenv, lib, fetchFromGitHub, fetchpatch, removeReferencesTo, which, go_1_9, go-bindata, makeWrapper, rsync
-, iptables, coreutils
+{ stdenv
+, lib
+, fetchFromGitHub
+, removeReferencesTo
+, which
+, go
+, makeWrapper
+, rsync
+, installShellFiles
+
 , components ? [
-    "cmd/kubeadm"
-    "cmd/kubectl"
     "cmd/kubelet"
     "cmd/kube-apiserver"
     "cmd/kube-controller-manager"
@@ -12,27 +18,29 @@
   ]
 }:
 
-with lib;
-
 stdenv.mkDerivation rec {
-  name = "kubernetes-${version}";
-  version = "1.10.5";
+  pname = "kubernetes";
+  version = "1.21.1";
 
   src = fetchFromGitHub {
     owner = "kubernetes";
     repo = "kubernetes";
     rev = "v${version}";
-    sha256 = "1k6ayb43l68l0qw31cc4k1pwvm8aks3l2xm0gdxdxbbww1mnzix2";
+    sha256 = "sha256-gJjCw28SqU49kIiRH+MZgeYN4VBgKVEaRPr5A/2c5Pc=";
   };
 
-  # Build using golang v1.9 in accordance with https://github.com/kubernetes/kubernetes/blob/master/CHANGELOG-1.10.md#external-dependencies
-  buildInputs = [ removeReferencesTo makeWrapper which go_1_9 rsync go-bindata ];
+  nativeBuildInputs = [ removeReferencesTo makeWrapper which go rsync installShellFiles ];
 
-  outputs = ["out" "man" "pause"];
+  outputs = [ "out" "man" "pause" ];
+
+  patches = [ ./fixup-addonmanager-lib-path.patch ];
 
   postPatch = ''
-    substituteInPlace "hack/lib/golang.sh" --replace "_cgo" ""
-    substituteInPlace "hack/generate-docs.sh" --replace "make" "make SHELL=${stdenv.shell}"
+    # go env breaks the sandbox
+    substituteInPlace "hack/lib/golang.sh" \
+      --replace 'echo "$(go env GOHOSTOS)/$(go env GOHOSTARCH)"' 'echo "${go.GOOS}/${go.GOARCH}"'
+
+    substituteInPlace "hack/update-generated-docs.sh" --replace "make" "make SHELL=${stdenv.shell}"
     # hack/update-munge-docs.sh only performs some tests on the documentation.
     # They broke building k8s; disabled for now.
     echo "true" > "hack/update-munge-docs.sh"
@@ -40,37 +48,51 @@ stdenv.mkDerivation rec {
     patchShebangs ./hack
   '';
 
-  WHAT="--use_go_build ${concatStringsSep " " components}";
+  WHAT = lib.concatStringsSep " " ([
+    "cmd/kubeadm"
+    "cmd/kubectl"
+  ] ++ components);
 
   postBuild = ''
-    ./hack/generate-docs.sh
-    (cd build/pause && cc pause.c -o pause)
+    ./hack/update-generated-docs.sh
+    (cd build/pause/linux && cc pause.c -o pause)
   '';
 
   installPhase = ''
-    mkdir -p "$out/bin" "$out/share/bash-completion/completions" "$out/share/zsh/site-functions" "$man/share/man" "$pause/bin"
+    for p in $WHAT; do
+      install -D _output/local/go/bin/''${p##*/} -t $out/bin
+    done
 
-    cp _output/local/go/bin/* "$out/bin/"
-    cp build/pause/pause "$pause/bin/pause"
-    cp -R docs/man/man1 "$man/share/man"
+    install -D build/pause/linux/pause -t $pause/bin
+    installManPage docs/man/man1/*.[1-9]
 
-    cp cluster/addons/addon-manager/kube-addons.sh $out/bin/kube-addons
+    # Unfortunately, kube-addons-main.sh only looks for the lib file in either the current working dir
+    # or in /opt. We have to patch this for now.
+    substitute cluster/addons/addon-manager/kube-addons-main.sh $out/bin/kube-addons \
+      --subst-var out
+
+    chmod +x $out/bin/kube-addons
     patchShebangs $out/bin/kube-addons
     wrapProgram $out/bin/kube-addons --set "KUBECTL_BIN" "$out/bin/kubectl"
 
-    $out/bin/kubectl completion bash > $out/share/bash-completion/completions/kubectl
-    $out/bin/kubectl completion zsh > $out/share/zsh/site-functions/_kubectl
+    cp cluster/addons/addon-manager/kube-addons.sh $out/bin/kube-addons-lib.sh
+
+    for tool in kubeadm kubectl; do
+      installShellCompletion --cmd $tool \
+        --bash <($out/bin/$tool completion bash) \
+        --zsh <($out/bin/$tool completion zsh)
+    done
   '';
 
   preFixup = ''
-    find $out/bin $pause/bin -type f -exec remove-references-to -t ${go_1_9} '{}' +
+    find $out/bin $pause/bin -type f -exec remove-references-to -t ${go} '{}' +
   '';
 
-  meta = {
+  meta = with lib; {
     description = "Production-Grade Container Scheduling and Management";
     license = licenses.asl20;
-    homepage = https://kubernetes.io;
-    maintainers = with maintainers; [johanot offline];
+    homepage = "https://kubernetes.io";
+    maintainers = with maintainers; [ johanot offline saschagrunert ];
     platforms = platforms.unix;
   };
 }

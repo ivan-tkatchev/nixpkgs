@@ -1,30 +1,20 @@
-{ stdenv, fetchurl, fetchpatch, perl, openldap, pam, db, cyrus_sasl, libcap
-, expat, libxml2, openssl }:
+{ lib, stdenv, fetchurl, perl, openldap, pam, db, cyrus_sasl, libcap
+, expat, libxml2, openssl, pkg-config
+}:
 
 stdenv.mkDerivation rec {
-  name = "squid-3.5.27";
+  pname = "squid";
+  version = "4.15";
 
   src = fetchurl {
-    url = "http://www.squid-cache.org/Versions/v3/3.5/${name}.tar.xz";
-    sha256 = "1v7hzvwwghrs751iag90z8909nvyp3c5jynaz4hmjqywy9kl7nsx";
+    url = "http://www.squid-cache.org/Versions/v4/${pname}-${version}.tar.xz";
+    sha256 = "sha256-tpOk5asoEaioVPYN4KYq+786lSux0EeVLJrgEyH4SiU=";
   };
 
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [
     perl openldap db cyrus_sasl expat libxml2 openssl
-  ] ++ stdenv.lib.optionals stdenv.isLinux [ libcap pam ];
-
-  patches = [
-    (fetchpatch {
-      name = "CVE-2018-1000024.patch";
-      url = http://www.squid-cache.org/Versions/v3/3.5/changesets/SQUID-2018_1.patch;
-      sha256 = "0vzxr4rmybz0w4c1hi3szvqawbzl4r4b8wyvq9vgq1mzkk5invpg";
-    })
-    (fetchpatch {
-      name = "CVE-2018-1000027.patch";
-      url = http://www.squid-cache.org/Versions/v3/3.5/changesets/SQUID-2018_2.patch;
-      sha256 = "1a8hwk9z7h1j0c57anfzp3bwjd4pjbyh8aks4ca79nwz4d0y6wf3";
-    })
-  ];
+  ] ++ lib.optionals stdenv.isLinux [ libcap pam ];
 
   configureFlags = [
     "--enable-ipv6"
@@ -36,13 +26,13 @@ stdenv.mkDerivation rec {
     "--enable-removal-policies=lru,heap"
     "--enable-delay-pools"
     "--enable-x-accelerator-vary"
-  ] ++ stdenv.lib.optional (stdenv.isLinux && !stdenv.hostPlatform.isMusl) "--enable-linux-netfilter";
+  ] ++ lib.optional (stdenv.isLinux && !stdenv.hostPlatform.isMusl) "--enable-linux-netfilter";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A caching proxy for the Web supporting HTTP, HTTPS, FTP, and more";
-    homepage = http://www.squid-cache.org;
-    license = licenses.gpl2;
+    homepage = "http://www.squid-cache.org";
+    license = licenses.gpl2Plus;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ fpletz ];
+    maintainers = with maintainers; [ fpletz raskin ];
   };
 }

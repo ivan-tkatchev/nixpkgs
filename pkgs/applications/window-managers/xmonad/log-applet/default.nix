@@ -1,45 +1,47 @@
-{ stdenv, fetchFromGitHub, pkgconfig, autoreconfHook, glib, dbus-glib
-, desktopSupport
-, gtk2, gnome2_panel, GConf2
+{ lib, stdenv, fetchFromGitHub, pkg-config, autoreconfHook, glib, dbus-glib
+, desktopSupport ? "gnomeflashback", xorg
+, gtk2
+, gtk3, gnome, mate
 , libxfce4util, xfce4-panel
 }:
 
-assert desktopSupport == "gnome2" || desktopSupport == "gnome3" || desktopSupport == "xfce4";
+assert desktopSupport == "gnomeflashback" || desktopSupport == "mate"  || desktopSupport == "xfce4";
 
 stdenv.mkDerivation rec {
-  version = "2.1.0";
+  version = "unstable-2017-09-15";
   pname = "xmonad-log-applet";
-  name = "${pname}-${version}-${desktopSupport}";
+  name = "${pname}-${desktopSupport}-${version}";
 
   src = fetchFromGitHub {
-    owner = "alexkay";
+    owner = "kalj";
     repo = pname;
-    rev = "${version}";
-    sha256 = "1g1fisyaw83v72b25fxfjln8f4wlw3rm6nyk27mrqlhsc1spnb5p";
+    rev = "a1b294cad2f266e4f18d9de34167fa96a0ffdba8";
+    sha256 = "042307grf4zvn61gnflhsj5xsjykrk9sjjsprprm4iij0qpybxcw";
   };
 
-  buildInputs =  with stdenv.lib;
-                 [ glib dbus-glib ]
-              ++ optionals (desktopSupport == "gnome2") [ gtk2 gnome2_panel GConf2 ]
-              # TODO: no idea where to find libpanelapplet-4.0
-              ++ optionals (desktopSupport == "gnome3") [ ]
-              ++ optionals (desktopSupport == "xfce4") [ gtk2 libxfce4util xfce4-panel ]
-              ;
-  
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
-  
+  buildInputs = [ glib dbus-glib xorg.xcbutilwm ]
+    ++ lib.optionals (desktopSupport == "gnomeflashback") [ gtk3 gnome.gnome-panel ]
+    ++ lib.optionals (desktopSupport == "mate") [ gtk3 mate.mate-panel ]
+    ++ lib.optionals (desktopSupport == "xfce4") [ gtk2 libxfce4util xfce4-panel ]
+  ;
+
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
+
   configureFlags =  [ "--with-panel=${desktopSupport}" ];
-  
+
   patches = [ ./fix-paths.patch ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/alexkay/xmonad-log-applet;
+  # Setup hook replaces ${prefix} in pc files so we cannot use
+  # --define-variable=prefix=$prefix
+  PKG_CONFIG_LIBXFCE4PANEL_1_0_LIBDIR = "$(out)/lib";
+
+  meta = with lib; {
+    homepage = "https://github.com/kalj/xmonad-log-applet";
     license = licenses.bsd3;
+    broken = desktopSupport == "gnomeflashback" || desktopSupport == "xfce4";
     description = "An applet that will display XMonad log information (${desktopSupport} version)";
     platforms = platforms.linux;
     maintainers = with maintainers; [ abbradar ];
-
-    broken = desktopSupport == "gnome3";
   };
 }
 

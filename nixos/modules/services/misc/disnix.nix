@@ -7,16 +7,6 @@ let
 
   cfg = config.services.disnix;
 
-  dysnomia = pkgs.dysnomia.override (origArgs: {
-    enableApacheWebApplication = config.services.httpd.enable;
-    enableAxis2WebService = config.services.tomcat.axis2.enable;
-    enableEjabberdDump = config.services.ejabberd.enable;
-    enableMySQLDatabase = config.services.mysql.enable;
-    enablePostgreSQLDatabase = config.services.postgresql.enable;
-    enableSubversionRepository = config.services.svnserve.enable;
-    enableTomcatWebApplication = config.services.tomcat.enable;
-    enableMongoDatabase = config.services.mongodb.enable;
-  });
 in
 
 {
@@ -27,10 +17,7 @@ in
 
     services.disnix = {
 
-      enable = mkOption {
-        default = false;
-        description = "Whether to enable Disnix";
-      };
+      enable = mkEnableOption "Disnix";
 
       enableMultiUser = mkOption {
         type = types.bool;
@@ -38,10 +25,7 @@ in
         description = "Whether to support multi-user mode by enabling the Disnix D-Bus service";
       };
 
-      useWebServiceInterface = mkOption {
-        default = false;
-        description = "Whether to enable the DisnixWebService interface running on Apache Tomcat";
-      };
+      useWebServiceInterface = mkEnableOption "the DisnixWebService interface running on Apache Tomcat";
 
       package = mkOption {
         type = types.path;
@@ -50,6 +34,14 @@ in
         defaultText = "pkgs.disnix";
       };
 
+      enableProfilePath = mkEnableOption "exposing the Disnix profiles in the system's PATH";
+
+      profiles = mkOption {
+        type = types.listOf types.str;
+        default = [ "default" ];
+        example = [ "default" ];
+        description = "Names of the Disnix profiles to expose in the system's PATH";
+      };
     };
 
   };
@@ -57,9 +49,11 @@ in
   ###### implementation
 
   config = mkIf cfg.enable {
-    services.dysnomia.enable = true;
+    dysnomia.enable = true;
 
     environment.systemPackages = [ pkgs.disnix ] ++ optional cfg.useWebServiceInterface pkgs.DisnixWebService;
+    environment.variables.PATH = lib.optionals cfg.enableProfilePath (map (profileName: "/nix/var/nix/profiles/disnix/${profileName}/bin" ) cfg.profiles);
+    environment.variables.DISNIX_REMOTE_CLIENT = lib.optionalString (cfg.enableMultiUser) "disnix-client";
 
     services.dbus.enable = true;
     services.dbus.packages = [ pkgs.disnix ];
@@ -71,10 +65,7 @@ in
       ++ optional cfg.useWebServiceInterface "${pkgs.dbus_java}/share/java/dbus.jar";
     services.tomcat.webapps = optional cfg.useWebServiceInterface pkgs.DisnixWebService;
 
-    users.groups = singleton
-      { name = "disnix";
-        gid = config.ids.gids.disnix;
-      };
+    users.groups.disnix.gid = config.ids.gids.disnix;
 
     systemd.services = {
       disnix = mkIf cfg.enableMultiUser {
@@ -87,7 +78,8 @@ in
           ++ optional config.services.postgresql.enable "postgresql.service"
           ++ optional config.services.tomcat.enable "tomcat.service"
           ++ optional config.services.svnserve.enable "svnserve.service"
-          ++ optional config.services.mongodb.enable "mongodb.service";
+          ++ optional config.services.mongodb.enable "mongodb.service"
+          ++ optional config.services.influxdb.enable "influxdb.service";
 
         restartIfChanged = false;
 

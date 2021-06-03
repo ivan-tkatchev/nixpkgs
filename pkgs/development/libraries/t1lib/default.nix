@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, fetchpatch, libX11, libXaw }:
+{ lib, stdenv, fetchurl, fetchpatch, libX11, libXaw }:
 
 let
   getPatch = { name, sha256 }: fetchpatch {
@@ -26,11 +26,14 @@ stdenv.mkDerivation {
   inherit patches;
 
   buildInputs = [ libX11 libXaw ];
-  buildFlags = "without_doc";
+  buildFlags = [ "without_doc" ];
 
-  postInstall = stdenv.lib.optional (!stdenv.isDarwin) "chmod +x $out/lib/*.so.*"; # ??
+  postInstall = lib.optional (!stdenv.isDarwin) "chmod +x $out/lib/*.so.*"; # ??
 
-  meta = {
-    platforms = stdenv.lib.platforms.unix;
+  meta = with lib; {
+    description = "A type 1 font rasterizer library for UNIX/X11";
+    homepage = "http://www.t1lib.org/";
+    license = with licenses; [ gpl2 lgpl2 ];
+    platforms = platforms.unix;
   };
 }

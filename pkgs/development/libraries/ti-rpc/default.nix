@@ -1,21 +1,22 @@
-{ fetchurl, fetchpatch, stdenv, autoreconfHook, libkrb5 }:
+{ fetchurl, lib, stdenv, autoreconfHook, libkrb5 }:
 
 stdenv.mkDerivation rec {
-  name = "libtirpc-1.0.3";
+  pname = "libtirpc";
+  version = "1.2.7-rc4";
 
   src = fetchurl {
-    url = "mirror://sourceforge/libtirpc/${name}.tar.bz2";
-    sha256 = "0ppxl3k3nsz0qdakq844i2kj4fvh9h937lhx26bgmpmxq67sghw6";
+    url = "http://git.linux-nfs.org/?p=steved/libtirpc.git;a=snapshot;h=5ca4ca92f629d9d83e83544b9239abaaacf0a527;sf=tgz";
+    sha256 = "0w26yf9bwkpqj52sqd3n250dg9jlqnr8bjv0kc4fl5hkrv8akj8i";
+    name = "${pname}-${version}.tar.gz";
   };
+
+  outputs = [ "out" "dev" ];
 
   postPatch = ''
     sed '1i#include <stdint.h>' -i src/xdr_sizeof.c
-  '' + stdenv.lib.optionalString stdenv.hostPlatform.isMusl ''
-    substituteInPlace tirpc/rpc/types.h \
-      --replace '#if defined __APPLE_CC__ || defined __FreeBSD__' \
-                '#if defined __APPLE_CC__ || defined __FreeBSD__ || !defined __GLIBC__'
   '';
 
+  KRB5_CONFIG = "${libkrb5.dev}/bin/krb5-config";
   nativeBuildInputs = [ autoreconfHook ];
   propagatedBuildInputs = [ libkrb5 ];
 
@@ -27,8 +28,8 @@ stdenv.mkDerivation rec {
 
   doCheck = true;
 
-  meta = with stdenv.lib; {
-    homepage = https://sourceforge.net/projects/libtirpc/;
+  meta = with lib; {
+    homepage = "https://sourceforge.net/projects/libtirpc/";
     description = "The transport-independent Sun RPC implementation (TI-RPC)";
     license = licenses.bsd3;
     platforms = platforms.linux;

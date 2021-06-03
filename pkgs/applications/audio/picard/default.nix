@@ -1,35 +1,66 @@
-{ stdenv, python2Packages, fetchurl, gettext, chromaprint }:
+{ lib
+, python3Packages
+, fetchFromGitHub
+, gettext
+, chromaprint
+, qt5
+, enablePlayback ? true
+, gst_all_1
+}:
 
 let
-  pythonPackages = python2Packages;
-in pythonPackages.buildPythonApplication rec {
+  pythonPackages = python3Packages;
+  pyqt5 = if enablePlayback then
+    pythonPackages.pyqt5_with_qtmultimedia
+  else
+    pythonPackages.pyqt5
+  ;
+in
+pythonPackages.buildPythonApplication rec {
   pname = "picard";
-  version = "1.4.2";
+  version = "2.6.2";
 
-  src = fetchurl {
-    url = "http://ftp.musicbrainz.org/pub/musicbrainz/picard/picard-${version}.tar.gz";
-    sha256 = "0d12k40d9fbcn801gp5zdsgvjdrh4g97vda3ga16rmmvfwwfxbgh";
+  src = fetchFromGitHub {
+    owner = "metabrainz";
+    repo = pname;
+    rev = "release-${version}";
+    sha256 = "1dhkdzc3601rhg8pqljbv3dz7j0mx75brpfhlizhgwgv65qk3ifj";
   };
 
-  buildInputs = [ gettext ];
+  nativeBuildInputs = [ gettext qt5.wrapQtAppsHook qt5.qtbase ]
+  ++ lib.optionals (pyqt5.multimediaEnabled) [
+    qt5.qtmultimedia.bin
+    gst_all_1.gst-libav
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
+    gst_all_1.gst-vaapi
+    gst_all_1.gstreamer
+  ]
+  ;
 
   propagatedBuildInputs = with pythonPackages; [
-    pyqt4
-    mutagen
+    chromaprint
+    dateutil
     discid
+    fasteners
+    mutagen
+    pyqt5
   ];
 
-  installPhase = ''
-    python setup.py install --prefix="$out"
-  '';
+  # In order to spare double wrapping, we use:
+  preFixup = ''
+    makeWrapperArgs+=("''${qtWrapperArgs[@]}")
+  ''
+  + lib.optionalString (pyqt5.multimediaEnabled) ''
+    makeWrapperArgs+=(--prefix GST_PLUGIN_SYSTEM_PATH_1_0 : "$GST_PLUGIN_SYSTEM_PATH_1_0")
+  ''
+  ;
 
-  doCheck = false;
-
-  meta = with stdenv.lib; {
-    homepage = http://musicbrainz.org/doc/MusicBrainz_Picard;
+  meta = with lib; {
+    homepage = "https://picard.musicbrainz.org/";
     description = "The official MusicBrainz tagger";
     maintainers = with maintainers; [ ehmry ];
-    license = licenses.gpl2;
+    license = licenses.gpl2Plus;
     platforms = platforms.all;
   };
 }

@@ -1,8 +1,12 @@
-{stdenv, fetchurl, ocaml, findlib}:
+{stdenv, lib, fetchurl, ocaml, findlib}:
 
 let
   pname = "dypgen";
 in
+
+if lib.versionAtLeast ocaml.version "4.06"
+then throw "${pname} is not available for OCaml ${ocaml.version}"
+else
 
 stdenv.mkDerivation rec {
   name = "${pname}-${version}";
@@ -21,12 +25,12 @@ stdenv.mkDerivation rec {
     make
   '';
 
-  makeFlags = "BINDIR=$(out)/bin  MANDIR=$(out)/usr/share/man/man1 DYPGENLIBDIR=$(out)/lib/ocaml/${ocaml.version}/site-lib";
+  makeFlags = [ "BINDIR=$(out)/bin" "MANDIR=$(out)/usr/share/man/man1" "DYPGENLIBDIR=$(out)/lib/ocaml/${ocaml.version}/site-lib" ];
 
   meta = {
-    homepage = http://dypgen.free.fr;
+    homepage = "http://dypgen.free.fr";
     description = "Dypgen GLR self extensible parser generator";
-    license = stdenv.lib.licenses.cecill-b;
+    license = lib.licenses.cecill-b;
     platforms = ocaml.meta.platforms or [];
   };
 }

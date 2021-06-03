@@ -1,23 +1,28 @@
-{ stdenv, buildPythonPackage, fetchPypi, isPy3k }:
+{ lib, stdenv, buildPythonPackage, fetchPypi, setuptools-scm
+, toml
+}:
 
 buildPythonPackage rec {
   pname = "configparser";
-  version = "3.5.0";
+  version = "5.0.2";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0fi7vf09vi1588jd8f16a021m5y6ih2hy7rpbjb408xw45qb822k";
+    sha256 = "85d5de102cfe6d14a5172676f09d19c465ce63d6019cf0a4ef13385fc535e828";
   };
 
   # No tests available
   doCheck = false;
 
-  # Fix issue when used together with other namespace packages
-  # https://github.com/NixOS/nixpkgs/issues/23855
-  patches = [
-    ./0001-namespace-fix.patch
-  ];
+  nativeBuildInputs = [ setuptools-scm toml ];
 
-  meta = with stdenv.lib; {
+  preConfigure = ''
+    export LC_ALL=${if stdenv.isDarwin then "en_US" else "C"}.UTF-8
+  '';
+
+  meta = with lib; {
+    description = "Updated configparser from Python 3.7 for Python 2.6+.";
+    license = licenses.mit;
+    homepage = "https://github.com/jaraco/configparser";
   };
 }

@@ -1,22 +1,73 @@
-{ stdenv, fetchurl, pkgconfig, libusb, pixman, glib, nss, nspr, gdk_pixbuf }:
+{ lib, stdenv
+, fetchFromGitLab
+, pkg-config
+, meson
+, python3
+, ninja
+, gusb
+, pixman
+, glib
+, nss
+, gobject-introspection
+, coreutils
+, gtk-doc
+, docbook-xsl-nons
+, docbook_xml_dtd_43
+}:
 
 stdenv.mkDerivation rec {
-  name = "libfprint-0.7.0";
+  pname = "libfprint";
+  version = "1.90.7";
+  outputs = [ "out" "devdoc" ];
 
-  src = fetchurl {
-    url = "https://people.freedesktop.org/~anarsoul/${name}.tar.xz";
-    sha256 = "1wzi12zvdp8sw3w5pfbd9cwz6c71627bkr88rxv6gifbyj6fwgl6";
+  src = fetchFromGitLab {
+    domain = "gitlab.freedesktop.org";
+    owner = "libfprint";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-g/yczzCZEzUKV2uFl1MAPL1H/R2QJSwxgppI2ftt9QI=";
   };
 
-  buildInputs = [ libusb pixman glib nss nspr gdk_pixbuf ];
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [
+    pkg-config
+    meson
+    ninja
+    gtk-doc
+    docbook-xsl-nons
+    docbook_xml_dtd_43
+    gobject-introspection
+  ];
 
-  configureFlags = [ "--with-udev-rules-dir=$(out)/lib/udev/rules.d" ];
+  buildInputs = [
+    gusb
+    pixman
+    glib
+    nss
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = http://www.freedesktop.org/wiki/Software/fprint/libfprint/;
+  checkInputs = [
+    python3
+  ];
+
+  mesonFlags = [
+    "-Dudev_rules_dir=${placeholder "out"}/lib/udev/rules.d"
+    # Include virtual drivers for fprintd tests
+    "-Ddrivers=all"
+  ];
+
+  doCheck = true;
+
+  postPatch = ''
+    patchShebangs \
+      tests/test-runner.sh \
+      tests/unittest_inspector.py \
+      tests/virtual-image.py
+  '';
+
+  meta = with lib; {
+    homepage = "https://fprint.freedesktop.org/";
     description = "A library designed to make it easy to add support for consumer fingerprint readers";
-    license = licenses.lgpl2;
+    license = licenses.lgpl21Only;
     platforms = platforms.linux;
     maintainers = with maintainers; [ abbradar ];
   };

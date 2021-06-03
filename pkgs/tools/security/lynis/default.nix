@@ -1,37 +1,37 @@
-{ stdenv, makeWrapper, fetchFromGitHub, gawk, perl }:
+{ lib, stdenv, makeWrapper, fetchFromGitHub, gawk, installShellFiles }:
 
 stdenv.mkDerivation rec {
   pname = "lynis";
-  version = "2.6.6";
-  name = "${pname}-${version}";
+  version = "3.0.4";
 
   src = fetchFromGitHub {
     owner = "CISOfy";
-    repo = "${pname}";
-    rev = "${version}";
-    sha256 = "02d8nwy78gy07c32c7dk3sl93h1z0gav0h4j7xp85m6xj852lb5a";
+    repo = pname;
+    rev = version;
+    sha256 = "sha256-/pF1V8ZsylQOCW7K/O0R3HYYDdsdNDVmmUar21EzpcQ=";
   };
 
-  nativeBuildInputs = [ makeWrapper perl ];
+  nativeBuildInputs = [ installShellFiles makeWrapper ];
 
   postPatch = ''
     grep -rl '/usr/local/lynis' ./ | xargs sed -i "s@/usr/local/lynis@$out/share/lynis@g"
-    # Don't use predefined binary paths. See https://github.com/CISOfy/lynis/issues/468
-    perl -i -p0e 's/BIN_PATHS="[^"]*"/BIN_PATHS=\$\(echo \$PATH\ | sed "s\/:\/ \/g")/sm;' include/consts
   '';
 
   installPhase = ''
-    mkdir -p $out/share/lynis
+    install -d $out/bin $out/share/lynis/plugins
     cp -r include db default.prf $out/share/lynis/
-    mkdir -p $out/bin
     cp -a lynis $out/bin
-    wrapProgram "$out/bin/lynis" --prefix PATH : ${stdenv.lib.makeBinPath [ gawk ]}
+    wrapProgram "$out/bin/lynis" --prefix PATH : ${lib.makeBinPath [ gawk ]}
+
+    installManPage lynis.8
+    installShellCompletion --bash --name lynis.bash \
+      extras/bash_completion.d/lynis
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Security auditing tool for Linux, macOS, and UNIX-based systems";
     homepage = "https://cisofy.com/lynis/";
-    license = licenses.gpl3;
+    license = licenses.gpl3Only;
     platforms = platforms.unix;
     maintainers = [ maintainers.ryneeverett ];
   };

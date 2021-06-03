@@ -1,47 +1,67 @@
-{ lib, pythonPackages, fetchFromGitHub }:
+{ lib, nixosTests, python3, python3Packages, fetchFromGitHub }:
 
-with pythonPackages;
+with python3Packages;
 
-buildPythonApplication rec {
+toPythonModule (buildPythonApplication rec {
   pname = "searx";
-  version = "0.14.0";
+  version = "1.0.0";
 
-  # Can not use PyPI because certain test files are missing.
+  # pypi doesn't receive updates
   src = fetchFromGitHub {
-    owner = "asciimoo";
+    owner = "searx";
     repo = "searx";
     rev = "v${version}";
-    sha256 = "046xg6xcs1mxgahz7kwf3fsmwd99q3hhms6pdjlvyczidlfhpmxl";
+    sha256 = "0ghkx8g8jnh8yd46p4mlbjn2zm12nx27v7qflr4c8xhlgi0px0mh";
   };
 
   postPatch = ''
-    substituteInPlace requirements.txt \
-      --replace 'certifi==2017.11.5' 'certifi' \
-      --replace 'flask==0.12.2' 'flask==0.12.*' \
-      --replace 'flask-babel==0.11.2' 'flask-babel==0.11.*' \
-      --replace 'lxml==4.1.1' 'lxml==4.1.*' \
-      --replace 'idna==2.5' 'idna' \
-      --replace 'pygments==2.1.3' 'pygments>=2.1,<3.0' \
-      --replace 'pyopenssl==17.4.0' 'pyopenssl' \
-      --replace 'python-dateutil==2.6.1' 'python-dateutil==2.6.*'
+    sed -i 's/==.*$//' requirements.txt
+  '';
+
+  preBuild = ''
+    export SEARX_DEBUG="true";
   '';
 
   propagatedBuildInputs = [
-    pyyaml lxml grequests flaskbabel flask requests
-    gevent speaklater Babel pytz dateutil pygments
-    pyasn1 pyasn1-modules ndg-httpsclient certifi pysocks
+    Babel
+    certifi
+    dateutil
+    flask
+    flaskbabel
+    gevent
+    grequests
+    jinja2
+    langdetect
+    lxml
+    ndg-httpsclient
+    pyasn1
+    pyasn1-modules
+    pygments
+    pysocks
+    pytz
+    pyyaml
+    requests
+    speaklater
+    werkzeug
   ];
 
-  checkInputs = [ splinter mock plone-testing robotsuite unittest2 ];
+  # tests try to connect to network
+  doCheck = false;
 
-  preCheck = ''
-    rm tests/test_robot.py # A variable that is imported is commented out
+  pythonImportsCheck = [ "searx" ];
+
+  postInstall = ''
+    # Create a symlink for easier access to static data
+    mkdir -p $out/share
+    ln -s ../${python3.sitePackages}/searx/static $out/share/
   '';
 
+  passthru.tests = { inherit (nixosTests) searx; };
+
   meta = with lib; {
-    homepage = https://github.com/asciimoo/searx;
+    homepage = "https://github.com/searx/searx";
     description = "A privacy-respecting, hackable metasearch engine";
     license = licenses.agpl3Plus;
-    maintainers = with maintainers; [ matejc fpletz ];
+    maintainers = with maintainers; [ matejc fpletz globin danielfullmer ];
   };
-}
+})

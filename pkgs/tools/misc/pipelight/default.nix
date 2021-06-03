@@ -1,8 +1,7 @@
-{ stdenv, fetchurl, bash, cabextract, curl, gnupg, libX11, libGLU_combined, perl, wineStaging
- }:
+{ lib, stdenv, fetchurl, bash, cabextract, curl, gnupg, libX11, libGLU, libGL, wine-staging }:
 
 let
-  wine_custom = wineStaging;
+  wine_custom = wine-staging;
 
   mozillaPluginPath = "/lib/mozilla/plugins";
 
@@ -11,16 +10,16 @@ in stdenv.mkDerivation rec {
 
   version = "0.2.8.2";
 
-  name = "pipelight-${version}";
+  pname = "pipelight";
 
   src = fetchurl {
     url = "https://bitbucket.org/mmueller2012/pipelight/get/v${version}.tar.gz";
     sha256 = "1kyy6knkr42k34rs661r0f5sf6l1s2jdbphdg89n73ynijqmzjhk";
   };
 
-  buildInputs = [ wine_custom libX11 libGLU_combined curl ];
+  buildInputs = [ wine_custom libX11 libGLU libGL curl ];
 
-  propagatedbuildInputs = [ curl cabextract ];
+  NIX_CFLAGS_COMPILE = [ "-fpermissive" ];
 
   patches = [ ./pipelight.patch ];
 
@@ -53,10 +52,10 @@ in stdenv.mkDerivation rec {
   enableParallelBuilding = true;
 
   meta = {
-    homepage = http://pipelight.net/;
-    license = with stdenv.lib.licenses; [ mpl11 gpl2 lgpl21 ];
+    homepage = "http://pipelight.net/";
+    license = with lib.licenses; [ mpl11 gpl2 lgpl21 ];
     description = "A wrapper for using Windows plugins in Linux browsers";
-    maintainers = with stdenv.lib.maintainers; [ skeidel ];
+    maintainers = with lib.maintainers; [ skeidel ];
     platforms = [ "x86_64-linux" "i686-linux" ];
   };
 }

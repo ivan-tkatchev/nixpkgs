@@ -1,17 +1,18 @@
-{ stdenv, fetchurl, pkgconfig, intltool, itstool, libxml2, libcanberra-gtk3, libgtop, gnome2, gnome3, mate, wrapGAppsHook }:
+{ lib, stdenv, fetchurl, pkg-config, gettext, itstool, libxml2, libcanberra-gtk3, libgtop
+, libXdamage, libXpresent, libstartup_notification, gnome, gtk3, mate-settings-daemon, wrapGAppsHook, mateUpdateScript }:
 
 stdenv.mkDerivation rec {
-  name = "marco-${version}";
-  version = "1.21.0";
+  pname = "marco";
+  version = "1.24.2";
 
   src = fetchurl {
-    url = "http://pub.mate-desktop.org/releases/${mate.getRelease version}/${name}.tar.xz";
-    sha256 = "1vg3dl7kqhzgspa2ykyql4j3bpki59769qrkakqfdcavb9j5c877";
+    url = "https://pub.mate-desktop.org/releases/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "19s2y2s9immp86ni3395mgxl605m2wn10m8399y9qkgw2b5m10s9";
   };
 
   nativeBuildInputs = [
-    pkgconfig
-    intltool
+    pkg-config
+    gettext
     itstool
     wrapGAppsHook
   ];
@@ -20,15 +21,22 @@ stdenv.mkDerivation rec {
     libxml2
     libcanberra-gtk3
     libgtop
-    gnome2.startup_notification
-    gnome3.gtk
-    gnome3.zenity
+    libXdamage
+    libXpresent
+    libstartup_notification
+    gtk3
+    gnome.zenity
+    mate-settings-daemon
   ];
-  
-  meta = with stdenv.lib; {
+
+  enableParallelBuilding = true;
+
+  passthru.updateScript = mateUpdateScript { inherit pname version; };
+
+  meta = with lib; {
     description = "MATE default window manager";
-    homepage = https://github.com/mate-desktop/marco;
-    license = [ licenses.gpl2 ];
+    homepage = "https://github.com/mate-desktop/marco";
+    license = [ licenses.gpl2Plus ];
     platforms = platforms.unix;
     maintainers = [ maintainers.romildo ];
   };

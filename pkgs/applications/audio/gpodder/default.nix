@@ -1,21 +1,25 @@
-{ stdenv, fetchFromGitHub, python3, python3Packages, intltool
-, glibcLocales, gnome3, gtk3, wrapGAppsHook
-, ipodSupport ? false, libgpod, gobjectIntrospection
+{ lib, fetchFromGitHub, python3, python3Packages, intltool
+, glibcLocales, gnome, gtk3, wrapGAppsHook
+, gobject-introspection
 }:
 
 python3Packages.buildPythonApplication rec {
   pname = "gpodder";
-  version = "3.10.3";
+  version = "3.10.17";
   format = "other";
 
   src = fetchFromGitHub {
-    owner = "gpodder";
-    repo = "gpodder";
+    owner = pname;
+    repo = pname;
     rev = version;
-    sha256 = "0j0amjq1wvr5p10vckg900a8xfnxw6z028qw72ayh58216m5jb5l";
+    sha256 = "0wrk8d4q6ricbcjzlhk10vrk1qg9hi323kgyyd0c8nmh7a82h8pd";
   };
 
-  postPatch = with stdenv.lib; ''
+  patches = [
+    ./disable-autoupdate.patch
+  ];
+
+  postPatch = with lib; ''
     sed -i -re 's,^( *gpodder_dir *= *).*,\1"'"$out"'",' bin/gpodder
   '';
 
@@ -27,8 +31,8 @@ python3Packages.buildPythonApplication rec {
 
   buildInputs = [
     python3
-    gobjectIntrospection
-    gnome3.defaultIconTheme
+    gobject-introspection
+    gnome.adwaita-icon-theme
   ];
 
   checkInputs = with python3Packages; [
@@ -46,7 +50,7 @@ python3Packages.buildPythonApplication rec {
     podcastparser
     html5lib
     gtk3
-  ] ++ stdenv.lib.optional ipodSupport libgpod;
+  ];
 
   makeFlags = [
     "PREFIX=$(out)"
@@ -63,13 +67,13 @@ python3Packages.buildPythonApplication rec {
     LC_ALL=C PYTHONPATH=./src:$PYTHONPATH python3 -m gpodder.unittests
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A podcatcher written in python";
     longDescription = ''
       gPodder downloads and manages free audio and video content (podcasts)
       for you. Listen directly on your computer or on your mobile devices.
     '';
-    homepage = http://gpodder.org/;
+    homepage = "http://gpodder.org/";
     license = licenses.gpl3;
     platforms = platforms.linux ++ platforms.darwin;
     maintainers = with maintainers; [ skeidel mic92 ];

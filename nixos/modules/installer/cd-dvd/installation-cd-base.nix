@@ -1,7 +1,7 @@
 # This module contains the basic configuration for building a NixOS
 # installation CD.
 
-{ config, lib, pkgs, ... }:
+{ config, lib, options, pkgs, ... }:
 
 with lib;
 
@@ -15,10 +15,11 @@ with lib;
       ../../profiles/installation-device.nix
     ];
 
-  # ISO naming.
-  isoImage.isoName = "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.stdenv.system}.iso";
+  # Adds terminus_font for people with HiDPI displays
+  console.packages = options.console.packages.default ++ [ pkgs.terminus_font ];
 
-  isoImage.volumeID = substring 0 11 "NIXOS_ISO";
+  # ISO naming.
+  isoImage.isoName = "${config.isoImage.isoBaseName}-${config.system.nixos.label}-${pkgs.stdenv.hostPlatform.system}.iso";
 
   # EFI booting
   isoImage.makeEfiBootable = true;
@@ -29,8 +30,5 @@ with lib;
   # Add Memtest86+ to the CD.
   boot.loader.grub.memtest86.enable = true;
 
-  # Allow the user to log in as root without a password.
-  users.users.root.initialHashedPassword = "";
-
-  system.nixos.stateVersion = mkDefault "18.03";
+  system.stateVersion = mkDefault "18.03";
 }

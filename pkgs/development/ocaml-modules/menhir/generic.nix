@@ -1,12 +1,10 @@
-{ version, sha256, stdenv, fetchurl, ocaml, findlib, ocamlbuild }:
+{ version, src, lib, stdenv, ocaml, findlib, ocamlbuild, ... }:
 
 stdenv.mkDerivation {
-  name = "menhir-${version}";
+  pname = "menhir";
+  inherit version;
 
-  src = fetchurl {
-    url = "http://pauillac.inria.fr/~fpottier/menhir/menhir-${version}.tar.gz";
-    inherit sha256;
-  };
+  inherit src;
 
   buildInputs = [ ocaml findlib ocamlbuild ];
 
@@ -26,8 +24,8 @@ stdenv.mkDerivation {
     export PREFIX=$out
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://pauillac.inria.fr/~fpottier/menhir/;
+  meta = with lib; {
+    homepage = "http://pauillac.inria.fr/~fpottier/menhir/";
     description = "A LR(1) parser generator for OCaml";
     longDescription = ''
       Menhir is a LR(1) parser generator for the Objective Caml programming
@@ -40,6 +38,6 @@ stdenv.mkDerivation {
       lgpl2 /* library */
     ];
     platforms = ocaml.meta.platforms or [];
-    maintainers = with maintainers; [ z77z ];
+    maintainers = with maintainers; [ maggesi ];
   };
 }

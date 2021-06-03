@@ -1,14 +1,15 @@
-{stdenv, qtdeclarative, fetchFromGitHub, qmake }:
-stdenv.mkDerivation rec {
-  name = "qml-box2d-2018-03-16";
+{lib, stdenv, qtdeclarative, fetchFromGitHub, qmake }:
+stdenv.mkDerivation {
+  name = "qml-box2d-2018-04-06";
   src = fetchFromGitHub {
     owner = "qml-box2d";
     repo = "qml-box2d";
-    sha256 = "1fbsvv28b4r0szcv8bk5gxpf8v534jp2axyfp438384sy757wsq2";
-    rev = "21e57f1";
+    sha256 = "0gb8limy6ck23z3k0k2j7c4c4s95p40f6lbzk4szq7fjnnw22kb7";
+    rev = "b7212d5640701f93f0cd88fbd3a32c619030ae62";
   };
 
   enableParallelBuilding = true;
+  dontWrapQtApps = true;
   nativeBuildInputs = [ qmake ];
 
   buildInputs = [ qtdeclarative ];
@@ -21,7 +22,7 @@ stdenv.mkDerivation rec {
 
   installFlags = [ "INSTALL_ROOT=$(out)" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A QML plugin for Box2D engine";
     homepage = "https://github.com/qml-box2d/qml-box2d";
     maintainers = [ maintainers.guibou ];

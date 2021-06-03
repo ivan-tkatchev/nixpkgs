@@ -1,25 +1,24 @@
-{ stdenv, fetchurl, writeText, jre, makeWrapper, fetchMavenArtifact
-, mysqlSupport ? true, mysql_jdbc ? null }:
+{ lib, stdenv, fetchurl, jre, makeWrapper
+, mysqlSupport ? true, mysql_jdbc
+, postgresqlSupport ? true, postgresql_jdbc }:
 
-assert mysqlSupport -> mysql_jdbc != null;
-
-with stdenv.lib;
 let
-  extraJars = optional mysqlSupport mysql_jdbc;
-
+  extraJars =
+    lib.optional mysqlSupport mysql_jdbc
+    ++ lib.optional postgresqlSupport postgresql_jdbc;
 in
 
 stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
   pname = "liquibase";
-  version = "3.6.2";
+  version = "4.3.5";
 
   src = fetchurl {
-    url = "https://github.com/liquibase/liquibase/releases/download/${pname}-parent-${version}/${name}-bin.tar.gz";
-    sha256 = "199ybjk0xxsg04v5x5l4arljmzj96hxva6ym6bp7av7dny0nqvfx";
+    url = "https://github.com/liquibase/liquibase/releases/download/v${version}/${pname}-${version}.tar.gz";
+    sha256 = "sha256-XOYq+p76XFt7j4oxMClZox5wsaXuV5ovcB6kZJhMBlU=";
   };
 
-  buildInputs = [ jre makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [ jre ];
 
   unpackPhase = ''
     tar xfz ${src}
@@ -32,40 +31,37 @@ stdenv.mkDerivation rec {
       done
     '';
     in ''
-      mkdir -p $out/{bin,lib,sdk}
-      mv ./* $out/
+      mkdir -p $out
+      mv ./{lib,licenses,liquibase.jar} $out/
 
-      # Clean up documentation.
-      mkdir -p $out/share/doc/${name}
-      mv $out/LICENSE.txt \
-         $out/README.txt \
-         $out/share/doc/${name}
+      mkdir -p $out/share/doc/${pname}-${version}
+      mv LICENSE.txt \
+         README.txt \
+         ABOUT.txt \
+         changelog.txt \
+         $out/share/doc/${pname}-${version}
 
-      # Remove silly files.
-      rm $out/liquibase.bat $out/liquibase.spec
-
-      # we provide our own script
-      rm $out/liquibase
-
+      mkdir -p $out/bin
       # there’s a lot of escaping, but I’m not sure how to improve that
       cat > $out/bin/liquibase <<EOF
       #!/usr/bin/env bash
       # taken from the executable script in the source
       CP="$out/liquibase.jar"
       ${addJars "$out/lib"}
-      ${concatStringsSep "\n" (map (p: addJars "${p}/share/java") extraJars)}
+      ${lib.concatStringsSep "\n" (map (p: addJars "${p}/share/java") extraJars)}
 
-      ${getBin jre}/bin/java -cp "\$CP" \$JAVA_OPTS \
+      ${lib.getBin jre}/bin/java -cp "\$CP" \$JAVA_OPTS \
         liquibase.integration.commandline.Main \''${1+"\$@"}
       EOF
       chmod +x $out/bin/liquibase
   '';
 
-  meta = {
+  meta = with lib; {
     description = "Version Control for your database";
-    homepage = http://www.liquibase.org/;
+    homepage = "https://www.liquibase.org/";
+    changelog = "https://raw.githubusercontent.com/liquibase/liquibase/v${version}/changelog.txt";
     license = licenses.asl20;
-    maintainers = with maintainers; [ nequissimus ];
+    maintainers = with maintainers; [ ];
     platforms = with platforms; unix;
   };
 }

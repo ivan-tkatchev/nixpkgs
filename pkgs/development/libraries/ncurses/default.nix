@@ -1,24 +1,30 @@
-{ lib, stdenv, fetchurl, pkgconfig
+{ lib, stdenv, fetchurl, pkg-config
 
 , abiVersion ? "6"
 , mouseSupport ? false
 , unicode ? true
-, enableStatic ? stdenv.hostPlatform.useAndroidPrebuilt
+, enableStatic ? stdenv.hostPlatform.isStatic
+, enableShared ? !enableStatic
 , withCxx ? !stdenv.hostPlatform.useAndroidPrebuilt
 
 , gpm
 
-, buildPlatform, hostPlatform
 , buildPackages
 }:
 
 stdenv.mkDerivation rec {
-  version = "6.1";
+  # Note the revision needs to be adjusted.
+  version = "6.2";
   name = "ncurses-${version}" + lib.optionalString (abiVersion == "5") "-abi5-compat";
 
-  src = fetchurl {
-    url = "mirror://gnu/ncurses/ncurses-${version}.tar.gz";
-    sha256 = "05qdmbmrrn88ii9f66rkcmcyzp1kb1ymkx7g040lfkd1nkp7w1da";
+  # We cannot use fetchFromGitHub (which calls fetchzip)
+  # because we need to be able to use fetchurlBoot.
+  src = let
+    # Note the version needs to be adjusted.
+    rev = "v${version}";
+  in fetchurl {
+    url = "https://github.com/mirror/ncurses/archive/${rev}.tar.gz";
+    sha256 = "15r2456g0mlq2q7gh2z52vl6zv6y0z8sdchrs80kg4idqd8sm8fd";
   };
 
   patches = lib.optional (!stdenv.cc.isClang) ./clang.patch;
@@ -27,22 +33,27 @@ stdenv.mkDerivation rec {
   setOutputFlags = false; # some aren't supported
 
   configureFlags = [
-    "--with-shared"
+    (lib.withFeature enableShared "shared")
     "--without-debug"
     "--enable-pc-files"
     "--enable-symlinks"
+    "--with-manpage-format=normal"
+    "--disable-stripping"
   ] ++ lib.optional unicode "--enable-widec"
-    ++ lib.optional enableStatic "--enable-static"
     ++ lib.optional (!withCxx) "--without-cxx"
-    ++ lib.optional (abiVersion == "5") "--with-abi-version=5";
+    ++ lib.optional (abiVersion == "5") "--with-abi-version=5"
+    ++ lib.optionals stdenv.hostPlatform.isWindows [
+      "--enable-sp-funcs"
+      "--enable-term-driver"
+    ];
 
   # Only the C compiler, and explicitly not C++ compiler needs this flag on solaris:
   CFLAGS = lib.optionalString stdenv.isSunOS "-D_XOPEN_SOURCE_EXTENDED";
 
   depsBuildBuild = [ buildPackages.stdenv.cc ];
   nativeBuildInputs = [
-    pkgconfig
-  ] ++ lib.optionals (buildPlatform != hostPlatform) [
+    pkg-config
+  ] ++ lib.optionals (stdenv.buildPlatform != stdenv.hostPlatform) [
     buildPackages.ncurses
   ];
   buildInputs = lib.optional (mouseSupport && stdenv.isLinux) gpm;
@@ -109,6 +120,11 @@ stdenv.mkDerivation rec {
         for statictype in a dll.a la; do
           if [ -e "$out/lib/lib''${library}$suffix.$statictype" ]; then
             ln -svf lib''${library}$suffix.$statictype $out/lib/lib$library$newsuffix.$statictype
+            if [ "ncurses" = "$library" ]
+            then
+              # make libtinfo symlinks
+              ln -svf lib''${library}$suffix.$statictype $out/lib/libtinfo$newsuffix.$statictype
+            fi
           fi
         done
         ln -svf ''${library}$suffix.pc $dev/lib/pkgconfig/$library$newsuffix.pc
@@ -125,9 +141,10 @@ stdenv.mkDerivation rec {
     moveToOutput "bin/tset" "$out"
     moveToOutput "bin/captoinfo" "$out"
     moveToOutput "bin/infotocap" "$out"
+    moveToOutput "bin/infocmp" "$out"
   '';
 
-  preFixup = lib.optionalString (!hostPlatform.isCygwin) ''
+  preFixup = lib.optionalString (!stdenv.hostPlatform.isCygwin && !enableStatic) ''
     rm "$out"/lib/*.a
   '';
 
@@ -148,11 +165,10 @@ stdenv.mkDerivation rec {
       ported to OS/2 Warp!
     '';
 
-    homepage = http://www.gnu.org/software/ncurses/;
+    homepage = "https://www.gnu.org/software/ncurses/";
 
     license = lib.licenses.mit;
     platforms = lib.platforms.all;
-    maintainers = [ lib.maintainers.wkennington ];
   };
 
   passthru = {

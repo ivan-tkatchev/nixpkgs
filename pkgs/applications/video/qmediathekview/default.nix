@@ -1,15 +1,23 @@
-{ stdenv, fetchFromGitHub, qtbase, qttools, xz, boost, qmake, pkgconfig }:
+{ lib
+, stdenv
+, mkDerivation
+, fetchFromGitHub
+, boost
+, qtbase
+, xz
+, qmake
+, pkg-config
+}:
 
-stdenv.mkDerivation rec {
+mkDerivation rec {
   pname = "QMediathekView";
-  version = "2017-04-16";
-  name = "${pname}-${version}";
+  version = "0.2.1";
 
   src = fetchFromGitHub {
     owner = "adamreichold";
     repo = pname;
-    rev = "8c69892b95bf6825bd06a8c594168a98fe7cb2d1";
-    sha256 = "1wca1w4iywd3hmiwcqx6fv79p3x5n1cgbw2liw3hs24ch3z54ckm";
+    rev = "v${version}";
+    sha256 = "0i9hac9alaajbra3lx23m0iiq6ww4is00lpbzg5x70agjrwj0nd6";
   };
 
   postPatch = ''
@@ -17,17 +25,18 @@ stdenv.mkDerivation rec {
       --replace /usr ""
   '';
 
-  buildInputs = [ qtbase qttools xz boost ];
+  buildInputs = [ qtbase xz boost ];
 
-  nativeBuildInputs = [ qmake pkgconfig ];
+  nativeBuildInputs = [ qmake pkg-config ];
 
   installFlags = [ "INSTALL_ROOT=$(out)" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An alternative Qt-based front-end for the database maintained by the MediathekView project";
     inherit (src.meta) homepage;
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
     maintainers = with maintainers; [ dotlambda ];
+    broken = stdenv.isAarch64;
   };
 }

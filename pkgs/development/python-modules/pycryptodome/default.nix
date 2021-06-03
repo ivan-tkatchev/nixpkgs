@@ -1,17 +1,17 @@
-{ stdenv, fetchPypi, python, buildPythonPackage, gmp }:
+{ lib, fetchPypi, buildPythonPackage }:
 
 buildPythonPackage rec {
-  version = "3.6.2";
+  version = "3.10.1";
   pname = "pycryptodome";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "b19ed0f7752a0b1ec65834c9acb02ba64a812990854e318d32a619c709b14a69";
+    sha256 = "3e2e3a06580c5f190df843cdb90ea28d61099cf4924334d5297a995de68e4673";
   };
 
-  meta = {
-    homepage = https://www.pycryptodome.org/;
+  meta = with lib; {
+    homepage = "https://www.pycryptodome.org/";
     description = "Python Cryptography Toolkit";
-    platforms = stdenv.lib.platforms.unix;
+    platforms = platforms.unix;
   };
 }

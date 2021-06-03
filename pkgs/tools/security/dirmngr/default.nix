@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, libgpgerror, libgcrypt, libassuan, libksba, pth, openldap
+{ lib, stdenv, fetchurl, libgpgerror, libgcrypt, libassuan, libksba, pth, openldap
 , libiconv}:
 
 stdenv.mkDerivation rec {
@@ -11,6 +11,7 @@ stdenv.mkDerivation rec {
                   pth openldap libiconv ];
 
   meta = {
-    platforms = stdenv.lib.platforms.unix;
+    platforms = lib.platforms.unix;
+    license = lib.licenses.gpl2Plus;
   };
 }

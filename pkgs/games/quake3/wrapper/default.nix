@@ -1,6 +1,6 @@
-{ stdenv, buildEnv, lib, fetchurl, libGL, ioquake3, makeWrapper }:
+{ stdenv, buildEnv, lib, libGL, ioquake3, makeWrapper }:
 
-{ paks, name ? (stdenv.lib.head paks).name, description ? "" }:
+{ paks, name ? (lib.head paks).name, description ? "" }:
 
 let
   libPath = lib.makeLibraryPath [ libGL stdenv.cc.cc ];

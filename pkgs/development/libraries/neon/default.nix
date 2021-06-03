@@ -1,8 +1,8 @@
-{ stdenv, fetchurl, libxml2, pkgconfig
+{ lib, stdenv, fetchurl, libxml2, pkg-config
 , compressionSupport ? true, zlib ? null
 , sslSupport ? true, openssl ? null
-, static ? false
-, shared ? true
+, static ? stdenv.hostPlatform.isStatic
+, shared ? !stdenv.hostPlatform.isStatic
 }:
 
 assert compressionSupport -> zlib != null;
@@ -10,37 +10,38 @@ assert sslSupport -> openssl != null;
 assert static || shared;
 
 let
-   inherit (stdenv.lib) optionals;
+   inherit (lib) optionals;
 in
 
 stdenv.mkDerivation rec {
-  version = "0.30.2";
-  name = "neon-${version}";
+  version = "0.31.2";
+  pname = "neon";
 
   src = fetchurl {
-    url = "http://www.webdav.org/neon/${name}.tar.gz";
-    sha256 = "1jpvczcx658vimqm7c8my2q41fnmjaf1j03g7bsli6rjxk6xh2yv";
+    url = "https://notroj.github.io/${pname}/${pname}-${version}.tar.gz";
+    sha256 = "0y46dbhiblcvg8k41bdydr3fivghwk73z040ki5825d24ynf67ng";
   };
 
   patches = optionals stdenv.isDarwin [ ./0.29.6-darwin-fix-configure.patch ];
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [libxml2 openssl]
-    ++ stdenv.lib.optional compressionSupport zlib;
+    ++ lib.optional compressionSupport zlib;
 
-  configureFlags = ''
-    ${if shared then "--enable-shared" else "--disable-shared"}
-    ${if static then "--enable-static" else "--disable-static"}
-    ${if compressionSupport then "--with-zlib" else "--without-zlib"}
-    ${if sslSupport then "--with-ssl" else "--without-ssl"}
-    --enable-shared
-  '';
+  configureFlags = [
+    (lib.enableFeature shared "shared")
+    (lib.enableFeature static "static")
+    (lib.withFeature compressionSupport "zlib")
+    (lib.withFeature sslSupport "ssl")
+  ];
 
   passthru = {inherit compressionSupport sslSupport;};
 
-  meta = {
+  meta = with lib; {
     description = "An HTTP and WebDAV client library";
-    homepage = http://www.webdav.org/neon/;
-    platforms = stdenv.lib.platforms.unix;
+    homepage = "https://notroj.github.io/neon/";
+    changelog = "https://github.com/notroj/${pname}/blob/${version}/NEWS";
+    platforms = platforms.unix;
+    license = licenses.lgpl2;
   };
 }

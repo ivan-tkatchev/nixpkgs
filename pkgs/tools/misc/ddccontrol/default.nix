@@ -1,62 +1,55 @@
-{ stdenv, fetchurl, autoreconfHook, intltool, perl, perlPackages, libxml2
-, pciutils, pkgconfig, gtk2, ddccontrol-db
-, makeDesktopItem
+{ lib
+, stdenv
+, fetchFromGitHub
+, autoreconfHook
+, intltool
+, libxml2
+, pciutils
+, pkg-config
+, gtk2
+, ddccontrol-db
 }:
 
-let version = "0.4.2"; in
 stdenv.mkDerivation rec {
-  name = "ddccontrol-${version}";
+  pname = "ddccontrol";
+  version = "0.5.2";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/ddccontrol/ddccontrol-${version}.tar.bz2";
-    sha1 = "fd5c53286315a61a18697a950e63ed0c8d5acff1";
+  src = fetchFromGitHub {
+    owner = "ddccontrol";
+    repo = "ddccontrol";
+    rev = "0.5.2";
+    sha256 = "sha256-kul0sjbwbCwadvrccG3KwL/fKWACFUg74QGvgfWE4FQ=";
   };
 
-  nativeBuildInputs = [ autoreconfHook intltool pkgconfig ];
-
-  buildInputs = [
-    perl perlPackages.libxml_perl libxml2 pciutils gtk2 ddccontrol-db
+  nativeBuildInputs = [
+    autoreconfHook
+    intltool
+    pkg-config
   ];
 
-  patches = [ ./automake.patch ];
-
-  hardeningDisable = [ "format" "bindnow" ];
+  buildInputs = [
+    libxml2
+    pciutils
+    gtk2
+    ddccontrol-db
+  ];
 
   prePatch = ''
-      newPath=$(echo "${ddccontrol-db}/share/ddccontrol-db" | sed "s/\\//\\\\\\//g")
-      mv configure.ac configure.ac.old
-      oldPath="\$"
-      oldPath+="{datadir}\/ddccontrol-db"
-      sed "s/$oldPath/$newPath/" <configure.ac.old >configure.ac
-      rm configure.ac.old
-
-      sed -e "s/chmod 4711/chmod 0711/" -i src/ddcpci/Makefile*
+    oldPath="\$""{datadir}/ddccontrol-db"
+    newPath="${ddccontrol-db}/share/ddccontrol-db"
+    sed -i -e "s|$oldPath|$newPath|" configure.ac
+    sed -i -e "s/chmod 4711/chmod 0711/" src/ddcpci/Makefile*
   '';
 
-  postInstall = ''
-    mkdir -p $out/share/applications/
-    cp $desktopItem/share/applications/* $out/share/applications/
-    for entry in $out/share/applications/*.desktop; do
-      substituteAllInPlace $entry
-    done
+  preConfigure = ''
+    intltoolize --force
   '';
 
-  desktopItem = makeDesktopItem {
-    name = "gddccontrol";
-    desktopName = "gddccontrol";
-    genericName = "DDC/CI control";
-    comment = meta.description;
-    exec = "@out@/bin/gddccontrol";
-    icon = "gddccontrol";
-    categories = "Settings;HardwareSettings;";
-  };
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A program used to control monitor parameters by software";
-    homepage = http://ddccontrol.sourceforge.net/;
-    license = licenses.gpl2;
-    platforms = [ "i686-linux" "x86_64-linux" ];
-    maintainers = [ stdenv.lib.maintainers.pakhfn ];
+    homepage = "https://github.com/ddccontrol/ddccontrol";
+    license = licenses.gpl2Plus;
+    platforms = platforms.linux;
+    maintainers = with lib.maintainers; [ pakhfn ];
   };
 }
-

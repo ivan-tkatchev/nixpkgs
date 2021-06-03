@@ -1,6 +1,6 @@
-import ../make-test.nix ({pkgs, ...}: {
+import ../make-test-python.nix ({...}: {
   nodes = {
-    resourcemanager = {pkgs, config, ...}: {
+    resourcemanager = {pkgs, ...}: {
       services.hadoop.package = pkgs.hadoop_3_1;
       services.hadoop.yarn.resourcemanager.enabled = true;
       services.hadoop.yarnSite = {
@@ -11,7 +11,7 @@ import ../make-test.nix ({pkgs, ...}: {
         8031 # resourcemanager.resource-tracker.address
       ];
     };
-    nodemanager = {pkgs, config, ...}: {
+    nodemanager = {pkgs, ...}: {
       services.hadoop.package = pkgs.hadoop_3_1;
       services.hadoop.yarn.nodemanager.enabled = true;
       services.hadoop.yarnSite = {
@@ -28,19 +28,19 @@ import ../make-test.nix ({pkgs, ...}: {
   };
 
   testScript = ''
-    startAll;
+    start_all()
 
-    $resourcemanager->waitForUnit("yarn-resourcemanager");
-    $resourcemanager->waitForUnit("network.target");
-    $resourcemanager->waitForOpenPort(8031);
-    $resourcemanager->waitForOpenPort(8088);
+    resourcemanager.wait_for_unit("yarn-resourcemanager")
+    resourcemanager.wait_for_unit("network.target")
+    resourcemanager.wait_for_open_port(8031)
+    resourcemanager.wait_for_open_port(8088)
 
-    $nodemanager->waitForUnit("yarn-nodemanager");
-    $nodemanager->waitForUnit("network.target");
-    $nodemanager->waitForOpenPort(8042);
-    $nodemanager->waitForOpenPort(8041);
+    nodemanager.wait_for_unit("yarn-nodemanager")
+    nodemanager.wait_for_unit("network.target")
+    nodemanager.wait_for_open_port(8042)
+    nodemanager.wait_for_open_port(8041)
 
-    $resourcemanager->succeed("curl http://localhost:8088");
-    $nodemanager->succeed("curl http://localhost:8042");
+    resourcemanager.succeed("curl -f http://localhost:8088")
+    nodemanager.succeed("curl -f http://localhost:8042")
   '';
 })

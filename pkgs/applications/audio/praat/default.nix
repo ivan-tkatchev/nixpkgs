@@ -1,12 +1,12 @@
-{ stdenv, fetchurl, alsaLib, gtk2, pkgconfig }:
+{ lib, stdenv, fetchurl, alsaLib, gtk2, pkg-config }:
 
 stdenv.mkDerivation rec {
-  name = "praat-${version}";
-  version = "6.0.40";
+  pname = "praat";
+  version = "6.0.43";
 
   src = fetchurl {
     url = "https://github.com/praat/praat/archive/v${version}.tar.gz";
-    sha256 = "168qrrr59qxii265vba7pj6f61lzq5lk9c43zcda0wmmjp87bq1x";
+    sha256 = "1l13bvnl7sv8v6s5z63201bhzavnj6bnqcj446akippsam13z4sf";
   };
 
   configurePhase = ''
@@ -18,13 +18,13 @@ stdenv.mkDerivation rec {
     cp praat $out/bin
   '';
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ alsaLib gtk2 ];
 
   meta = {
     description = "Doing phonetics by computer";
-    homepage = http://www.fon.hum.uva.nl/praat/;
-    license = stdenv.lib.licenses.gpl2Plus; # Has some 3rd-party code in it though
-    platforms = stdenv.lib.platforms.linux;
+    homepage = "https://www.fon.hum.uva.nl/praat/";
+    license = lib.licenses.gpl2Plus; # Has some 3rd-party code in it though
+    platforms = lib.platforms.linux;
   };
 }

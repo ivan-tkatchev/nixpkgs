@@ -1,53 +1,55 @@
-{ stdenv, fetchurl, pcre, libxslt, groff, ncurses, pkgconfig, readline, libedit
-, python, pythonPackages, makeWrapper }:
+{ lib, stdenv, fetchurl, pcre, libxslt, groff, ncurses, pkg-config, readline, libedit
+, python3, makeWrapper }:
 
 let
-  common = { version, sha256 }:
+  common = { version, sha256, extraNativeBuildInputs ? [] }:
     stdenv.mkDerivation rec {
-      name = "varnish-${version}";
+      pname = "varnish";
+      inherit version;
 
       src = fetchurl {
-        url = "https://varnish-cache.org/_downloads/${name}.tgz";
+        url = "https://varnish-cache.org/_downloads/${pname}-${version}.tgz";
         inherit sha256;
       };
 
-      nativeBuildInputs = [ pkgconfig ];
+      passthru.python = python3;
+
+      nativeBuildInputs = with python3.pkgs; [ pkg-config docutils sphinx ];
       buildInputs = [
-        pcre libxslt groff ncurses readline python libedit
-        pythonPackages.docutils makeWrapper
+        pcre libxslt groff ncurses readline libedit makeWrapper python3
       ];
 
-      buildFlags = "localstatedir=/var/spool";
+      buildFlags = [ "localstatedir=/var/spool" ];
 
       postInstall = ''
-        wrapProgram "$out/sbin/varnishd" --prefix PATH : "${stdenv.lib.makeBinPath [ stdenv.cc ]}"
+        wrapProgram "$out/sbin/varnishd" --prefix PATH : "${lib.makeBinPath [ stdenv.cc ]}"
       '';
 
       # https://github.com/varnishcache/varnish-cache/issues/1875
-      NIX_CFLAGS_COMPILE = stdenv.lib.optionalString stdenv.isi686 "-fexcess-precision=standard";
+      NIX_CFLAGS_COMPILE = lib.optionalString stdenv.isi686 "-fexcess-precision=standard";
 
       outputs = [ "out" "dev" "man" ];
 
-      meta = with stdenv.lib; {
+      meta = with lib; {
         description = "Web application accelerator also known as a caching HTTP reverse proxy";
-        homepage = https://www.varnish-cache.org;
+        homepage = "https://www.varnish-cache.org";
         license = licenses.bsd2;
-        maintainers = with maintainers; [ garbas fpletz ];
+        maintainers = with maintainers; [ fpletz ];
         platforms = platforms.unix;
       };
     };
 in
 {
-  varnish4 = common {
-    version = "4.1.9";
-    sha256 = "11zwyasz2fn9qxc87r175wb5ba7388sd79mlygjmqn3yv2m89n12";
+  varnish60 = common {
+    version = "6.0.7";
+    sha256 = "0njs6xpc30nc4chjdm4d4g63bigbxhi4dc46f4az3qcz51r8zl2a";
   };
-  varnish5 = common {
-    version = "5.2.1";
-    sha256 = "1cqlj12m426c1lak1hr1fx5zcfsjjvka3hfirz47hvy1g2fjqidq";
+  varnish62 = common {
+    version = "6.2.3";
+    sha256 = "02b6pqh5j1d4n362n42q42bfjzjrngd6x49b13q7wzsy6igd1jsy";
   };
-  varnish6 = common {
-    version = "6.0.0";
-    sha256 = "1vhbdch33m6ig4ijy57zvrramhs9n7cba85wd8rizgxjjnf87cn7";
+  varnish63 = common {
+    version = "6.3.2";
+    sha256 = "1f5ahzdh3am6fij5jhiybv3knwl11rhc5r3ig1ybzw55ai7788q8";
   };
 }

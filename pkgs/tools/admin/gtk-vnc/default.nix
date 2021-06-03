@@ -1,49 +1,70 @@
-{ stdenv, fetchurl, gobjectIntrospection
-, gnutls, cairo, libtool, glib, pkgconfig, libtasn1
-, libffi, cyrus_sasl, intltool, perl, perlPackages, libpulseaudio
-, kbproto, libX11, libXext, xextproto, libgcrypt, gtk3, vala_0_32
-, libogg, libgpgerror, pythonPackages }:
+{ lib
+, stdenv
+, fetchurl
+, meson
+, ninja
+, gobject-introspection
+, gnutls
+, cairo
+, glib
+, pkg-config
+, cyrus_sasl
+, libpulseaudio
+, libgcrypt
+, gtk3
+, vala
+, gettext
+, perl
+, gnome
+, gdk-pixbuf
+, zlib
+}:
 
-let
-  inherit (pythonPackages) pygobject3 python;
-in stdenv.mkDerivation rec {
-  name = "gtk-vnc-${version}";
-  version = "0.7.0";
+stdenv.mkDerivation rec {
+  pname = "gtk-vnc";
+  version = "1.2.0";
+
+  outputs = [ "out" "bin" "man" "dev" ];
 
   src = fetchurl {
-    url = "mirror://gnome/sources/gtk-vnc/${stdenv.lib.strings.substring 0 3 version}/${name}.tar.xz";
-    sha256 = "0gj8dpy3sj4dp810gy67spzh5f0jd8aqg69clcwqjcskj1yawbiw";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "0jmr6igyzcj2wmx5v5ywaazvdz3hx6a6rys26yb4l4s71l281bvs";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+    gobject-introspection
+    vala
+    gettext
+    perl # for pod2man
+  ];
+
   buildInputs = [
-    python gnutls cairo libtool glib libffi libgcrypt
-    intltool cyrus_sasl libpulseaudio perl perlPackages.TextCSV
-    gobjectIntrospection libogg libgpgerror
-    gtk3 vala_0_32 pygobject3
+    gnutls
+    cairo
+    gdk-pixbuf
+    zlib
+    glib
+    libgcrypt
+    cyrus_sasl
+    libpulseaudio
+    gtk3
   ];
-
-  NIX_CFLAGS_COMPILE = "-fstack-protector-all";
-  configureFlags = [
-    "--with-python"
-    "--with-examples"
-  ];
-
-  # Fix broken .la files
-  preFixup = ''
-    sed 's,-lgpg-error,-L${libgpgerror.out}/lib -lgpg-error,' -i $out/lib/*.la
-  '';
-
-  meta = with stdenv.lib; {
-    description = "A GTK VNC widget";
-    maintainers = with maintainers; [ raskin offline ];
-    platforms = platforms.linux;
-    license = licenses.lgpl21;
-  };
 
   passthru = {
-    updateInfo = {
-      downloadPage = "http://ftp.gnome.org/pub/GNOME/sources/gtk-vnc";
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      versionPolicy = "none";
     };
+  };
+
+  meta = with lib; {
+    description = "GTK VNC widget";
+    homepage = "https://wiki.gnome.org/Projects/gtk-vnc";
+    license = licenses.lgpl2Plus;
+    maintainers = with maintainers; [ raskin offline ];
+    platforms = platforms.linux;
   };
 }

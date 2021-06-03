@@ -1,26 +1,26 @@
-{ stdenv, fetchFromGitHub, zlib, tbb }:
+{ lib, stdenv, fetchFromGitHub, cmake, tbb, zlib }:
 
 stdenv.mkDerivation rec {
   pname = "bowtie2";
-  version = "2.3.4.1";
-  name = "${pname}-${version}";
+  version = "2.4.4";
 
   src = fetchFromGitHub {
     owner = "BenLangmead";
     repo = pname;
     rev = "v${version}";
-    sha256 = "07cvcy6483araayj41arjzpxjmf4fmn4iqyl6gp6zmrbzw72wwzj";
+    sha256 = "sha256-2B6w6c/qztyBb1jNA0zg+udQm41ouT1DyB6Ygpi5nC8=";
   };
 
-  buildInputs = [ zlib tbb ];
+  nativeBuildInputs = [ cmake ];
 
-  installFlags = [ "prefix=$(out)" ];
+  buildInputs = [ tbb zlib ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An ultrafast and memory-efficient tool for aligning sequencing reads to long reference sequences";
     license = licenses.gpl3;
-    homepage = http://bowtie-bio.sf.net/bowtie2;
+    homepage = "http://bowtie-bio.sf.net/bowtie2";
     maintainers = with maintainers; [ rybern ];
     platforms = platforms.all;
+    broken = stdenv.isAarch64; # only x86 is supported
   };
 }

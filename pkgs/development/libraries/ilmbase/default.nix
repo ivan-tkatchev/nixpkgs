@@ -1,29 +1,37 @@
-{ stdenv, fetchurl, automake, autoconf, libtool, which }:
+{ stdenv
+, lib
+, buildPackages
+, cmake
+, openexr
+}:
 
 stdenv.mkDerivation rec {
-  name = "ilmbase-2.2.1";
+  pname = "ilmbase";
+  version = lib.getVersion openexr;
 
-  src = fetchurl {
-    url = "http://download.savannah.nongnu.org/releases/openexr/${name}.tar.gz";
-    sha256 = "17k0hq19wplx9s029kjrq6c51x2ryrfmaavcappkd0g67gk0dhna";
-  };
+  # the project no longer provides separate tarballs. We may even want to merge
+  # the ilmbase package into openexr in the future.
+  inherit (openexr) src patches;
 
   outputs = [ "out" "dev" ];
 
+  nativeBuildInputs = [ cmake ];
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
+
+  # fails 1 out of 1 tests with
+  # "lt-ImathTest: testBoxAlgo.cpp:892: void {anonymous}::boxMatrixTransform(): Assertion `b21 == b2' failed"
+  # at least on i686. spooky!
+  doCheck = stdenv.isx86_64;
+
   preConfigure = ''
-    ./bootstrap
+    # Need to cd after patches for openexr patches to apply.
+    cd IlmBase
   '';
 
-  buildInputs = [ automake autoconf libtool which ];
-
-  NIX_CFLAGS_LINK = [ "-pthread" ];
-
-  patches = [ ./bootstrap.patch ];
-
-  meta = with stdenv.lib; {
-    homepage = http://www.openexr.com/;
+  meta = with lib; {
+    description = " A library for 2D/3D vectors and matrices and other mathematical objects, functions and data types for computer graphics";
+    homepage = "https://www.openexr.com/";
     license = licenses.bsd3;
     platforms = platforms.all;
-    maintainers = with maintainers; [ wkennington ];
   };
 }

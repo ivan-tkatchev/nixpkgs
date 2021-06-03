@@ -96,7 +96,7 @@ in
 
   boot.initrd.extraUtilsCommands =
     ''
-      copy_bin_and_libs ${pkgs.utillinux}/sbin/hwclock
+      copy_bin_and_libs ${pkgs.util-linux}/sbin/hwclock
     '';
 
   boot.initrd.postDeviceCommands =
@@ -117,13 +117,12 @@ in
 
   /* fake entry, just to have a happy stage-1. Users
      may boot without having stage-1 though */
-  fileSystems = [
+  fileSystems.fake =
     { mountPoint = "/";
       device = "/dev/something";
-      }
-  ];
+    };
 
-  services.mingetty = {
+  services.getty = {
     # Some more help text.
     helpLine = ''
       Log in as "root" with an empty password.  ${
@@ -137,7 +136,7 @@ in
   # Setting vesa, we don't get the nvidia driver, which can't work in arm.
   services.xserver.videoDrivers = [ "vesa" ];
 
-  services.nixosManual.enable = false;
+  documentation.nixos.enable = false;
 
   # Include the firmware for various wireless cards.
   networking.enableRalinkFirmware = true;

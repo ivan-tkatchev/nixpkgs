@@ -1,30 +1,32 @@
-{ stdenv, fetchFromGitHub, coreutils, qtbase
+{ lib, stdenv, fetchFromGitHub, qtbase
 , qtdeclarative, cmake, texlive, ninja }:
 
 stdenv.mkDerivation rec {
-  name = "dwarf-therapist-${version}";
-  version = "40.1.0";
+  pname = "dwarf-therapist";
+  version = "41.1.5";
 
   src = fetchFromGitHub {
     owner = "Dwarf-Therapist";
     repo = "Dwarf-Therapist";
     rev = "v${version}";
-    sha256 = "1aklwic5npgkp8rkrvz2q9idkipsm1h26mgd8q03135nzl1ld9q3";
+    sha256 = "0w1mwwf49vdmvmdfvlkn4m0hzvlj111rpl8hv4rw6v8nv6yfb2y4";
   };
 
-  buildInputs = [ qtbase qtdeclarative ];
   nativeBuildInputs = [ texlive cmake ninja ];
+  buildInputs = [ qtbase qtdeclarative ];
 
   installPhase = if stdenv.isDarwin then ''
     mkdir -p $out/Applications
     cp -r DwarfTherapist.app $out/Applications
   '' else null;
 
-  meta = with stdenv.lib; {
+  dontWrapQtApps = true;
+
+  meta = with lib; {
     description = "Tool to manage dwarves in a running game of Dwarf Fortress";
-    maintainers = with maintainers; [ the-kenny abbradar bendlas numinit ];
+    maintainers = with maintainers; [ abbradar bendlas numinit jonringer ];
     license = licenses.mit;
     platforms = platforms.unix;
-    homepage = https://github.com/Dwarf-Therapist/Dwarf-Therapist;
+    homepage = "https://github.com/Dwarf-Therapist/Dwarf-Therapist";
   };
 }

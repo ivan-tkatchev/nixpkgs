@@ -1,6 +1,7 @@
-{ stdenv
+{ lib
 , buildPythonPackage
 , fetchPypi
+, murmurhash
 , pytest
 , cython
 , cymem
@@ -8,28 +9,30 @@
 }:
 buildPythonPackage rec {
   pname = "preshed";
-  version = "1.0.0";
+  version = "3.0.5";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1pdl4p2d32ficfh18xdkgsj6ajzdxc6mxhhf84z0wq1l8viskcx6";
+    sha256 = "c6d3dba39ed5059aaf99767017b9568c75b2d0780c3481e204b1daecde00360e";
   };
 
   propagatedBuildInputs = [
    cython
    cymem
+   murmurhash
   ];
-  buildInputs = [
+
+  checkInputs = [
     pytest
   ];
 
   checkPhase = ''
     ${python.interpreter} setup.py test
   '';
-  
-  meta = with stdenv.lib; {
+
+  meta = with lib; {
     description = "Cython hash tables that assume keys are pre-hashed";
-    homepage = https://github.com/explosion/preshed;
+    homepage = "https://github.com/explosion/preshed";
     license = licenses.mit;
     maintainers = with maintainers; [ sdll ];
     };
