@@ -1,22 +1,41 @@
-{ stdenv, buildPythonPackage, fetchPypi, certifi, six }:
+{ lib
+, buildPythonPackage
+, certifi
+, fetchPypi
+, flaky
+, pytestCheckHook
+, pythonOlder
+, setuptools-scm
+, six
+}:
 
 buildPythonPackage rec {
   pname = "pylast";
-  version = "2.3.0";
+  version = "4.2.1";
+  disabled = pythonOlder "3.6";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "f1e8615bac27386712ab74338e6dbd01ff7adbf6648a3debf921cef6bad80014";
+    sha256 = "sha256-R1enQk6luuBiobMPDn5x1SXx7zUI/5c8dPtyWkmG/18=";
   };
 
-  propagatedBuildInputs = [ certifi six ];
+  nativeBuildInputs = [ setuptools-scm ];
 
-  # tests require last.fm credentials
-  doCheck = false;
+  propagatedBuildInputs = [
+    certifi
+    six
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/pylast/pylast;
-    description = "A python interface to last.fm (and compatibles)";
+  checkInputs = [
+    pytestCheckHook
+    flaky
+  ];
+
+  pythonImportsCheck = [ "pylast" ];
+
+  meta = with lib; {
+    description = "Python interface to last.fm (and compatibles)";
+    homepage = "https://github.com/pylast/pylast";
     license = licenses.asl20;
     maintainers = with maintainers; [ rvolosatovs ];
   };

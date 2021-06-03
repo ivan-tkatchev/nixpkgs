@@ -1,34 +1,78 @@
-{ stdenv, buildPythonPackage, fetchPypi, isPy3k, isPy33,
-  unittest2, mock, pytest, trollius, asyncio,
-  pytest-asyncio, futures,
-  six, twisted, txaio, zope_interface
+{ lib
+, argon2_cffi
+, attrs
+, buildPythonPackage
+, cbor
+, cbor2
+, cffi
+, cryptography
+, fetchPypi
+, flatbuffers
+, mock
+, msgpack
+, passlib
+, pynacl
+, pytest-asyncio
+, pytestCheckHook
+, pythonOlder
+, twisted
+, py-ubjson
+, txaio
+, ujson
+, zope_interface
 }:
+
 buildPythonPackage rec {
   pname = "autobahn";
-  version = "18.6.1";
+  version = "21.3.1";
+  disabled = pythonOlder "3.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "2f41bfc512ec482044fa8cfa74182118dedd87e03b3494472d9ff1b5a1e27d24";
+    sha256 = "00wf9dkfgakg80gy62prg650lb8zz9y9fdlxwxcznwp8hgsw29p1";
   };
 
-  # Upstream claim python2 support, but tests require pytest-asyncio which
-  # is pythn3 only. Therefore, tests are skipped for python2.
-  doCheck = isPy3k;
-  buildInputs = stdenv.lib.optionals isPy3k [ unittest2 mock pytest pytest-asyncio ];
-  propagatedBuildInputs = [ six twisted zope_interface txaio ] ++
-    (stdenv.lib.optional isPy33 asyncio) ++
-    (stdenv.lib.optionals (!isPy3k) [ trollius futures ]);
+  propagatedBuildInputs = [
+    argon2_cffi
+    cbor
+    cbor2
+    cffi
+    cryptography
+    flatbuffers
+    msgpack
+    passlib
+    py-ubjson
+    pynacl
+    twisted
+    txaio
+    ujson
+    zope_interface
+  ];
 
-  checkPhase = ''
-    USE_TWISTED=true py.test $out
+  checkInputs = [
+    mock
+    pytest-asyncio
+    pytestCheckHook
+  ];
+
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace "pytest>=2.8.6,<3.3.0" "pytest"
   '';
 
-  meta = with stdenv.lib; {
-    description = "WebSocket and WAMP in Python for Twisted and asyncio.";
-    homepage    = "https://crossbar.io/autobahn";
-    license     = licenses.mit;
-    maintainers = with maintainers; [ nand0p ];
-    platforms   = platforms.all;
+  preCheck = ''
+    # Run asyncio tests (requires twisted)
+    export USE_ASYNCIO=1
+  '';
+
+  pytestFlagsArray = [ "--pyargs autobahn" ];
+
+  pythonImportsCheck = [ "autobahn" ];
+
+  meta = with lib; {
+    description = "WebSocket and WAMP in Python for Twisted and asyncio";
+    homepage = "https://crossbar.io/autobahn";
+    license = licenses.mit;
+    maintainers = with maintainers; [ ];
   };
 }

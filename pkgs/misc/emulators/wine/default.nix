@@ -6,10 +6,9 @@
 # };
 # Make additional configurations on demand:
 # wine.override { wineBuild = "wine32"; wineRelease = "staging"; };
-{ lib, pkgs, system, callPackage,
+{ lib, stdenv, callPackage,
   wineRelease ? "stable",
-  wineBuild ? (if system == "x86_64-linux" then "wineWow" else "wine32"),
-  libtxc_dxtn_Name ? "libtxc_dxtn_s2tc",
+  wineBuild ? if stdenv.hostPlatform.system == "x86_64-linux" then "wineWow" else "wine32",
   pngSupport ? false,
   jpegSupport ? false,
   tiffSupport ? false,
@@ -42,6 +41,10 @@
   xineramaSupport ? false,
   xmlSupport ? false,
   vulkanSupport ? false,
+  sdlSupport ? false,
+  faudioSupport ? false,
+  vkd3dSupport ? false,
+  mingwSupport ? wineRelease != "stable",
 }:
 
 let wine-build = build: release:
@@ -53,13 +56,13 @@ let wine-build = build: release:
                   netapiSupport cursesSupport vaSupport pcapSupport v4lSupport saneSupport
                   gsmSupport gphoto2Support ldapSupport fontconfigSupport alsaSupport
                   pulseaudioSupport xineramaSupport gtkSupport openclSupport xmlSupport tlsSupport
-                  openglSupport gstreamerSupport udevSupport vulkanSupport;
+                  openglSupport gstreamerSupport udevSupport vulkanSupport sdlSupport faudioSupport
+                  vkd3dSupport mingwSupport;
         };
       });
 
 in if wineRelease == "staging" then
   callPackage ./staging.nix {
-    inherit libtxc_dxtn_Name;
     wineUnstable = wine-build wineBuild "unstable";
   }
 else

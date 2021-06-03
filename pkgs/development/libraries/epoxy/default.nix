@@ -1,23 +1,23 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, utilmacros, python
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, pkg-config, utilmacros, python3
 , libGL, libX11
 }:
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "epoxy-${version}";
-  version = "1.5.1";
+  pname = "epoxy";
+  version = "1.5.4";
 
   src = fetchFromGitHub {
     owner = "anholt";
     repo = "libepoxy";
-    rev = "${version}";
-    sha256 = "1811agxr7g9wd832np8sw152j468kg3qydmfkc564v54ncfcgaci";
+    rev = version;
+    sha256 = "0rmg0qlswn250h0arx434jh3hwzsr95lawanpmh1czsfvrcx59l6";
   };
 
   outputs = [ "out" "dev" ];
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig utilmacros python ];
+  nativeBuildInputs = [ autoreconfHook pkg-config utilmacros python3 ];
   buildInputs = [ libGL libX11 ];
 
   preConfigure = optionalString stdenv.isDarwin ''
@@ -33,7 +33,7 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "A library for handling OpenGL function pointer management";
-    homepage = https://github.com/anholt/libepoxy;
+    homepage = "https://github.com/anholt/libepoxy";
     license = licenses.mit;
     maintainers = [ maintainers.goibhniu ];
     platforms = platforms.unix;

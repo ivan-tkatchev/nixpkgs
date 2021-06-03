@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, ncurses, postgresql }:
+{ lib, stdenv, fetchurl, ncurses, postgresql }:
 
 stdenv.mkDerivation rec {
   name = "pg_top-3.7.0";
@@ -10,20 +10,18 @@ stdenv.mkDerivation rec {
 
   buildInputs = [ ncurses postgresql ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A 'top' like tool for PostgreSQL";
-    longDescription = '' 
-      pg_top allows you to: 
-      <itemizedlist>
-        <listitem>View currently running SQL statement of a process.</listitem>
-        <listitem>View query plan of a currently running SQL statement.</listitem>
-        <listitem>View locks held by a process.</listitem>
-        <listitem>View user table statistics.</listitem>
-        <listitem>View user index statistics.</listitem>
-      </itemizedlist>
+    longDescription = ''
+      pg_top allows you to:
+       * View currently running SQL statement of a process.
+       * View query plan of a currently running SQL statement.
+       * View locks held by a process.
+       * View user table statistics.
+       * View user index statistics.
     '';
 
-    homepage = http://ptop.projects.postgresql.org/;
+    homepage = "http://ptop.projects.postgresql.org/";
     platforms = platforms.linux;
     license = licenses.free; # see commands.c
   };

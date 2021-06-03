@@ -1,23 +1,21 @@
-{ stdenv, fetchurl, pkgconfig, fuse, attr, asciidoc }:
+{ lib, stdenv, fetchurl, pkg-config, fuse, attr, asciidoc }:
 
 stdenv.mkDerivation rec {
-  name = "disorderfs-${version}";
-  version = "0.5.3";
+  pname = "disorderfs";
+  version = "0.5.11";
 
   src = fetchurl {
-    url = "http://http.debian.net/debian/pool/main/d/disorderfs/disorderfs_${version}.orig.tar.gz";
-    sha256 = "1zx6248cwfcci5555sk9iwl9lz6x8kzc9qgiq4jv04zjiapivdnq";
+    url = "http://http.debian.net/debian/pool/main/d/disorderfs/disorderfs_${version}.orig.tar.bz2";
+    sha256 = "sha256-KqAMKVUykCgVdNyjacZjpVXqVdeob76v0iOuSd4TNIY=";
   };
 
-  nativeBuildInputs = [ pkgconfig asciidoc ];
+  nativeBuildInputs = [ pkg-config asciidoc ];
 
   buildInputs = [ fuse attr ];
 
-  sourceRoot = ".";
-
   installFlags = [ "PREFIX=$(out)" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An overlay FUSE filesystem that introduces non-determinism into filesystem metadata";
     license = licenses.gpl3;
     platforms = platforms.linux;

@@ -1,35 +1,65 @@
-{ stdenv, fetchFromGitHub, fetchpatch, autoreconfHook, pkgconfig, boost, libevent
-, double-conversion, glog, google-gflags, python, libiberty, openssl }:
+{ lib, stdenv
+, fetchFromGitHub
+, cmake
+, boost
+, libevent
+, double-conversion
+, glog
+, gflags
+, libiberty
+, lz4
+, xz
+, zlib
+, jemalloc
+, openssl
+, pkg-config
+, libunwind
+, fmt
+}:
 
-stdenv.mkDerivation rec {
-  name = "folly-${version}";
-  version = "2018.07.09.00";
+stdenv.mkDerivation (rec {
+  pname = "folly";
+  version = "2021.01.25.00";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = "folly";
     rev = "v${version}";
-    sha256 = "08irwa2pb3f2gnk31rq31jjrqk2xxx0a0m72gf0bsv2w9fgn5sfm";
+    sha256 = "sha256-n2cpXdjPZYNjvSHBZFFn3JFwqYCFWc8qSKwet80LtJE=";
   };
 
-  nativeBuildInputs = [ autoreconfHook python pkgconfig ];
-  buildInputs = [ libiberty boost libevent double-conversion glog google-gflags openssl ];
+  nativeBuildInputs = [
+    cmake
+    pkg-config
+  ];
 
-  postPatch = "cd folly";
-  preBuild = ''
-    patchShebangs build
-  '';
+  # See CMake/folly-deps.cmake in the Folly source tree.
+  buildInputs = [
+    boost
+    double-conversion
+    glog
+    gflags
+    libevent
+    libiberty
+    openssl
+    lz4
+    xz
+    zlib
+    jemalloc
+    libunwind
+    fmt
+  ];
 
-  configureFlags = [ "--with-boost-libdir=${boost.out}/lib" ];
+  cmakeFlags = [ "-DBUILD_SHARED_LIBS=ON" ];
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "An open-source C++ library developed and used at Facebook";
-    homepage = https://github.com/facebook/folly;
+    homepage = "https://github.com/facebook/folly";
     license = licenses.asl20;
     # 32bit is not supported: https://github.com/facebook/folly/issues/103
-    platforms = [ "x86_64-linux" ];
-    maintainers = with maintainers; [ abbradar ];
+    platforms = [ "x86_64-linux" "x86_64-darwin" ];
+    maintainers = with maintainers; [ abbradar pierreis ];
   };
-}
+} // lib.optionalAttrs stdenv.isDarwin {
+  LDFLAGS = "-ljemalloc";
+})

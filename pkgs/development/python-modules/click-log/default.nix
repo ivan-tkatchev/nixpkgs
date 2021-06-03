@@ -1,18 +1,18 @@
-{ stdenv, buildPythonPackage, fetchPypi, click }:
+{ lib, buildPythonPackage, fetchPypi, click }:
 
 buildPythonPackage rec {
   pname = "click-log";
-  version = "0.2.1";
+  version = "0.3.2";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1r1x85023cslb2pwldd089jjk573mk3w78cnashs77wrx7yz8fj9";
+    sha256 = "16fd1ca3fc6b16c98cea63acf1ab474ea8e676849dc669d86afafb0ed7003124";
   };
 
   propagatedBuildInputs = [ click ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/click-contrib/click-log/;
+  meta = with lib; {
+    homepage = "https://github.com/click-contrib/click-log/";
     description = "Logging integration for Click";
     license = licenses.mit;
     maintainers = with maintainers; [ ];

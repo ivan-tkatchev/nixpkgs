@@ -1,38 +1,80 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, libxml2, glib, pipewire, fuse }:
+{ lib, stdenv
+, fetchFromGitHub
+, nixosTests
+, substituteAll
+, autoreconfHook
+, pkg-config
+, libxml2
+, glib
+, pipewire
+, flatpak
+, gsettings-desktop-schemas
+, acl
+, dbus
+, fuse
+, libportal
+, geoclue2
+, json-glib
+, wrapGAppsHook
+}:
 
-let
-  version = "0.11";
-in stdenv.mkDerivation rec {
-  name = "xdg-desktop-portal-${version}";
+stdenv.mkDerivation rec {
+  pname = "xdg-desktop-portal";
+  version = "1.8.1";
 
   outputs = [ "out" "installedTests" ];
 
   src = fetchFromGitHub {
     owner = "flatpak";
-    repo = "xdg-desktop-portal";
+    repo = pname;
     rev = version;
-    sha256 = "06gipd51snvlp2jp68v2c8rwbsv36kjzg9xacm81n1w4b2dpz4g0";
+    sha256 = "sha256-tuRKCBj9ELC7yFPs/Sut/EdO+L8nwW3S8NWU+XedAF8=";
   };
 
   patches = [
-    ./respect-path-env-var.patch
+    # Hardcode paths used by x-d-p itself.
+    (substituteAll {
+      src = ./fix-paths.patch;
+      inherit flatpak;
+    })
   ];
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig libxml2 ];
-  buildInputs = [ glib pipewire fuse ];
+  nativeBuildInputs = [
+    autoreconfHook
+    pkg-config
+    libxml2
+    wrapGAppsHook
+  ];
 
-  doCheck = true;
+  buildInputs = [
+    glib
+    pipewire
+    flatpak
+    acl
+    dbus
+    geoclue2
+    fuse
+    libportal
+    gsettings-desktop-schemas
+    json-glib
+  ];
 
   configureFlags = [
     "--enable-installed-tests"
   ];
 
   makeFlags = [
-    "installed_testdir=$(installedTests)/libexec/installed-tests/xdg-desktop-portal"
-    "installed_test_metadir=$(installedTests)/share/installed-tests/xdg-desktop-portal"
+    "installed_testdir=${placeholder "installedTests"}/libexec/installed-tests/xdg-desktop-portal"
+    "installed_test_metadir=${placeholder "installedTests"}/share/installed-tests/xdg-desktop-portal"
   ];
 
-  meta = with stdenv.lib; {
+  passthru = {
+    tests = {
+      installedTests = nixosTests.installed-tests.xdg-desktop-portal;
+    };
+  };
+
+  meta = with lib; {
     description = "Desktop integration portals for sandboxed apps";
     license = licenses.lgpl21;
     maintainers = with maintainers; [ jtojnar ];

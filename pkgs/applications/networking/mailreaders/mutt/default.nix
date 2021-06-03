@@ -1,10 +1,10 @@
-{ stdenv, fetchurl, fetchpatch, ncurses, which, perl
+{ lib, stdenv, fetchurl, fetchpatch, ncurses, which, perl
 , gdbm ? null
 , openssl ? null
 , cyrus_sasl ? null
 , gnupg ? null
 , gpgme ? null
-, kerberos ? null
+, libkrb5 ? null
 , headerCache  ? true
 , sslSupport   ? true
 , saslSupport  ? true
@@ -23,27 +23,27 @@ assert smimeSupport -> openssl    != null;
 assert gpgSupport   -> gnupg      != null;
 assert gpgmeSupport -> gpgme      != null && openssl != null;
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "mutt-${version}";
-  version = "1.10.0";
+  pname = "mutt";
+  version = "2.0.7";
 
   src = fetchurl {
-    url = "http://ftp.mutt.org/pub/mutt/${name}.tar.gz";
-    sha256 = "0nskymwr2cdapxlfv0ysz3bjwhb4kcvl5a3c39237k7r1vwva582";
+    url = "http://ftp.mutt.org/pub/mutt/${pname}-${version}.tar.gz";
+    sha256 = "sha256-lXaIxqUhVhmS1PLyfPn+sjnHxsAELGBhwOR0p90mzJE=";
   };
 
   patches = optional smimeSupport (fetchpatch {
-    url    = "https://sources.debian.net/src/mutt/1.7.2-1/debian/patches/misc/smime.rc.patch";
-    sha256 = "0mdqa9w1p6cmli6976v4wi0sw9r4p5prkj7lzfd1877wk11c9c73";
+    url = "https://salsa.debian.org/mutt-team/mutt/raw/debian/1.10.1-2/debian/patches/misc/smime.rc.patch";
+    sha256 = "0b4i00chvx6zj9pcb06x2jysmrcb2znn831lcy32cgfds6gr3nsi";
   });
 
   buildInputs =
     [ ncurses which perl ]
     ++ optional headerCache  gdbm
     ++ optional sslSupport   openssl
-    ++ optional gssSupport   kerberos
+    ++ optional gssSupport   libkrb5
     ++ optional saslSupport  cyrus_sasl
     ++ optional gpgmeSupport gpgme;
 
@@ -88,9 +88,9 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "A small but very powerful text-based mail client";
-    homepage = http://www.mutt.org;
+    homepage = "http://www.mutt.org";
     license = licenses.gpl2Plus;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ the-kenny rnhmjoj ];
+    maintainers = with maintainers; [ rnhmjoj ];
   };
 }

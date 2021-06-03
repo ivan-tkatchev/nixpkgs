@@ -1,20 +1,21 @@
-{ stdenv, fetchgit, autoPatchelfHook, fetchzip, libunwind, libuuid, icu, curl,
-  makeWrapper, less, openssl, pam, lttng-ust }:
+{ stdenv, lib, autoPatchelfHook, fetchzip, libunwind, libuuid, icu, curl
+, darwin, makeWrapper, less, openssl_1_1, pam, lttng-ust }:
 
 let platformString = if stdenv.isDarwin then "osx"
                      else if stdenv.isLinux then "linux"
                      else throw "unsupported platform";
-    platformSha = if stdenv.isDarwin then "1ga4p8xmrxa54v2s6i0q1q7lx2idcmp1jwm0g4jxr54fyn5ay3lf"
-                     else if stdenv.isLinux then "000mmv5iblnmwydfdvg5izli3vpb6l14xy4qy3smcikpf0h87fhl"
+    platformSha = if stdenv.isDarwin then "0w44ws8b6zfixf7xz93hmplqsx18279n9x8j77y4rbzs13fldvsn"
+                     else if stdenv.isLinux then "0xm7l49zhkz2fly3d751kjd5cy3ws9zji9i0061lkd06dvkch7jy"
                      else throw "unsupported platform";
     platformLdLibraryPath = if stdenv.isDarwin then "DYLD_FALLBACK_LIBRARY_PATH"
                      else if stdenv.isLinux then "LD_LIBRARY_PATH"
                      else throw "unsupported platform";
-    libraries = [ libunwind libuuid icu curl openssl lttng-ust ] ++ (if stdenv.isLinux then [ pam ] else []);
+                     libraries = [ libunwind libuuid icu curl openssl_1_1 ] ++
+                       (if stdenv.isLinux then [ pam lttng-ust ] else [ darwin.Libsystem ]);
 in
 stdenv.mkDerivation rec {
-  name = "powershell-${version}";
-  version = "6.0.2";
+  pname = "powershell";
+  version = "7.1.3";
 
   src = fetchzip {
     url = "https://github.com/PowerShell/PowerShell/releases/download/v${version}/powershell-${version}-${platformString}-x64.tar.gz";
@@ -25,25 +26,52 @@ stdenv.mkDerivation rec {
   buildInputs = [ less ] ++ libraries;
   nativeBuildInputs = [ autoPatchelfHook makeWrapper ];
 
-  # TODO: remove PAGER after upgrading to v6.1.0-preview.1 or later as it has been addressed in
-  # https://github.com/PowerShell/PowerShell/pull/6144
-  installPhase = ''
+  installPhase =
+  let
+    ext = stdenv.hostPlatform.extensions.sharedLibrary;
+  in ''
+    pslibs=$out/share/powershell
+    mkdir -p $pslibs
+
+    cp -r * $pslibs
+
+    rm -f $pslibs/libcrypto${ext}.1.0.0
+    rm -f $pslibs/libssl${ext}.1.0.0
+
+    # At least the 7.1.3-osx package does not have the executable bit set.
+    chmod a+x $pslibs/pwsh
+
+    ls $pslibs
+  '' + lib.optionalString (!stdenv.isDarwin) ''
+    patchelf --replace-needed libcrypto${ext}.1.0.0 libcrypto${ext}.1.1 $pslibs/libmi.so
+    patchelf --replace-needed libssl${ext}.1.0.0 libssl${ext}.1.1 $pslibs/libmi.so
+  '' + ''
+
     mkdir -p $out/bin
-    mkdir -p $out/share/powershell
-    cp -r * $out/share/powershell
-    rm $out/share/powershell/DELETE_ME_TO_DISABLE_CONSOLEHOST_TELEMETRY
-    makeWrapper $out/share/powershell/pwsh $out/bin/pwsh --prefix ${platformLdLibraryPath} : "${stdenv.lib.makeLibraryPath libraries}" \
-                                           --set PAGER ${less}/bin/less --set TERM xterm
+
+    makeWrapper $pslibs/pwsh $out/bin/pwsh \
+      --prefix ${platformLdLibraryPath} : "${lib.makeLibraryPath libraries}" \
+      --set TERM xterm --set POWERSHELL_TELEMETRY_OPTOUT 1 --set DOTNET_CLI_TELEMETRY_OPTOUT 1
   '';
 
   dontStrip = true;
 
-  meta = with stdenv.lib; {
-    description = "Cross-platform (Windows, Linux, and macOS) automation and configuration tool/framework";
-    homepage = https://github.com/PowerShell/PowerShell;
-    maintainers = [ maintainers.yrashk ];
-    platforms = platforms.unix;
+  doInstallCheck = true;
+  installCheckPhase = ''
+    # May need a writable home, seen on Darwin.
+    HOME=$TMP $out/bin/pwsh --help > /dev/null
+  '';
+
+  meta = with lib; {
+    description = "Powerful cross-platform (Windows, Linux, and macOS) shell and scripting language based on .NET";
+    homepage = "https://github.com/PowerShell/PowerShell";
+    maintainers = with maintainers; [ yrashk srgom ];
+    platforms = [ "x86_64-darwin" "x86_64-linux" ];
     license = with licenses; [ mit ];
+  };
+
+  passthru = {
+    shellPath = "/bin/pwsh";
   };
 
 }

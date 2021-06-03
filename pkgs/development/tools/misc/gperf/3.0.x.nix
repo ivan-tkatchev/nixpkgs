@@ -1,4 +1,4 @@
-{stdenv, fetchurl}:
+{lib, stdenv, fetchurl, autoreconfHook }:
 
 stdenv.mkDerivation rec {
   name = "gperf-3.0.4";
@@ -8,6 +8,8 @@ stdenv.mkDerivation rec {
     sha256 = "0gnnm8iqcl52m8iha3sxrzrl9mcyhg7lfrhhqgdn4zj00ji14wbn";
   };
 
+  nativeBuildInputs = [ autoreconfHook ];
+  patches = [ ./gperf-ar-fix.patch ];
   meta = {
     description = "Perfect hash function generator";
 
@@ -25,9 +27,9 @@ stdenv.mkDerivation rec {
       employed by gperf.
     '';
 
-    license = stdenv.lib.licenses.gpl3Plus;
+    license = lib.licenses.gpl3Plus;
 
-    homepage = http://www.gnu.org/software/gperf/;
-    platforms = stdenv.lib.platforms.unix;
+    homepage = "https://www.gnu.org/software/gperf/";
+    platforms = lib.platforms.unix;
   };
 }

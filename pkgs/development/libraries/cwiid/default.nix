@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, bison, flex, bluez, pkgconfig, gtk2 }:
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, bison, flex, bluez, pkg-config, gtk2 }:
 
 stdenv.mkDerivation rec {
   name = "cwiid-${version}-git";
@@ -13,7 +13,7 @@ stdenv.mkDerivation rec {
 
   hardeningDisable = [ "format" ];
 
-  configureFlags = "--without-python";
+  configureFlags = [ "--without-python" ];
 
   prePatch = ''
     sed -i -e '/$(LDCONFIG)/d' common/include/lib.mak.in
@@ -21,16 +21,18 @@ stdenv.mkDerivation rec {
 
   buildInputs = [ bison flex bluez gtk2 ];
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
+
+  NIX_LDFLAGS = "-lbluetooth";
 
   postInstall = ''
     # Some programs (for example, cabal-install) have problems with the double 0
     sed -i -e "s/0.6.00/0.6.0/" $out/lib/pkgconfig/cwiid.pc
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Linux Nintendo Wiimote interface";
-    homepage    = http://cwiid.org;
+    homepage    = "http://cwiid.org";
     license     = licenses.gpl2Plus;
     maintainers = with maintainers; [ bennofs ];
     platforms   = platforms.linux;

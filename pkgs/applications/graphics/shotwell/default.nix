@@ -1,49 +1,112 @@
-{ fetchurl, stdenv, meson, ninja, gtk3, libexif, libgphoto2, libsoup, libxml2, vala, sqlite
-, webkitgtk, pkgconfig, gnome3, gst_all_1, libgudev, libraw, glib, json-glib
-, gettext, desktop-file-utils, gdk_pixbuf, librsvg, wrapGAppsHook
-, gobjectIntrospection, itstool, libgdata }:
+{ lib, stdenv
+, fetchurl
+, meson
+, ninja
+, gtk3
+, libexif
+, libgphoto2
+, libwebp
+, libsoup
+, libxml2
+, vala
+, sqlite
+, webkitgtk
+, pkg-config
+, gnome
+, gst_all_1
+, libgudev
+, libraw
+, glib
+, glib-networking
+, json-glib
+, gcr
+, libgee
+, gexiv2
+, librest
+, gettext
+, desktop-file-utils
+, gdk-pixbuf
+, librsvg
+, wrapGAppsHook
+, gobject-introspection
+, itstool
+, libgdata
+, libchamplain
+, libsecret
+, gsettings-desktop-schemas
+, python3
+}:
 
 # for dependencies see https://wiki.gnome.org/Apps/Shotwell/BuildingAndInstalling
 
-let
+stdenv.mkDerivation rec {
   pname = "shotwell";
-  version = "0.28.2";
-in stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
+  version = "0.31.3";
 
   src = fetchurl {
-    url = "mirror://gnome/sources/${pname}/${gnome3.versionBranch version}/${name}.tar.xz";
-    sha256 = "0pa7lb33i4hdnz7hr7x938d48ilrnj47jzb99la79rmm08yyin8n";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "1wkahbnnfxmi1jc5zmm3h761nrnkdks8lk0rj38bfkwg90h6zqwd";
   };
 
   nativeBuildInputs = [
-    meson ninja vala pkgconfig itstool gettext desktop-file-utils wrapGAppsHook gobjectIntrospection
+    meson
+    ninja
+    vala
+    pkg-config
+    itstool
+    gettext
+    desktop-file-utils
+    python3
+    wrapGAppsHook
+    gobject-introspection
   ];
 
   buildInputs = [
-    gtk3 libexif libgphoto2 libsoup libxml2 sqlite webkitgtk
-    gst_all_1.gstreamer gst_all_1.gst-plugins-base gnome3.libgee
-    libgudev gnome3.gexiv2 gnome3.gsettings-desktop-schemas
-    libraw json-glib glib gdk_pixbuf librsvg gnome3.rest
-    gnome3.gcr gnome3.defaultIconTheme libgdata
+    gtk3
+    libexif
+    libgphoto2
+    libwebp
+    libsoup
+    libxml2
+    sqlite
+    webkitgtk
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    libgee
+    libgudev
+    gexiv2
+    gsettings-desktop-schemas
+    libraw
+    json-glib
+    glib
+    glib-networking
+    gdk-pixbuf
+    librsvg
+    librest
+    gcr
+    gnome.adwaita-icon-theme
+    libgdata
+    libchamplain
+    libsecret
   ];
 
-  postInstall = ''
-    glib-compile-schemas $out/share/glib-2.0/schemas
+  postPatch = ''
+    chmod +x build-aux/meson/postinstall.py # patchShebangs requires executable file
+    patchShebangs build-aux/meson/postinstall.py
   '';
 
   passthru = {
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = pname;
       versionPolicy = "none";
     };
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Popular photo organizer for the GNOME desktop";
-    homepage = https://wiki.gnome.org/Apps/Shotwell;
+    homepage = "https://wiki.gnome.org/Apps/Shotwell";
     license = licenses.lgpl21Plus;
-    maintainers = with maintainers; [domenkozar];
+    maintainers = with maintainers; [];
     platforms = platforms.linux;
   };
 }

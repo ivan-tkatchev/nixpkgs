@@ -1,46 +1,36 @@
 { stdenv
-, fetchurl
+, lib
+, fetchFromGitLab
 , fetchpatch
+, autoreconfHook
 }:
 stdenv.mkDerivation rec {
-  name = "symmetrica-${version}";
-  version = "2.0";
-  src = fetchurl {
-    url = "http://www.algorithm.uni-bayreuth.de/en/research/SYMMETRICA/SYM2_0_tar.gz";
-    sha256 = "1qhfrbd5ybb0sinl9pad64rscr08qvlfzrzmi4p4hk61xn6phlmz";
-    name = "symmetrica-2.0.tar.gz";
-  };
-  sourceRoot = ".";
-  installPhase = ''
-    mkdir -p "$out"/{lib,share/doc/symmetrica,include/symmetrica}
-    ar crs libsymmetrica.a *.o
-    ranlib libsymmetrica.a
-    cp libsymmetrica.a "$out/lib"
-    cp *.h "$out/include/symmetrica"
-    cp README *.doc "$out/share/doc/symmetrica"
-  '';
-  patches = [
-      # don't show banner ("SYMMETRICA VERSION X - STARTING)
-      # it doesn't contain very much helpful information and a banner is not ideal for a library
-      (fetchpatch {
-        url = "https://git.sagemath.org/sage.git/plain/build/pkgs/symmetrica/patches/de.patch?id=07d6c37d18811e2b377a9689790a7c5e24da16ba";
-        sha256 = "0df0vqixcfpzny6dkhyj87h8aznz3xn3zfwwlj8pd10bpb90k6gb";
-      })
+  pname = "symmetrica";
+  version = "3.0.1";
 
-      # use int32_t and uint32_t for type INT
-      # see https://trac.sagemath.org/ticket/13413
-      (fetchpatch {
-        name = "fix_64bit_integer_overflow.patch";
-        url = "https://git.sagemath.org/sage.git/plain/build/pkgs/symmetrica/patches/int32.patch?id=07d6c37d18811e2b377a9689790a7c5e24da16ba";
-        sha256 = "0p33c85ck4kd453z687ni4bdcqr1pqx2756j7aq11bf63vjz4cyz";
-      })
+  # Fork of the original symmetrica, which can be found here
+  # http://www.algorithm.uni-bayreuth.de/en/research/SYMMETRICA/index.html
+  # "This fork was created to modernize the codebase, and to resume making
+  # releases with the fixes that have accrued over the years."
+  # Also see https://trac.sagemath.org/ticket/29061#comment:3.
+  src = fetchFromGitLab {
+    owner = "sagemath";
+    repo = "symmetrica";
+    rev = version;
+    sha256 = "0wfmrzw82f5i91d7rf24mcdqcj2fmgrgy02pw4pliz7ncwaq14w3";
+  };
+
+  nativeBuildInputs = [
+    autoreconfHook
   ];
-  meta = {
-    inherit version;
-    description = ''A collection of routines for representation theory and combinatorics'';
-    license = stdenv.lib.licenses.publicDomain;
-    maintainers = [stdenv.lib.maintainers.raskin];
-    platforms = stdenv.lib.platforms.linux;
-    homepage = http://www.symmetrica.de/;
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
+    description = "A collection of routines for representation theory and combinatorics";
+    license = licenses.isc;
+    maintainers = teams.sage.members;
+    platforms = platforms.unix;
+    homepage = "https://gitlab.com/sagemath/symmetrica";
   };
 }

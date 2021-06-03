@@ -1,7 +1,5 @@
-{ stdenv, fetchurl, pkgconfig, intltool, glib, libxml2, gtk3, gtkvnc, gmp
-, libgcrypt, gnupg, cyrus_sasl, shared-mime-info, libvirt, yajl, xen
-, gsettings-desktop-schemas, makeWrapper, libvirt-glib, libcap_ng, numactl
-, libapparmor, gst_all_1
+{ lib, stdenv, fetchurl, pkg-config, intltool, shared-mime-info, wrapGAppsHook
+, glib, gsettings-desktop-schemas, gtk-vnc, gtk3, libvirt, libvirt-glib, libxml2, vte
 , spiceSupport ? true
 , spice-gtk ? null, spice-protocol ? null, libcap ? null, gdbm ? null
 }:
@@ -9,37 +7,30 @@
 assert spiceSupport ->
   spice-gtk != null && spice-protocol != null && libcap != null && gdbm != null;
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
   baseName = "virt-viewer";
-  version = "6.0";
+  version = "9.0";
   name = "${baseName}-${version}";
 
   src = fetchurl {
     url = "http://virt-manager.org/download/sources/${baseName}/${name}.tar.gz";
-    sha256 = "1chqrf658niivzfh85cbwkbv9vyg8sv1mv3i31vawkfsfdvvsdwh";
+    sha256 = "09a83mzyn3b4nd7wpa659g1zf1fjbzb79rk968bz6k5xl21k7d4i";
   };
 
-  nativeBuildInputs = [ pkgconfig intltool ];
+  nativeBuildInputs = [ pkg-config intltool shared-mime-info wrapGAppsHook glib ];
   buildInputs = [
-    glib libxml2 gtk3 gtkvnc gmp libgcrypt gnupg cyrus_sasl shared-mime-info
-    libvirt yajl gsettings-desktop-schemas makeWrapper libvirt-glib
-    libcap_ng numactl libapparmor
-  ] ++ optionals stdenv.isx86_64 [
-    xen
+    glib gsettings-desktop-schemas gtk-vnc gtk3 libvirt libvirt-glib libxml2 vte
   ] ++ optionals spiceSupport [
     spice-gtk spice-protocol libcap gdbm
-    gst_all_1.gst-plugins-base gst_all_1.gst-plugins-good
   ];
 
-  postInstall = ''
-    for f in "$out"/bin/*; do
-        wrapProgram "$f" \
-          --prefix XDG_DATA_DIRS : "$GSETTINGS_SCHEMAS_PATH" \
-          --prefix GST_PLUGIN_SYSTEM_PATH_1_0 : "$GST_PLUGIN_SYSTEM_PATH_1_0"
-    done
-  '';
+  # Required for USB redirection PolicyKit rules file
+  propagatedUserEnvPkgs = optional spiceSupport spice-gtk;
+
+  strictDeps = true;
+  enableParallelBuilding = true;
 
   meta = {
     description = "A viewer for remote virtual machines";

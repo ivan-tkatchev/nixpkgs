@@ -1,18 +1,15 @@
-{ stdenv, pkgconfig, glib }:
+{ lib, stdenv, meson, ninja, pkg-config, glib }:
 
 stdenv.mkDerivation {
   name = "chrootenv";
+  src = ./.;
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ meson ninja pkg-config ];
   buildInputs = [ glib ];
 
-  buildCommand = ''
-    cc ${./chrootenv.c} $(pkg-config --cflags --libs glib-2.0) -o $out
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Setup mount/user namespace for FHS emulation";
-    license = licenses.free;
+    license = licenses.mit;
     maintainers = with maintainers; [ yegortimoshenko ];
     platforms = platforms.linux;
   };

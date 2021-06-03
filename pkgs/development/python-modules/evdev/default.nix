@@ -1,12 +1,12 @@
-{ lib, buildPythonPackage, isPy34, fetchPypi, linuxHeaders }:
+{ lib, buildPythonPackage, fetchPypi, linuxHeaders }:
 
 buildPythonPackage rec {
   pname = "evdev";
-  version = "1.0.0";
+  version = "1.4.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "be0288ef1125bf1c539bb8f3079ef4aa5fb813af28f0c5294a4e744ee554398a";
+    sha256 = "8782740eb1a86b187334c07feb5127d3faa0b236e113206dfe3ae8f77fb1aaf1";
   };
 
   buildInputs = [ linuxHeaders ];
@@ -17,11 +17,9 @@ buildPythonPackage rec {
 
   doCheck = false;
 
-  disabled = isPy34;  # see http://bugs.python.org/issue21121
-
   meta = with lib; {
     description = "Provides bindings to the generic input event interface in Linux";
-    homepage = http://pythonhosted.org/evdev;
+    homepage = "https://pythonhosted.org/evdev";
     license = licenses.bsd3;
     maintainers = with maintainers; [ goibhniu ];
     platforms = platforms.linux;

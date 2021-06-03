@@ -1,20 +1,19 @@
-{ stdenv, fetchurl, python27Packages, file }:
+{ lib, stdenv, fetchurl, python27Packages, file }:
 
 let
   inherit (python27Packages) python;
   requirements = (import ./requirements.nix {
-    inherit stdenv fetchurl;
+    inherit lib fetchurl;
     pythonPackages = python27Packages;
   });
 
 in
   stdenv.mkDerivation rec {
-    name = "salut-a-toi-${version}";
+    pname = "salut-a-toi";
     version = "0.6.1";
-    pname = "sat-${version}";
 
     src = fetchurl {
-      url = "ftp://ftp.goffi.org/sat/${pname}.tar.bz2";
+      url = "ftp://ftp.goffi.org/sat/sat-${version}.tar.bz2";
       sha256 = "0kn9403n8fpzl0hsb9kkzicsmzq2fjl627l31yykbqzc4nsr780d";
     };
 
@@ -51,8 +50,8 @@ in
       done
     '';
 
-    meta = with stdenv.lib; {
-      homepage = http://sat.goffi.org/;
+    meta = with lib; {
+      homepage = "http://sat.goffi.org/";
       description = "A multi-frontend XMPP client";
       platforms = platforms.linux;
       maintainers = [ maintainers.raskin ];

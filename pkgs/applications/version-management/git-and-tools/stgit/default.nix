@@ -1,35 +1,65 @@
-{ stdenv, fetchurl, python2, git }:
+{ lib
+, fetchFromGitHub
+, installShellFiles
+, python3Packages
+, asciidoc
+, docbook_xsl
+, git
+, perl
+, xmlto
+}:
 
-let
-  name = "stgit-${version}";
-  version = "0.18";
-in
-stdenv.mkDerivation {
-  inherit name;
+python3Packages.buildPythonApplication rec {
+  pname = "stgit";
+  version = "1.1";
 
-  src = fetchurl {
-    url = "https://github.com/ctmarinas/stgit/archive/v${version}.tar.gz";
-    sha256 = "19fk6vw3pgp2a98wpd4j3kyiyll5dy9bi4921wq1mrky0l53mj00";
+  src = fetchFromGitHub {
+    owner = "stacked-git";
+    repo = "stgit";
+    rev = "v${version}";
+    sha256 = "sha256-gfPf1yRmx1Mn1TyCBWmjQJBgXLlZrDcew32C9o6uNYk=";
   };
 
-  buildInputs = [ python2 git ];
+  nativeBuildInputs = [ installShellFiles asciidoc xmlto docbook_xsl ];
 
-  makeFlags = "prefix=$$out";
+  format = "other";
 
-  postInstall = ''
-    mkdir -p "$out/etc/bash_completion.d/"
-    ln -s ../../share/stgit/completion/stgit-completion.bash "$out/etc/bash_completion.d/"
+  checkInputs = [ git perl ];
+
+  postPatch = ''
+    for f in Documentation/*.xsl; do
+      substituteInPlace $f \
+        --replace http://docbook.sourceforge.net/release/xsl-ns/current/manpages/docbook.xsl \
+                  ${docbook_xsl}/xml/xsl/docbook/manpages/docbook.xsl \
+        --replace http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl \
+                  ${docbook_xsl}/xml/xsl/docbook/html/docbook.xsl
+    done
   '';
 
-  doCheck = false;
+  makeFlags = [
+    "prefix=${placeholder "out"}"
+    "MAN_BASE_URL=${placeholder "out"}/share/man"
+    "XMLTO_EXTRA=--skip-validation"
+  ];
+
+  buildFlags = [ "all" "doc" ];
+
   checkTarget = "test";
+  checkFlags = [ "PERL_PATH=${perl}/bin/perl" ];
 
-  meta = {
-    homepage = http://procode.org/stgit/;
+  installTargets = [ "install" "install-doc" ];
+  postInstall = ''
+    installShellCompletion --cmd stg \
+      --fish $out/share/stgit/completion/stg.fish \
+      --bash $out/share/stgit/completion/stgit.bash \
+      --zsh $out/share/stgit/completion/stgit.zsh
+    '';
+
+  meta = with lib; {
     description = "A patch manager implemented on top of Git";
-    license = "GPL";
-
-    maintainers = with stdenv.lib.maintainers; [ the-kenny ];
-    platforms = stdenv.lib.platforms.unix;
+    homepage = "https://stacked-git.github.io/";
+    license = licenses.gpl2Only;
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ jshholland ];
   };
 }

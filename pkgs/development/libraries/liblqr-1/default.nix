@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, pkgconfig, glib }:
+{ lib, stdenv, fetchurl, pkg-config, glib }:
 
 stdenv.mkDerivation rec {
   name = "liblqr-1-0.4.2";
@@ -8,13 +8,13 @@ stdenv.mkDerivation rec {
     sha256 = "0dzikxzjz5zmy3vnydh90aqk23q0qm8ykx6plz6p4z90zlp84fhp";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   propagatedBuildInputs = [ glib ];
 
-  meta = with stdenv.lib; {
-    homepage = http://liblqr.wikidot.com;
+  meta = with lib; {
+    homepage = "http://liblqr.wikidot.com";
     description = "Seam-carving C/C++ library called Liquid Rescaling";
     platforms = platforms.all;
-    maintainers = [ ];
+    license = with licenses; [ gpl3 lgpl3 ];
   };
 }

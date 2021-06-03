@@ -1,26 +1,40 @@
-{ lib, fetchurl, buildPythonPackage, python, isPyPy }:
+{ lib, stdenv, fetchPypi, buildPythonPackage, packaging, toml }:
 
-if isPyPy then throw "sip not supported for interpreter ${python.executable}" else buildPythonPackage rec {
+buildPythonPackage rec {
   pname = "sip";
-  version = "4.19.6";
-  format = "other";
+  version = "5.5.0";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/pyqt/sip/${pname}-${version}/${pname}-${version}.tar.gz";
-    sha256 = "0nlj0zbvmzliyhhspqwf2bjvcnpq4agx4s47php7ishv32p2gnlx";
+  src = fetchPypi {
+    pname = "sip";
+    inherit version;
+    sha256 = "1idaivamp1jvbbai9yzv471c62xbqxhaawccvskaizihkd0lq0jx";
   };
 
-  configurePhase = ''
-    ${python.executable} ./configure.py \
-      -d $out/lib/${python.libPrefix}/site-packages \
-      -b $out/bin -e $out/include
-  '';
+  propagatedBuildInputs = [ packaging toml ];
+
+  # There aren't tests
+  doCheck = false;
+
+  pythonImportsCheck = [ "sipbuild" ];
+
+  # FIXME: Why isn't this detected automatically?
+  # Needs to be specified in pyproject.toml, e.g.:
+  # [tool.sip.bindings.MODULE]
+  # tags = [PLATFORM_TAG]
+  platform_tag =
+    if stdenv.targetPlatform.isLinux then
+      "WS_X11"
+    else if stdenv.targetPlatform.isDarwin then
+      "WS_MACX"
+    else if stdenv.targetPlatform.isWindows then
+      "WS_WIN"
+    else
+      throw "unsupported platform";
 
   meta = with lib; {
     description = "Creates C++ bindings for Python modules";
     homepage    = "http://www.riverbankcomputing.co.uk/";
-    license     = licenses.gpl2Plus;
-    maintainers = with maintainers; [ lovek323 sander ];
-    platforms   = platforms.all;
+    license     = licenses.gpl3Only;
+    maintainers = with maintainers; [ eduardosm ];
   };
 }

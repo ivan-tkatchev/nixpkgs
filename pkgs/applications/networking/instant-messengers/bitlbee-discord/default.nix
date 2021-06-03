@@ -1,30 +1,32 @@
-{ fetchFromGitHub, stdenv, bitlbee, autoreconfHook, pkgconfig, glib }:
+{ lib, fetchFromGitHub, stdenv, bitlbee, autoreconfHook, pkg-config, glib }:
 
-with stdenv.lib;
+with lib;
 stdenv.mkDerivation rec {
-  name = "bitlbee-discord-2017-12-27";
+  pname = "bitlbee-discord";
+  version = "0.4.3";
 
   src = fetchFromGitHub {
-    rev = "6a03db169ad44fee55609ecd16e19f3c0f99a182";
+    rev = version;
     owner = "sm00th";
     repo = "bitlbee-discord";
-    sha256 = "1ci9a12c6zg8d6i9f95pq6dal79cp4klmmsyj8ag2gin90kl3x95";
+    sha256 = "00qgdvrp7hv02n0ns685igp810zxmv3adsama8601122al6x041n";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
-  buildInputs = [ bitlbee glib ];
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
+  buildInputs = [ bitlbee ];
 
   preConfigure = ''
     export BITLBEE_PLUGINDIR=$out/lib/bitlbee
+    export BITLBEE_DATADIR=$out/share/bitlbee
     ./autogen.sh
   '';
 
   meta = {
     description = "Bitlbee plugin for Discord";
 
-    homepage = https://github.com/sm00th/bitlbee-discord;
+    homepage = "https://github.com/sm00th/bitlbee-discord";
     license = licenses.gpl2Plus;
-    maintainers = [ maintainers.lassulus ];
-    platforms = stdenv.lib.platforms.linux;
+    maintainers = with maintainers; [ lassulus jb55 ];
+    platforms = lib.platforms.linux;
   };
 }

@@ -1,30 +1,47 @@
-{ fetchurl, stdenv, dpkg, xorg, alsaLib, makeWrapper, openssl, freetype
-, glib, pango, cairo, atk, gdk_pixbuf, gtk2, cups, nspr, nss, libpng
-, libgcrypt, systemd, fontconfig, dbus, expat, ffmpeg_0_10, curl, zlib, gnome3 }:
+{ fetchurl, lib, stdenv, squashfsTools, xorg, alsaLib, makeWrapper, openssl, freetype
+, glib, pango, cairo, atk, gdk-pixbuf, gtk3, cups, nspr, nss, libpng, libnotify
+, libgcrypt, systemd, fontconfig, dbus, expat, ffmpeg, curl, zlib, gnome
+, at-spi2-atk, at-spi2-core, libpulseaudio, libdrm, mesa, libxkbcommon
+}:
 
 let
-  # Please update the stable branch!
-  # Latest version number can be found at:
-  # http://repository-origin.spotify.com/pool/non-free/s/spotify-client/
-  # Be careful not to pick the testing version.
-  version = "1.0.80.480.g51b03ac3-13";
+  # TO UPDATE: just execute the ./update.sh script (won't do anything if there is no update)
+  # "rev" decides what is actually being downloaded
+  # If an update breaks things, one of those might have valuable info:
+  # https://aur.archlinux.org/packages/spotify/
+  # https://community.spotify.com/t5/Desktop-Linux
+  version = "1.1.55.498.gf9a83c60";
+  # To get the latest stable revision:
+  # curl -H 'X-Ubuntu-Series: 16' 'https://api.snapcraft.io/api/v1/snaps/details/spotify?channel=stable' | jq '.download_url,.version,.last_updated'
+  # To get general information:
+  # curl -H 'Snap-Device-Series: 16' 'https://api.snapcraft.io/v2/snaps/info/spotify' | jq '.'
+  # More examples of api usage:
+  # https://github.com/canonical-websites/snapcraft.io/blob/master/webapp/publisher/snaps/views.py
+  rev = "46";
 
   deps = [
     alsaLib
     atk
+    at-spi2-atk
+    at-spi2-core
     cairo
     cups
     curl
     dbus
     expat
-    ffmpeg_0_10
+    ffmpeg
     fontconfig
     freetype
-    gdk_pixbuf
+    gdk-pixbuf
     glib
-    gtk2
+    gtk3
+    libdrm
     libgcrypt
+    libnotify
     libpng
+    libpulseaudio
+    libxkbcommon
+    mesa
     nss
     pango
     stdenv.cc.cc
@@ -41,29 +58,54 @@ let
     xorg.libXScrnSaver
     xorg.libXtst
     xorg.libxcb
+    xorg.libSM
+    xorg.libICE
     zlib
   ];
 
 in
 
 stdenv.mkDerivation {
-  name = "spotify-${version}";
+  pname = "spotify-unwrapped";
+  inherit version;
 
+  # fetch from snapcraft instead of the debian repository most repos fetch from.
+  # That is a bit more cumbersome. But the debian repository only keeps the last
+  # two versions, while snapcraft should provide versions indefinately:
+  # https://forum.snapcraft.io/t/how-can-a-developer-remove-her-his-app-from-snap-store/512
+
+  # This is the next-best thing, since we're not allowed to re-distribute
+  # spotify ourselves:
+  # https://community.spotify.com/t5/Desktop-Linux/Redistribute-Spotify-on-Linux-Distributions/td-p/1695334
   src = fetchurl {
-    url = "https://repository-origin.spotify.com/pool/non-free/s/spotify-client/spotify-client_${version}_amd64.deb";
-    sha256 = "e32f4816ae79dbfa0c14086e76df3bc83d526402aac1dbba534127fc00fe50ea";
+    url = "https://api.snapcraft.io/api/v1/snaps/download/pOBIoZ2LrCB3rDohMxoYGnbN14EHOgD7_${rev}.snap";
+    sha512 = "dabb55d2ba41f977b6d3f03bfcf147d11785136dd1277efc62011c8371ef25cc04531266bd16608639b9b6a500c1a18a45f44ba7a43e17ab5ac139e36eff7149";
   };
 
-  buildInputs = [ dpkg makeWrapper ];
+  nativeBuildInputs = [ makeWrapper squashfsTools ];
 
-  doConfigure = false;
-  doBuild = false;
   dontStrip = true;
   dontPatchELF = true;
 
   unpackPhase = ''
     runHook preUnpack
-    dpkg-deb -x $src .
+    unsquashfs "$src" '/usr/share/spotify' '/usr/bin/spotify' '/meta/snap.yaml'
+    cd squashfs-root
+    if ! grep -q 'grade: stable' meta/snap.yaml; then
+      # Unfortunately this check is not reliable: At the moment (2018-07-26) the
+      # latest version in the "edge" channel is also marked as stable.
+      echo "The snap package is marked as unstable:"
+      grep 'grade: ' meta/snap.yaml
+      echo "You probably chose the wrong revision."
+      exit 1
+    fi
+    if ! grep -q '${version}' meta/snap.yaml; then
+      echo "Package version differs from version found in snap metadata:"
+      grep 'version: ' meta/snap.yaml
+      echo "While the nix package specifies: ${version}."
+      echo "You probably chose the wrong revision or forgot to update the nix version."
+      exit 1
+    fi
     runHook postUnpack
   '';
 
@@ -75,6 +117,8 @@ stdenv.mkDerivation {
       mkdir -p $libdir
       mv ./usr/* $out/
 
+      cp meta/snap.yaml $out
+
       # Work around Spotify referring to a specific minor version of
       # OpenSSL.
 
@@ -83,16 +127,22 @@ stdenv.mkDerivation {
       ln -s ${nspr.out}/lib/libnspr4.so $libdir/libnspr4.so
       ln -s ${nspr.out}/lib/libplc4.so $libdir/libplc4.so
 
+      ln -s ${ffmpeg.out}/lib/libavcodec.so* $libdir
+      ln -s ${ffmpeg.out}/lib/libavformat.so* $libdir
+
       rpath="$out/share/spotify:$libdir"
 
       patchelf \
         --interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
         --set-rpath $rpath $out/share/spotify/spotify
 
-      librarypath="${stdenv.lib.makeLibraryPath deps}:$libdir"
+      librarypath="${lib.makeLibraryPath deps}:$libdir"
       wrapProgram $out/share/spotify/spotify \
         --prefix LD_LIBRARY_PATH : "$librarypath" \
-        --prefix PATH : "${gnome3.zenity}/bin"
+        --prefix PATH : "${gnome.zenity}/bin"
+
+      # fix Icon line in the desktop file (#48062)
+      sed -i "s:^Icon=.*:Icon=spotify-client:" "$out/share/spotify/spotify.desktop"
 
       # Desktop file
       mkdir -p "$out/share/applications/"
@@ -109,11 +159,11 @@ stdenv.mkDerivation {
       runHook postInstall
     '';
 
-  meta = with stdenv.lib; {
-    homepage = https://www.spotify.com/;
+  meta = with lib; {
+    homepage = "https://www.spotify.com/";
     description = "Play music from the Spotify music service";
     license = licenses.unfree;
-    maintainers = with maintainers; [ eelco ftrvxmtrx sheenobu mudri ];
+    maintainers = with maintainers; [ eelco ftrvxmtrx sheenobu mudri timokau ma27 ];
     platforms = [ "x86_64-linux" ];
   };
 }

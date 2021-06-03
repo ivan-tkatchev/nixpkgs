@@ -1,4 +1,4 @@
-{ stdenv, lib, fetchurl, unzip, erlang, which, pam, coreutils }:
+{ stdenv, lib, fetchurl, unzip, erlang, which, pam }:
 
 let
   solrName = "solr-4.10.4-yz-2.tgz";
@@ -25,11 +25,13 @@ let
   };
 in
 
-stdenv.mkDerivation rec {
-  name = "riak-2.2.0";
+stdenv.mkDerivation {
+  pname = "riak";
+  version = "2.2.0";
 
+  nativeBuildInputs = [ unzip ];
   buildInputs = [
-    which unzip erlang pam
+    which erlang pam
   ];
 
   src = srcs.riak;
@@ -92,5 +94,7 @@ stdenv.mkDerivation rec {
     maintainers = with maintainers; [ cstrahan mdaiter ];
     description = "Dynamo inspired NoSQL DB by Basho";
     platforms   = [ "x86_64-linux" ];
+    license     = licenses.asl20;
+    knownVulnerabilities = [ "CVE-2017-3163 - see https://github.com/NixOS/nixpkgs/issues/33876" ];
   };
 }

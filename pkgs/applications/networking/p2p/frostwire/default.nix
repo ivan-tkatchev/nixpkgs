@@ -1,4 +1,4 @@
-{ stdenv, lib, fetchFromGitHub, gradle, perl, jre, makeWrapper, makeDesktopItem, mplayer }:
+{ lib, stdenv, fetchFromGitHub, gradle_6, perl, jre, makeWrapper, makeDesktopItem, mplayer }:
 
 let
   version = "6.6.7-build-529";
@@ -25,7 +25,7 @@ let
   deps = stdenv.mkDerivation {
     name = "${name}-deps";
     inherit src;
-    buildInputs = [ gradle perl ];
+    buildInputs = [ gradle_6 perl ];
     buildPhase = ''
       export GRADLE_USER_HOME=$(mktemp -d)
       ( cd desktop
@@ -47,7 +47,7 @@ in stdenv.mkDerivation {
   inherit name src;
 
   nativeBuildInputs = [ makeWrapper ];
-  buildInputs = [ gradle ];
+  buildInputs = [ gradle_6 ];
 
   buildPhase = ''
     export GRADLE_USER_HOME=$(mktemp -d)
@@ -75,7 +75,7 @@ in stdenv.mkDerivation {
     cp ${ { x86_64-darwin = "desktop/lib/native/*.dylib";
             x86_64-linux  = "desktop/lib/native/lib{jlibtorrent,SystemUtilities}.so";
             i686-linux    = "desktop/lib/native/lib{jlibtorrent,SystemUtilities}X86.so";
-          }.${stdenv.system} or (throw "unsupported system ${stdenv.system}")
+          }.${stdenv.hostPlatform.system} or (throw "unsupported system ${stdenv.hostPlatform.system}")
         } $out/lib
 
     cp -dpR ${desktopItem}/share $out
@@ -84,8 +84,8 @@ in stdenv.mkDerivation {
       --add-flags "-Djava.library.path=$out/lib -jar $out/share/java/frostwire.jar"
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://www.frostwire.com/;
+  meta = with lib; {
+    homepage = "https://www.frostwire.com/";
     description = "BitTorrent Client and Cloud File Downloader";
     license = licenses.gpl2;
     maintainers = with maintainers; [ gavin ];

@@ -1,22 +1,37 @@
-{ lib, buildPythonPackage, fetchPypi, isPy3k }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, isPy27
+, pythonOlder
+, typing-extensions
+, pytest
+}:
 
 buildPythonPackage rec {
   pname = "JPype1";
-  version = "0.6.3";
+  version = "1.2.1";
+  disabled = isPy27;
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "6841523631874a731e1f94e1b1f130686ad3772030eaa3b6946256eeb1d10dd1";
+    sha256 = "f210646127d24be73cfc6d807e2cda1c6b2ab39b7a293008e8b46367af6f2204";
   };
 
-  patches = [ ./set-compiler-language.patch ];
+  propagatedBuildInputs = lib.optionals (pythonOlder "3.8") [
+    typing-extensions
+  ];
 
-  # Test loader complains about non-test module on python3.
-  doCheck = !isPy3k;
+  checkInputs = [
+    pytest
+  ];
 
-  meta = {
+  # required openjdk (easy) but then there were some class path issues
+  # when running the tests
+  doCheck = false;
+
+  meta = with lib; {
     homepage = "https://github.com/originell/jpype/";
-    license = "License :: OSI Approved :: Apache Software License";
-    description = "A Python to Java bridge.";
+    license = licenses.asl20;
+    description = "A Python to Java bridge";
   };
 }

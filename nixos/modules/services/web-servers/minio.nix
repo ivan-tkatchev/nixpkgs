@@ -18,9 +18,9 @@ in
     };
 
     dataDir = mkOption {
-      default = "/var/lib/minio/data";
-      type = types.path;
-      description = "The data directory, for storing the objects.";
+      default = [ "/var/lib/minio/data" ];
+      type = types.listOf types.path;
+      description = "The list of data directories for storing the objects. Use one path for regular operation and the minimum of 4 endpoints for Erasure Code mode.";
     };
 
     configDir = mkOption {
@@ -72,20 +72,16 @@ in
   };
 
   config = mkIf cfg.enable {
+    systemd.tmpfiles.rules = [
+      "d '${cfg.configDir}' - minio minio - -"
+    ] ++ (map (x:  "d '" + x + "' - minio minio - - ") cfg.dataDir);
+
     systemd.services.minio = {
       description = "Minio Object Storage";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
-      preStart = ''
-        # Make sure directories exist with correct owner
-        mkdir -p ${cfg.configDir}
-        chown -R minio:minio ${cfg.configDir}
-        mkdir -p ${cfg.dataDir}
-        chown minio:minio ${cfg.dataDir}
-      '';
       serviceConfig = {
-        PermissionsStartOnly = true;
-        ExecStart = "${cfg.package}/bin/minio server --json --address ${cfg.listenAddress} --config-dir=${cfg.configDir} ${cfg.dataDir}";
+        ExecStart = "${cfg.package}/bin/minio server --json --address ${cfg.listenAddress} --config-dir=${cfg.configDir} ${toString cfg.dataDir}";
         Type = "simple";
         User = "minio";
         Group = "minio";

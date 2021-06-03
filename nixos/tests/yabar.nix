@@ -1,25 +1,33 @@
-import ./make-test.nix ({ pkgs, lib }:
+import ./make-test-python.nix ({ pkgs, lib, ... }:
 
 with lib;
 
 {
   name = "yabar";
-  meta = with pkgs.stdenv.lib.maintainers; {
+  meta = with pkgs.lib.maintainers; {
     maintainers = [ ma27 ];
   };
 
-  nodes.yabar = {
+  machine = {
     imports = [ ./common/x11.nix ./common/user-account.nix ];
 
-    services.xserver.displayManager.auto.user = "bob";
+    test-support.displayManager.auto.user = "bob";
 
     programs.yabar.enable = true;
+    programs.yabar.bars = {
+      top.indicators.date.exec = "YABAR_DATE";
+    };
   };
 
   testScript = ''
-    $yabar->start;
-    $yabar->waitForX;
+    machine.start()
+    machine.wait_for_x()
 
-    $yabar->waitForUnit("yabar.service", "bob");
+    # confirm proper startup
+    machine.wait_for_unit("yabar.service", "bob")
+    machine.sleep(10)
+    machine.wait_for_unit("yabar.service", "bob")
+
+    machine.screenshot("top_bar")
   '';
 })

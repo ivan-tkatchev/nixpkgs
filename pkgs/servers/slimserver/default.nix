@@ -1,24 +1,20 @@
-{ stdenv, buildPerlPackage, fetchurl, fetchpatch, makeWrapper
-, perl, perlPackages, flac, faad2, sox, lame, monkeysAudio, wavpack }:
+{ lib, fetchurl, makeWrapper
+, perlPackages, flac, faad2, sox, lame, monkeysAudio, wavpack }:
 
-buildPerlPackage rec {
-  name = "slimserver-${version}";
-  version = "7.9.1";
+perlPackages.buildPerlPackage rec {
+  pname = "slimserver";
+  version = "7.9.2";
 
   src = fetchurl {
     url = "https://github.com/Logitech/slimserver/archive/${version}.tar.gz";
-    sha256 = "0szp5zkmx2b5lncsijf97asjnl73fyijkbgbwkl1i7p8qnqrb4mp";
+    sha256 = "1rn9y7xvg5aqmgcbfpi7lcqy8d7hgwqx8b2llzpzrv7854zm1wcw";
   };
-
-  patches = [ (fetchpatch {
-    url = "https://github.com/Logitech/slimserver/pull/204.patch";
-    sha256 = "0n1c8nsbvqkmwj5ivkcxh1wkqqm1lwymmfz9i47ih6ifj06hkpxk";
-  } ) ];
 
   buildInputs = [
     makeWrapper
-    perl
+    perlPackages.perl
     perlPackages.AnyEvent
+    perlPackages.ArchiveZip
     perlPackages.AudioScan
     perlPackages.CarpClan
     perlPackages.CGI
@@ -45,9 +41,10 @@ buildPerlPackage rec {
     perlPackages.IOSocketSSL
     perlPackages.IOString
     perlPackages.JSONXSVersionOneAndTwo
-    perlPackages.Log4Perl
-    perlPackages.LWPUserAgent
+    perlPackages.LogLog4perl
+    perlPackages.LWP
     perlPackages.NetHTTP
+    perlPackages.NetHTTPSNB
     perlPackages.ProcBackground
     perlPackages.SubName
     perlPackages.TemplateToolkit
@@ -72,15 +69,19 @@ buildPerlPackage rec {
     rm -rf CPAN
     rm -rf Bin
     touch Makefile.PL
+
+    # relax audio scan version constraints
+    substituteInPlace lib/Audio/Scan.pm --replace "0.93" "1.01"
+    substituteInPlace modules.conf --replace "Audio::Scan 0.93 0.95" "Audio::Scan 0.93"
     '';
 
   preConfigurePhase = "";
 
   buildPhase = ''
     mv lib tmp
-    mkdir -p lib/perl5/site_perl
-    mv CPAN_used/* lib/perl5/site_perl
-    cp -rf tmp/* lib/perl5/site_perl
+    mkdir -p ${perlPackages.perl.libPrefix}
+    mv CPAN_used/* ${perlPackages.perl.libPrefix}
+    cp -rf tmp/* ${perlPackages.perl.libPrefix}
   '';
 
   doCheck = false;
@@ -88,18 +89,18 @@ buildPerlPackage rec {
   installPhase = ''
     cp -r . $out
     wrapProgram $out/slimserver.pl \
-      --prefix PATH : "${stdenv.lib.makeBinPath [ lame flac faad2 sox monkeysAudio wavpack ]}"
+      --prefix PATH : "${lib.makeBinPath [ lame flac faad2 sox monkeysAudio wavpack ]}"
   '';
 
   outputs = [ "out" ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/Logitech/slimserver;
+  meta = with lib; {
+    homepage = "https://github.com/Logitech/slimserver";
     description = "Server for Logitech Squeezebox players. This server is also called Logitech Media Server";
     # the firmware is not under a free license!
     # https://github.com/Logitech/slimserver/blob/public/7.9/License.txt
     license = licenses.unfree;
     maintainers = [ maintainers.phile314 ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

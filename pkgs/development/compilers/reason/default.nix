@@ -1,42 +1,39 @@
-{ stdenv, makeWrapper, buildOcaml, fetchFromGitHub,
-  ocaml, opam, jbuilder, menhir, merlin_extend, ppx_tools_versioned, utop }:
+{ lib, stdenv, makeWrapper, fetchFromGitHub, ocaml, findlib, dune_2
+, fix, menhir, merlin-extend, ppx_tools_versioned, utop, cppo
+}:
 
-buildOcaml rec {
-  name = "reason";
-  version = "3.0.4";
+stdenv.mkDerivation rec {
+  pname = "ocaml${ocaml.version}-reason";
+  version = "3.7.0";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = "reason";
-    rev = version;
-    sha256 = "15qhx85him5rr4j0ygj3jh3qv9ijrn82ibr9scbn0qrnn43kj047";
+    rev = "daa11255cb4716ce1c370925251021bd6e3bd974";
+    sha256 = "0m6ldrci1a4j0qv1cbwh770zni3al8qxsphl353rv19f6rblplhs";
   };
 
-  propagatedBuildInputs = [ menhir merlin_extend ppx_tools_versioned ];
+  nativeBuildInputs = [ makeWrapper ];
 
-  buildInputs = [ makeWrapper opam jbuilder utop menhir ];
+  propagatedBuildInputs = [ menhir merlin-extend ppx_tools_versioned ];
+
+  buildInputs = [ ocaml findlib dune_2 cppo fix utop menhir ];
 
   buildFlags = [ "build" ]; # do not "make tests" before reason lib is installed
 
-  createFindlibDestdir = true;
-
-  postPatch = ''
-    substituteInPlace src/reasonbuild/myocamlbuild.ml \
-      --replace "refmt --print binary" "$out/bin/refmt --print binary"
-  '';
-
   installPhase = ''
-    ${jbuilder.installPhase}
-
+    dune install --prefix=$out --libdir=$OCAMLFIND_DESTDIR
     wrapProgram $out/bin/rtop \
       --prefix PATH : "${utop}/bin" \
-      --set OCAMLPATH $out/lib/ocaml/${ocaml.version}/site-lib:$OCAMLPATH
+      --prefix CAML_LD_LIBRARY_PATH : "$CAML_LD_LIBRARY_PATH" \
+      --prefix OCAMLPATH : "$OCAMLPATH:$OCAMLFIND_DESTDIR"
   '';
 
-  meta = with stdenv.lib; {
-    homepage = https://reasonml.github.io/;
+  meta = with lib; {
+    homepage = "https://reasonml.github.io/";
     description = "Facebook's friendly syntax to OCaml";
-    license = licenses.bsd3;
+    license = licenses.mit;
+    inherit (ocaml.meta) platforms;
     maintainers = [ maintainers.volth ];
   };
 }

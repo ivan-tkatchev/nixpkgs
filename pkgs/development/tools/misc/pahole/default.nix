@@ -1,25 +1,25 @@
-{ stdenv, fetchgit, cmake, elfutils, zlib }:
+{ lib, stdenv, fetchgit, cmake, elfutils, zlib }:
 
-stdenv.mkDerivation {
-  name = "pahole-head";
+stdenv.mkDerivation rec {
+  pname = "pahole";
+  version = "1.20";
   src = fetchgit {
-    url = https://git.kernel.org/pub/scm/devel/pahole/pahole.git;
-    sha256 = "05f8a14ea6c200c20e9c6738593b38e4ced73a9cef86499ccd7af910eb9b74b3";
-    rev = "1decb1bc4a412a0902b7b25190d755a875022d03";
+    url = "https://git.kernel.org/pub/scm/devel/pahole/pahole.git";
+    rev = "v${version}";
+    sha256 = "11q9dpfi4qj2v8z0nlf8c0079mlv10ljhh0d1yr0j4ds3saacd15";
+    fetchSubmodules = true;
   };
-  buildInputs = [ cmake elfutils zlib ];
 
-  postInstall = ''
-    for p in $out/bin/*; do
-      rpath=`patchelf --print-rpath $p || true`:$out
-      patchelf --set-rpath "$rpath" $p || true
-    done
-  '';
+  nativeBuildInputs = [ cmake ];
+  buildInputs = [ elfutils zlib ];
 
-  meta = with stdenv.lib; {
-    homepage = https://git.kernel.org/cgit/devel/pahole/pahole.git/;
+  # Put libraries in "lib" subdirectory, not top level of $out
+  cmakeFlags = [ "-D__LIB=lib" ];
+
+  meta = with lib; {
+    homepage = "https://git.kernel.org/cgit/devel/pahole/pahole.git/";
     description = "Pahole and other DWARF utils";
-    license = licenses.gpl2;
+    license = licenses.gpl2Only;
 
     platforms = platforms.linux;
     maintainers = [ maintainers.bosu ];

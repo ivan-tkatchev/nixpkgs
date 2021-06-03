@@ -1,16 +1,16 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "libburn-${version}";
-  version = "1.4.8";
+  pname = "libburn";
+  version = "1.5.4";
 
   src = fetchurl {
-    url = "http://files.libburnia-project.org/releases/${name}.tar.gz";
-    sha256 = "19lxnzn8bz70glrrrn2hs43gf5g7gfbcka9rcbckhv1pb7is509y";
+    url = "http://files.libburnia-project.org/releases/${pname}-${version}.tar.gz";
+    sha256 = "sha256-UlBZ0QdZxcuBSO68hju1EOMRxmNgPae9LSHEa3z2O1Q=";
   };
 
-  meta = with stdenv.lib; {
-    homepage = http://libburnia-project.org/;
+  meta = with lib; {
+    homepage = "http://libburnia-project.org/";
     description = "A library by which preformatted data get onto optical media: CD, DVD, BD (Blu-Ray)";
     license = licenses.gpl2Plus;
     maintainers = with maintainers; [ abbradar vrthra ];

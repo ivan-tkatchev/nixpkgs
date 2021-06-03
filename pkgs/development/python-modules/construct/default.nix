@@ -1,28 +1,36 @@
-{ stdenv, buildPythonPackage, fetchFromGitHub, six, pytest, pythonOlder }:
+{ lib, stdenv, buildPythonPackage, fetchFromGitHub, pythonOlder
+, six, pytestCheckHook, pytest-benchmark, numpy, arrow, ruamel_yaml
+, lz4, cloudpickle
+}:
 
 buildPythonPackage rec {
-  pname = "construct";
-  version = "2.8.16";
-  name = pname + "-" + version;
+  pname   = "construct";
+  version = "2.10.63";
 
+  disabled = pythonOlder "3.6";
+
+  # no tests in PyPI tarball
   src = fetchFromGitHub {
-    owner = "construct";
-    repo = "construct";
-    rev = "v${version}";
-    sha256 = "0lzz1dy419n254qccch7yx4nkpwd0fsyjhnsnaf6ysgwzqxxv63j";
+    owner  = pname;
+    repo   = pname;
+    rev    = "v${version}";
+    sha256 = "0dnj815qdxrn0q6bpwsmkca2jy02gjy6d3amqg4y6gha1kc1mymv";
   };
 
-  propagatedBuildInputs = [ six ];
+  # not an explicit dependency, but it's imported by an entrypoint
+  propagatedBuildInputs = [
+    lz4
+  ];
 
-  checkInputs = [ pytest ];
+  checkInputs = [ pytestCheckHook pytest-benchmark numpy arrow ruamel_yaml cloudpickle ];
 
-  checkPhase = ''
-    py.test -k 'not test_numpy' tests
-  '';
+  disabledTests = lib.optionals stdenv.isDarwin [ "test_multiprocessing" ];
 
-  meta = with stdenv.lib; {
+  pytestFlagsArray = [ "--benchmark-disable" ];
+
+  meta = with lib; {
     description = "Powerful declarative parser (and builder) for binary data";
-    homepage = http://construct.readthedocs.org/;
+    homepage = "https://construct.readthedocs.org/";
     license = licenses.mit;
     maintainers = with maintainers; [ bjornfor ];
   };

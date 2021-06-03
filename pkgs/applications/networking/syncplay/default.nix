@@ -1,22 +1,29 @@
-{ stdenv, fetchurl, python2Packages }:
+{ lib, fetchFromGitHub, buildPythonApplication, pyside2, shiboken2, twisted, certifi, qt5 }:
 
-python2Packages.buildPythonApplication rec {
-  name = "syncplay-${version}";
-  version = "1.5.5";
+buildPythonApplication rec {
+  pname = "syncplay";
+  version = "1.6.7";
 
   format = "other";
 
-  src = fetchurl {
-    url = https://github.com/Syncplay/syncplay/archive/v1.5.5.tar.gz;
-    sha256 = "0g12hm84c48fjrmwljl0ii62f55vm6fk2mv8vna7fadabmk6dwhr";
+  src = fetchFromGitHub {
+    owner = "Syncplay";
+    repo = "syncplay";
+    rev = "v${version}";
+    sha256 = "1hxmd13sff51lh9l3vpk33qrzf7gi58c76bc01iqimp17sxwfz3k";
   };
 
-  propagatedBuildInputs = with python2Packages; [ pyside twisted ];
+  propagatedBuildInputs = [ pyside2 shiboken2 twisted certifi ] ++ twisted.extras.tls;
+  nativeBuildInputs = [ qt5.wrapQtAppsHook ];
 
   makeFlags = [ "DESTDIR=" "PREFIX=$(out)" ];
 
-  meta = with stdenv.lib; {
-    homepage = https://syncplay.pl/;
+  postFixup = ''
+    wrapQtApp $out/bin/syncplay
+  '';
+
+  meta = with lib; {
+    homepage = "https://syncplay.pl/";
     description = "Free software that synchronises media players";
     license = licenses.asl20;
     platforms = platforms.linux;

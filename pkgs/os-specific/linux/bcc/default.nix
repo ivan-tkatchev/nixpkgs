@@ -1,25 +1,28 @@
-{ stdenv, fetchFromGitHub, fetchpatch, makeWrapper, cmake, llvmPackages, kernel
+{ lib, stdenv, fetchFromGitHub
+, makeWrapper, cmake, llvmPackages, kernel
 , flex, bison, elfutils, python, luajit, netperf, iperf, libelf
-, systemtap
+, systemtap, bash, libbpf
 }:
 
 python.pkgs.buildPythonApplication rec {
-  version = "0.6.0";
-  name = "bcc-${version}";
+  pname = "bcc";
+  version = "0.20.0";
+
+  disabled = !stdenv.isLinux;
 
   src = fetchFromGitHub {
-    owner  = "iovisor";
-    repo   = "bcc";
-    rev    = "v${version}";
-    sha256 = "1fk2kvbdvm87rkha2cigz2qhhlrni4g0dcnmiiyya79y85ahfvga";
+    owner = "iovisor";
+    repo = "bcc";
+    rev = "v${version}";
+    sha256 = "1xnpz2zv445dp5h0160drv6xlvrnwfj23ngc4dp3clcd59jh1baq";
   };
-
   format = "other";
 
-  buildInputs = [
-    llvmPackages.llvm llvmPackages.clang-unwrapped kernel
+  buildInputs = with llvmPackages; [
+    llvm llvm.dev libclang kernel
     elfutils luajit netperf iperf
-    systemtap.stapBuild
+    systemtap.stapBuild flex bash
+    libbpf
   ];
 
   patches = [
@@ -28,25 +31,23 @@ python.pkgs.buildPythonApplication rec {
     ./fix-deadlock-detector-import.patch
   ];
 
-  nativeBuildInputs = [ makeWrapper cmake flex bison ]
+  propagatedBuildInputs = [ python.pkgs.netaddr ];
+  nativeBuildInputs = [ makeWrapper cmake flex bison llvmPackages.llvm.dev ]
     # libelf is incompatible with elfutils-libelf
-    ++ stdenv.lib.filter (x: x != libelf) kernel.moduleBuildDependencies;
+    ++ lib.filter (x: x != libelf) kernel.moduleBuildDependencies;
 
   cmakeFlags = [
     "-DBCC_KERNEL_MODULES_DIR=${kernel.dev}/lib/modules"
     "-DREVISION=${version}"
     "-DENABLE_USDT=ON"
     "-DENABLE_CPP_API=ON"
+    "-DCMAKE_USE_LIBBPF_PACKAGE=ON"
   ];
 
   postPatch = ''
     substituteAll ${./libbcc-path.patch} ./libbcc-path.patch
     patch -p1 < libbcc-path.patch
   '';
-
-  propagatedBuildInputs = [
-    python.pkgs.netaddr
-  ];
 
   postInstall = ''
     mkdir -p $out/bin $out/share
@@ -60,6 +61,8 @@ python.pkgs.buildPythonApplication rec {
       if [ ! -e $bin ]; then
         ln -s $f $bin
       fi
+      substituteInPlace "$f" \
+        --replace '$(dirname $0)/lib' "$out/share/bcc/tools/lib"
     done
 
     sed -i -e "s!lib=.*!lib=$out/bin!" $out/bin/{java,ruby,node,python}gc
@@ -69,10 +72,10 @@ python.pkgs.buildPythonApplication rec {
     wrapPythonProgramsIn "$out/share/bcc/tools" "$out $pythonPath"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Dynamic Tracing Tools for Linux";
-    homepage = https://iovisor.github.io/bcc/;
-    license = licenses.asl20;
-    maintainers = with maintainers; [ ragge mic92 ];
+    homepage    = "https://iovisor.github.io/bcc/";
+    license     = licenses.asl20;
+    maintainers = with maintainers; [ ragge mic92 thoughtpolice ];
   };
 }

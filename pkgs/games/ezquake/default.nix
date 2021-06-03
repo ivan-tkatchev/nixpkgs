@@ -1,27 +1,26 @@
-{ stdenv, fetchFromGitHub, curl, expat
-, jansson, libpng, libjpeg, libGLU_combined, libXxf86vm, pcre
-, pkgconfig, SDL2, vimNox }:
+{ lib, stdenv, fetchFromGitHub, curl, expat
+, jansson, libpng, libjpeg, libGLU, libGL, libXxf86vm, pcre
+, pkg-config, SDL2, vim, speex }:
 
 stdenv.mkDerivation rec {
-  name = pname + "-" + version;
   pname = "ezquake";
-  version = "3.0.1";
+  version = "3.2.3";
 
   src = fetchFromGitHub {
     owner = "ezQuake";
     repo = pname + "-source";
-    rev = "v" + version;
-    sha256 = "14wck0r64z5haacp7g7qb2qrbhff3x6jfjmn4268dyb9dl5663f2";
+    rev = version;
+    sha256 = "sha256-EBhKmoX11JavTG6tPfg15FY2lqOFfzSDg3058OWfcYQ=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [
-    expat curl jansson libpng libjpeg libGLU_combined libXxf86vm pcre SDL2 vimNox
+    expat curl jansson libpng libjpeg libGLU libGL libXxf86vm pcre SDL2 vim speex
   ];
 
-  installPhase = with stdenv.lib; let
-    sys = last (splitString "-" stdenv.system);
-    arch = head (splitString "-" stdenv.system);
+  installPhase = with lib; let
+    sys = last (splitString "-" stdenv.hostPlatform.system);
+    arch = head (splitString "-" stdenv.hostPlatform.system);
   in ''
     mkdir -p $out/bin
     find .
@@ -30,9 +29,9 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    homepage = http://ezquake.github.io/;
-    description = "A modern QuakeWorld client focused on competitive online play.";
+  meta = with lib; {
+    homepage = "http://ezquake.github.io/";
+    description = "A modern QuakeWorld client focused on competitive online play";
     license = licenses.gpl2;
     platforms = platforms.linux;
     maintainers = with maintainers; [ edwtjo ];

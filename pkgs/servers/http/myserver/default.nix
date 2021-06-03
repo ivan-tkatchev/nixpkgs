@@ -4,19 +4,22 @@
 let version = "0.11"; in
 
 stdenv.mkDerivation rec {
-  name = "myserver-${version}";
+  pname = "myserver";
+  inherit version;
 
   src = fetchurl {
-    url = "mirror://gnu/myserver/${version}/${name}.tar.xz";
+    url = "mirror://gnu/myserver/${version}/${pname}-${version}.tar.xz";
     sha256 = "02y3vv4hxpy5h710y79s8ipzshhc370gbz1wm85x0lnq5nqxj2ax";
   };
 
   patches =
     [ ./disable-dns-lookup-in-chroot.patch ];
 
-  buildInputs =
-    [ libgcrypt libevent libidn gnutls libxml2 zlib guile texinfo ]
-    ++ lib.optional doCheck cppunit;
+  buildInputs = [
+    libgcrypt libevent libidn gnutls libxml2 zlib guile texinfo
+  ];
+
+  checkInputs = [ cppunit ];
 
   makeFlags = [ "V=1" ];
 
@@ -38,7 +41,7 @@ stdenv.mkDerivation rec {
       built-in features.  Share your files in minutes!
     '';
 
-    homepage = http://www.gnu.org/software/myserver/;
+    homepage = "https://www.gnu.org/software/myserver/";
 
     license = lib.licenses.gpl3Plus;
 

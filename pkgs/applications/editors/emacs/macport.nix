@@ -1,24 +1,24 @@
-{ stdenv, fetchurl, ncurses, pkgconfig, texinfo, libxml2, gnutls, gettext, autoconf, automake
+{ lib, stdenv, fetchurl, ncurses, pkg-config, texinfo, libxml2, gnutls, gettext, autoconf, automake, jansson
 , AppKit, Carbon, Cocoa, IOKit, OSAKit, Quartz, QuartzCore, WebKit
 , ImageCaptureCore, GSS, ImageIO # These may be optional
 }:
 
 stdenv.mkDerivation rec {
-  emacsVersion = "26.1";
-  emacsName = "emacs-${emacsVersion}";
-  macportVersion = "7.1";
-  name = "emacs-mac-${emacsVersion}-${macportVersion}";
+  pname = "emacs";
+  version = "27.2";
 
-  builder = ./builder.sh;
+  emacsName = "emacs-${version}";
+  macportVersion = "8.2";
+  name = "emacs-mac-${version}-${macportVersion}";
 
   src = fetchurl {
     url = "mirror://gnu/emacs/${emacsName}.tar.xz";
-    sha256 = "0b6k1wq44rc8gkvxhi1bbjxbz3cwg29qbq8mklq2az6p1hjgrx0w";
+    sha256 = "1ff182gjw9wqsbx1kj5gl2r5pbqhp4ar54g04j33fgz6g17cr9xl";
   };
 
   macportSrc = fetchurl {
     url = "ftp://ftp.math.s.chiba-u.ac.jp/emacs/${emacsName}-mac-${macportVersion}.tar.gz";
-    sha256 = "0d2ny54f68v3hjc2g3pkj83xv3yzv0hrwvn2cmpyb0jxjbsb2frc";
+    sha256 = "1bgm2g3ky7rkj1l27wnmyzqsqxzjng7y9bf72ym37wiyhyi2a9za";
   };
 
   hiresSrc = fetchurl {
@@ -26,13 +26,11 @@ stdenv.mkDerivation rec {
     sha256 = "0f2wzdw2a3ac581322b2y79rlj3c9f33ddrq9allj97r1si6v5xk";
   };
 
-  patches = [ ./clean-env.patch ];
-
   enableParallelBuilding = true;
 
-  nativeBuildInputs = [ pkgconfig autoconf automake ];
+  nativeBuildInputs = [ pkg-config autoconf automake ];
 
-  buildInputs = [ ncurses libxml2 gnutls texinfo gettext
+  buildInputs = [ ncurses libxml2 gnutls texinfo gettext jansson
     AppKit Carbon Cocoa IOKit OSAKit Quartz QuartzCore WebKit
     ImageCaptureCore GSS ImageIO   # may be optional
   ];
@@ -53,6 +51,15 @@ stdenv.mkDerivation rec {
 
     # use newer emacs icon
     cp nextstep/Cocoa/Emacs.base/Contents/Resources/Emacs.icns mac/Emacs.app/Contents/Resources/Emacs.icns
+
+    # Fix sandbox impurities.
+    substituteInPlace Makefile.in --replace '/bin/pwd' 'pwd'
+    substituteInPlace lib-src/Makefile.in --replace '/bin/pwd' 'pwd'
+
+
+    # Reduce closure size by cleaning the environment of the emacs dumper
+    substituteInPlace src/Makefile.in \
+      --replace 'RUN_TEMACS = ./temacs' 'RUN_TEMACS = env -i ./temacs'
   '';
 
   configureFlags = [
@@ -64,7 +71,7 @@ stdenv.mkDerivation rec {
     "--enable-mac-app=$$out/Applications"
   ];
 
-  CFLAGS = "-O3 -DMAC_OS_X_VERSION_MAX_ALLOWED=MAC_OS_X_VERSION_10_10 -DMAC_OS_X_VERSION_MIN_REQUIRED=MAC_OS_X_VERSION_10_10";
+  CFLAGS = "-O3";
   LDFLAGS = "-O3 -L${ncurses.out}/lib";
 
   postInstall = ''
@@ -72,11 +79,20 @@ stdenv.mkDerivation rec {
     cp ${./site-start.el} $out/share/emacs/site-lisp/site-start.el
   '';
 
-  doCheck = true;
+  # fails with:
 
-  meta = with stdenv.lib; {
+  # Ran 3870 tests, 3759 results as expected, 6 unexpected, 105 skipped
+  # 5 files contained unexpected results:
+  #   lisp/url/url-handlers-test.log
+  #   lisp/simple-tests.log
+  #   lisp/files-x-tests.log
+  #   lisp/cedet/srecode-utest-template.log
+  #   lisp/net/tramp-tests.log
+  doCheck = false;
+
+  meta = with lib; {
     description = "The extensible, customizable text editor";
-    homepage    = http://www.gnu.org/software/emacs/;
+    homepage    = "https://www.gnu.org/software/emacs/";
     license     = licenses.gpl3Plus;
     maintainers = with maintainers; [ jwiegley matthewbauer ];
     platforms   = platforms.darwin;

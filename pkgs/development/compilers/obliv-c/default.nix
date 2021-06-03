@@ -1,15 +1,15 @@
-{ stdenv, fetchurl, libgcrypt, fetchFromGitHub, ocamlPackages, perl }:
+{ lib, stdenv, libgcrypt, fetchFromGitHub, ocamlPackages, perl }:
 stdenv.mkDerivation rec {
-  name = "obliv-c-${version}";
-  version = "0.0pre20170827";
+  pname = "obliv-c";
+  version = "0.0pre20180624";
   buildInputs = [ perl ]
   ++ (with ocamlPackages; [ ocaml findlib ocamlbuild ]);
   propagatedBuildInputs = [ libgcrypt ];
   src = fetchFromGitHub {
     owner = "samee";
     repo = "obliv-c";
-    rev = "9a6be5a5f44d341bc357055e11922f6a4c4c3b65";
-    sha256 = "0jz2ayadx62zv2b5ji947bkvw63axl4a2q70lwli86zgmcl390gf";
+    rev = "3d6804ca0fd85868207a0ccbd2509ec064723ac2";
+    sha256 = "1ib21ngn7zr58xxq4sjigrpaxb0wx35x3k9l4qvwflzrmvnman20";
   };
 
   patches = [ ./ignore-complex-float128.patch ];
@@ -34,9 +34,9 @@ stdenv.mkDerivation rec {
 
   meta = {
     inherit version;
-    description = ''A GCC wrapper that makes it easy to embed secure computation protocols inside regular C programs'';
-    license = stdenv.lib.licenses.bsd3;
-    maintainers = [stdenv.lib.maintainers.raskin];
-    platforms = stdenv.lib.platforms.linux;
+    description = "A GCC wrapper that makes it easy to embed secure computation protocols inside regular C programs";
+    license = lib.licenses.bsd3;
+    maintainers = [lib.maintainers.raskin];
+    platforms = lib.platforms.linux;
   };
 }

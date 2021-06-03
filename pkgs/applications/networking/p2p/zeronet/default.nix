@@ -1,38 +1,38 @@
-{ stdenv, fetchFromGitHub, python2Packages }:
+{ lib, fetchFromGitHub, python3Packages }:
 
-python2Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication rec {
   pname = "zeronet";
-  version = "0.6.2";
+  version = "0.7.1";
+  format = "other";
 
   src = fetchFromGitHub {
     owner = "HelloZeroNet";
     repo = "ZeroNet";
     rev = "v${version}";
-    sha256 = "0v19jjirkyv8hj2yfdj0c40zwynn51h2bj4issn5blr95vhfm8s7";
+    sha256 = "04prgicm0yjh2klcxdgwx1mvlsxxi2bdkzfcvysvixbgq20wjvdk";
   };
 
-  propagatedBuildInputs = with python2Packages; [ msgpack gevent ];
+  propagatedBuildInputs = with python3Packages; [
+    gevent msgpack base58 merkletools rsa pysocks pyasn1 websocket_client
+    gevent-websocket rencode bitcoinlib maxminddb pyopenssl
+  ];
 
-  format = "other";
-
-  buildPhase = "${python2Packages.python.interpreter} -O -m compileall .";
+  buildPhase = ''
+    ${python3Packages.python.interpreter} -O -m compileall .
+  '';
 
   installPhase = ''
     mkdir -p $out/share
     cp -r plugins src tools *.py $out/share/
   '';
 
-  # Wrap the main executable and set the log and data dir to something out of
-  # the store
   postFixup = ''
     makeWrapper "$out/share/zeronet.py" "$out/bin/zeronet" \
-        --set PYTHONPATH "$PYTHONPATH" \
-        --set PATH ${python2Packages.python}/bin \
-        --add-flags "--log_dir \$HOME/.local/share/zeronet/logs" \
-        --add-flags "--data_dir \$HOME/.local/share/zeronet"
+      --set PYTHONPATH "$PYTHONPATH" \
+      --set PATH ${python3Packages.python}/bin
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Decentralized websites using Bitcoin crypto and BitTorrent network";
     homepage = "https://zeronet.io/";
     license = licenses.gpl2;

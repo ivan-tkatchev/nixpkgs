@@ -1,52 +1,44 @@
-{ stdenv, fetchurl, makeWrapper
+{ lib, stdenv, fetchurl, makeWrapper
 , xorg, imlib2, libjpeg, libpng
-, curl, libexif, perlPackages }:
+, curl, libexif, jpegexiforient, perl
+, enableAutoreload ? !stdenv.hostPlatform.isDarwin }:
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "feh-${version}";
-  version = "2.27";
+  pname = "feh";
+  version = "3.7";
 
   src = fetchurl {
-    url = "https://feh.finalrewind.org/${name}.tar.bz2";
-    sha256 = "0kn6cka9m76697i495npd60ad64jnfnzv5z6znzyr0vlxx2nhcmg";
+    url = "https://feh.finalrewind.org/${pname}-${version}.tar.bz2";
+    sha256 = "0hdvlrlpjxvmhnjvr32nxgpsw0366higg0gh9h37fxrvdh3v3k87";
   };
 
   outputs = [ "out" "man" "doc" ];
 
-  nativeBuildInputs = [ makeWrapper xorg.libXt ]
-    ++ optionals doCheck [ perlPackages.TestCommand perlPackages.TestHarness ];
+  nativeBuildInputs = [ makeWrapper xorg.libXt ];
 
   buildInputs = [ xorg.libX11 xorg.libXinerama imlib2 libjpeg libpng curl libexif ];
 
   makeFlags = [
-    "PREFIX=$(out)" "exif=1"
-  ] ++ optional stdenv.isDarwin "verscmp=0";
+    "PREFIX=${placeholder "out"}" "exif=1"
+  ] ++ optional stdenv.isDarwin "verscmp=0"
+    ++ optional enableAutoreload "inotify=1";
 
-  postBuild = ''
-    pushd man
-    make
-    popd
-  '';
-
+  installTargets = [ "install" ];
   postInstall = ''
-    wrapProgram "$out/bin/feh" --prefix PATH : "${libjpeg.bin}/bin" \
+    wrapProgram "$out/bin/feh" --prefix PATH : "${makeBinPath [ libjpeg jpegexiforient ]}" \
                                --add-flags '--theme=feh'
-    install -D -m 644 man/*.1 $out/share/man/man1
   '';
 
-  checkPhase = ''
-    PERL5LIB="${perlPackages.TestCommand}/lib/perl5/site_perl" make test
-  '';
-
+  checkInputs = lib.singleton (perl.withPackages (p: [ p.TestCommand ]));
   doCheck = true;
 
   meta = {
     description = "A light-weight image viewer";
     homepage = "https://feh.finalrewind.org/";
     license = licenses.mit;
-    maintainers = [ maintainers.viric maintainers.willibutz ];
+    maintainers = with maintainers; [ viric willibutz globin ma27 ];
     platforms = platforms.unix;
   };
 }

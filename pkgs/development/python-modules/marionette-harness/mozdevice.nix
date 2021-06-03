@@ -1,25 +1,26 @@
 { lib
-, stdenv
 , buildPythonPackage
 , fetchPypi
+, mozlog
 , moznetwork
 , mozprocess
 }:
 
 buildPythonPackage rec {
   pname = "mozdevice";
-  version = "1.0.0";
+  version = "3.0.7";
+  format = "wheel";
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "c3c50219127e36c171f84b2427e8fcf3a85457f336559aead9770b2a27fbc4b6";
+    inherit pname version format;
+    sha256 = "1n7l3drdh3rm3320v98c9hhh37ljk9l861hyw18psca7jdd717n5";
   };
 
-  propagatedBuildInputs = [ moznetwork mozprocess ];
+  propagatedBuildInputs = [ mozlog moznetwork mozprocess ];
 
   meta = {
     description = "Mozilla-authored device management";
-    homepage = https://wiki.mozilla.org/Auto-tools/Projects/Mozbase;
+    homepage = "https://wiki.mozilla.org/Auto-tools/Projects/Mozbase";
     license = lib.licenses.mpl20;
     maintainers = with lib.maintainers; [ raskin ];
   };

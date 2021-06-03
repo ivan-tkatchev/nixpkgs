@@ -1,24 +1,24 @@
 { lib, stdenv
-, fetchurl, fetchFromGitHub, fetchpatch
-, cmake, pkgconfig, unzip, zlib, pcre, hdf5
-, glog, boost, google-gflags, protobuf
+, fetchFromGitHub, fetchpatch
+, cmake, pkg-config, unzip, zlib, pcre, hdf5
+, glog, boost, gflags, protobuf
 , config
 
 , enableJPEG      ? true, libjpeg
 , enablePNG       ? true, libpng
 , enableTIFF      ? true, libtiff
 , enableWebP      ? true, libwebp
-, enableEXR ? (!stdenv.isDarwin), openexr, ilmbase
-, enableJPEG2K    ? true, jasper
+, enableEXR ?     !stdenv.isDarwin, openexr, ilmbase
 , enableEigen     ? true, eigen
-, enableOpenblas  ? true, openblas
+, enableOpenblas  ? true, openblas, blas, lapack
 , enableContrib   ? true
 
-, enableCuda      ? (config.cudaSupport or false), cudatoolkit
+, enableCuda      ? (config.cudaSupport or false) &&
+                    stdenv.hostPlatform.isx86_64, cudatoolkit
 
 , enableUnfree    ? false
 , enableIpp       ? false
-, enablePython    ? false, pythonPackages
+, enablePython    ? false, pythonPackages ? null
 , enableGtk2      ? false, gtk2
 , enableGtk3      ? false, gtk3
 , enableVtk       ? false, vtk
@@ -31,44 +31,50 @@
 , enableDC1394    ? false, libdc1394
 , enableDocs      ? false, doxygen, graphviz-nox
 
-, AVFoundation, Cocoa, QTKit, VideoDecodeAcceleration, bzip2
+, AVFoundation, Cocoa, VideoDecodeAcceleration, bzip2
 }:
 
+assert blas.implementation == "openblas" && lapack.implementation == "openblas";
+
+assert enablePython -> pythonPackages != null;
+
 let
-  version = "3.4.1";
+  version = "3.4.8";
 
   src = fetchFromGitHub {
     owner  = "opencv";
     repo   = "opencv";
     rev    = version;
-    sha256 = "08yahgf427d2qbs2mw02xww6bv5yjkfc1hihihh7fhqgfz0jnj1h";
+    sha256 = "1dnz3gfj70lm1gbrk8pz28apinlqi2x6nvd6xcy5hs08505nqnjp";
   };
 
   contribSrc = fetchFromGitHub {
     owner  = "opencv";
     repo   = "opencv_contrib";
     rev    = version;
-    sha256 = "00x1x53qv2pnc7i56244b5nf44wm2mp77hj486i5697r6hikk8n3";
+    sha256 = "0psaa1yx36n34l09zd1y8jxgf8q4jzxd3vn06fqmzwzy85hcqn8i";
   };
 
   # Contrib must be built in order to enable Tesseract support:
   buildContrib = enableContrib || enableTesseract;
+
+  useSystemProtobuf = ! stdenv.isDarwin;
 
   # See opencv/3rdparty/ippicv/ippicv.cmake
   ippicv = {
     src = fetchFromGitHub {
       owner  = "opencv";
       repo   = "opencv_3rdparty";
-      rev    = "dfe3162c237af211e98b8960018b564bc209261d";
-      sha256 = "1k5xiwdi5r2y3fs5g70lpknxqi4pj32w6l311gfwng3q1cb2crif";
+      rev    = "32e315a5b106a7b89dbed51c28f8120a48b368b4";
+      sha256 = "19w9f0r16072s59diqxsr5q6nmwyz9gnxjs49nglzhd66p3ddbkp";
     } + "/ippicv";
-    files = let name = platform : "ippicv_2017u3_${platform}_general_20170822.tgz"; in
-      if stdenv.system == "x86_64-linux" then
-      { ${name "lnx_intel64"} = "4e0352ce96473837b1d671ce87f17359"; }
-      else if stdenv.system == "i686-linux" then
-      { ${name "lnx_ia32"}    = "dcdb0ba4b123f240596db1840cd59a76"; }
-      else if stdenv.system == "x86_64-darwin" then
-      { ${name "mac_intel64"} = "c1ebb5dfa5b7f54b0c44e1917805a463"; }
+    files = let name = platform : "ippicv_2019_${platform}_general_20180723.tgz"; in
+      if stdenv.hostPlatform.system == "x86_64-linux" then
+      { ${name "lnx_intel64"} = "c0bd78adb4156bbf552c1dfe90599607"; }
+      else if stdenv.hostPlatform.system == "i686-linux" then
+      { ${name "lnx_ia32"}    = "4f38432c30bfd6423164b7a24bbc98a0"; }
+      else if stdenv.hostPlatform.system == "x86_64-darwin" then
+      { ${name "mac_intel64"} = "fe6b2bb75ae0e3f19ad3ae1a31dfa4a2"; }
       else
       throw "ICV is not available for this platform (or not yet supported by this package)";
     dst = ".cache/ippicv";
@@ -132,24 +138,13 @@ let
     ln -s "${extra.src}/${name}" "${extra.dst}/${md5}-${name}"
   '') extra.files);
 
-  # See opencv_contrib/modules/dnn_modern/CMakeLists.txt
-  tinyDnn = rec {
-    src = fetchurl {
-      url    = "https://github.com/tiny-dnn/tiny-dnn/archive/${name}";
-      sha256 = "12x1b984cn0psn6kz1fy75zljgzqvkdyjy8i292adfnyqpl1rip2";
-    };
-    name = "v1.0.0a3.tar.gz";
-    md5  = "adb1c512e09ca2c7a6faef36f9c53e59";
-    dst  = ".cache/tiny_dnn";
-  };
-
   opencvFlag = name: enabled: "-DWITH_${name}=${printEnabled enabled}";
 
   printEnabled = enabled : if enabled then "ON" else "OFF";
 in
 
-stdenv.mkDerivation rec {
-  name = "opencv-${version}";
+stdenv.mkDerivation {
+  pname = "opencv";
   inherit version src;
 
   postUnpack = lib.optionalString buildContrib ''
@@ -174,13 +169,16 @@ stdenv.mkDerivation rec {
       ${installExtraFiles vgg}
       ${installExtraFiles boostdesc}
       ${installExtraFiles face}
-
-      mkdir -p "${tinyDnn.dst}"
-      ln -s "${tinyDnn.src}" "${tinyDnn.dst}/${tinyDnn.md5}-${tinyDnn.name}"
     '');
 
+  postConfigure = ''
+    [ -e modules/core/version_string.inc ]
+    echo '"(build info elided)"' > modules/core/version_string.inc
+  '';
+
   buildInputs =
-       [ zlib pcre hdf5 glog boost google-gflags protobuf ]
+       [ zlib pcre hdf5 glog boost gflags ]
+    ++ lib.optional useSystemProtobuf protobuf
     ++ lib.optional enablePython pythonPackages.python
     ++ lib.optional enableGtk2 gtk2
     ++ lib.optional enableGtk3 gtk3
@@ -190,7 +188,6 @@ stdenv.mkDerivation rec {
     ++ lib.optional enableTIFF libtiff
     ++ lib.optional enableWebP libwebp
     ++ lib.optionals enableEXR [ openexr ilmbase ]
-    ++ lib.optional enableJPEG2K jasper
     ++ lib.optional enableFfmpeg ffmpeg
     ++ lib.optionals (enableFfmpeg && stdenv.isDarwin)
                      [ VideoDecodeAcceleration bzip2 ]
@@ -206,29 +203,28 @@ stdenv.mkDerivation rec {
     ++ lib.optionals enableTesseract [ tesseract leptonica ]
     ++ lib.optional enableTbb tbb
     ++ lib.optional enableCuda cudatoolkit
-    ++ lib.optionals stdenv.isDarwin [ AVFoundation Cocoa QTKit VideoDecodeAcceleration bzip2 ]
+    ++ lib.optionals stdenv.isDarwin [ bzip2 AVFoundation Cocoa VideoDecodeAcceleration ]
     ++ lib.optionals enableDocs [ doxygen graphviz-nox ];
 
   propagatedBuildInputs = lib.optional enablePython pythonPackages.numpy;
 
-  nativeBuildInputs = [ cmake pkgconfig unzip ];
+  nativeBuildInputs = [ cmake pkg-config unzip ];
 
-  NIX_CFLAGS_COMPILE = lib.optional enableEXR "-I${ilmbase.dev}/include/OpenEXR";
+  NIX_CFLAGS_COMPILE = lib.optionalString enableEXR "-I${ilmbase.dev}/include/OpenEXR";
 
   # Configure can't find the library without this.
   OpenBLAS_HOME = lib.optionalString enableOpenblas openblas;
 
   cmakeFlags = [
     "-DWITH_OPENMP=ON"
-    "-DBUILD_PROTOBUF=OFF"
-    "-DPROTOBUF_UPDATE_FILES=ON"
+    "-DBUILD_PROTOBUF=${printEnabled (!useSystemProtobuf)}"
+    "-DPROTOBUF_UPDATE_FILES=${printEnabled useSystemProtobuf}"
     "-DOPENCV_ENABLE_NONFREE=${printEnabled enableUnfree}"
     "-DBUILD_TESTS=OFF"
     "-DBUILD_PERF_TESTS=OFF"
     "-DBUILD_DOCS=${printEnabled enableDocs}"
     (opencvFlag "IPP" enableIpp)
     (opencvFlag "TIFF" enableTIFF)
-    (opencvFlag "JASPER" enableJPEG2K)
     (opencvFlag "WEBP" enableWebP)
     (opencvFlag "JPEG" enableJPEG)
     (opencvFlag "PNG" enablePNG)
@@ -243,12 +239,13 @@ stdenv.mkDerivation rec {
   ] ++ lib.optionals stdenv.isDarwin [
     "-DWITH_OPENCL=OFF"
     "-DWITH_LAPACK=OFF"
-
-    # On OS X the tiny-dnn-1.0.0a3 dependency of dnn_modern fails to build.
-    "-DBUILD_opencv_dnn_modern=OFF"
+    "-DBUILD_opencv_videoio=OFF"
+  ] ++ lib.optionals enablePython [
+    "-DOPENCV_SKIP_PYTHON_LOADER=ON"
+  ] ++ lib.optional enableEigen [
+    # Autodetection broken by https://github.com/opencv/opencv/pull/13337
+    "-DEIGEN_INCLUDE_PATH=${eigen}/include/eigen3"
   ];
-
-  enableParallelBuilding = true;
 
   postBuild = lib.optionalString enableDocs ''
     make doxygen
@@ -266,18 +263,19 @@ stdenv.mkDerivation rec {
   # ${exec_prefix}. This causes linker errors in downstream packages so we strip
   # of $out after the ${exec_prefix} prefix:
   postInstall = ''
-    sed -i "s|\''${exec_prefix}/$out|\''${exec_prefix}|" "$out/lib/pkgconfig/opencv.pc"
+    sed -i "s|{exec_prefix}/$out|{exec_prefix}|" \
+      "$out/lib/pkgconfig/opencv.pc"
   '';
 
   hardeningDisable = [ "bindnow" "relro" ];
 
   passthru = lib.optionalAttrs enablePython { pythonPath = []; };
 
-  meta = {
+  meta = with lib; {
     description = "Open Computer Vision Library with more than 500 algorithms";
-    homepage = https://opencv.org/;
-    license = with stdenv.lib.licenses; if enableUnfree then unfree else bsd3;
-    maintainers = with stdenv.lib.maintainers; [viric mdaiter basvandijk];
-    platforms = with stdenv.lib.platforms; linux ++ darwin;
+    homepage = "https://opencv.org/";
+    license = with licenses; if enableUnfree then unfree else bsd3;
+    maintainers = with maintainers; [mdaiter basvandijk];
+    platforms = with platforms; linux ++ darwin;
   };
 }

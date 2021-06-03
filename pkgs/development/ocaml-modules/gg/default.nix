@@ -1,16 +1,16 @@
-{ stdenv, fetchurl, ocaml, findlib, ocamlbuild, opaline }:
+{ lib, stdenv, fetchurl, ocaml, findlib, ocamlbuild, opaline }:
 
 let
-  inherit (stdenv.lib) getVersion versionAtLeast;
+  inherit (lib) getVersion versionAtLeast;
 
   pname = "gg";
   version = "0.9.1";
-  webpage = "http://erratique.ch/software/${pname}";
+  webpage = "https://erratique.ch/software/${pname}";
 in
 
 assert versionAtLeast (getVersion ocaml) "4.01.0";
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
 
   name = "ocaml-${pname}-${version}";
 
@@ -23,13 +23,11 @@ stdenv.mkDerivation rec {
 
   createFindlibDestdir = true;
 
-  unpackCmd = "tar xjf $src";
-
   buildPhase = "ocaml pkg/build.ml native=true native-dynlink=true";
 
   installPhase = "opaline -libdir $OCAMLFIND_DESTDIR";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Basic types for computer graphics in OCaml";
     longDescription = ''
       Gg is an OCaml module providing basic types for computer graphics. It
@@ -37,7 +35,7 @@ stdenv.mkDerivation rec {
       matrices, quaternions, axis aligned boxes, colors, color spaces, and
       raster data.
     '';
-    homepage = "${webpage}";
+    homepage = webpage;
     platforms = ocaml.meta.platforms or [];
     license = licenses.bsd3;
     maintainers = [ maintainers.jirkamarsik ];

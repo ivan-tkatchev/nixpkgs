@@ -1,47 +1,58 @@
-{ stdenv, lib, fetchgit, cmake
-, avxSupport ? false
-, cudaSupport ? false, cudatoolkit
-, ncclSupport ? false, nccl
+{ config
+, stdenv
+, lib
+, fetchFromGitHub
+, cmake
+, gtest
+, doCheck ? true
+, cudaSupport ? config.cudaSupport or false
+, cudatoolkit
+, ncclSupport ? false
+, nccl
 , llvmPackages
 }:
 
 assert ncclSupport -> cudaSupport;
 
 stdenv.mkDerivation rec {
-  name = "xgboost-${version}";
-  version = "0.7";
+  pname = "xgboost";
+  version = "1.4.1";
 
-  # needs submodules
-  src = fetchgit {
-    url = "https://github.com/dmlc/xgboost";
-    rev = "refs/tags/v${version}";
-    sha256 = "1wxh020l4q037hc5z7vgxflb70l41a97anl8g6y4wxb74l5zv61l";
+  src = fetchFromGitHub {
+    owner = "dmlc";
+    repo = pname;
+    rev = "v${version}";
+    fetchSubmodules = true;
+    sha256 = "12b1417dg8jqyxd72kg5a3xhg5h11vz0k7bkv72mzrv83jvgn5ci";
   };
-
-  enableParallelBuilding = true;
 
   nativeBuildInputs = [ cmake ] ++ lib.optional stdenv.isDarwin llvmPackages.openmp;
 
-  buildInputs = lib.optional cudaSupport cudatoolkit
+  buildInputs = [ gtest ] ++ lib.optional cudaSupport cudatoolkit
                 ++ lib.optional ncclSupport nccl;
 
-  cmakeFlags = lib.optionals cudaSupport [ "-DUSE_CUDA=ON" "-DCUDA_HOST_COMPILER=${cudatoolkit.cc}/bin/cc" ]
-               ++ lib.optional ncclSupport "-DUSE_NCCL=ON";
+  cmakeFlags = lib.optionals doCheck [ "-DGOOGLE_TEST=ON" ]
+    ++ lib.optionals cudaSupport [ "-DUSE_CUDA=ON" "-DCUDA_HOST_COMPILER=${cudatoolkit.cc}/bin/cc" ]
+    ++ lib.optionals ncclSupport [ "-DUSE_NCCL=ON" ];
+
+  inherit doCheck;
 
   installPhase = let
-    libname = if stdenv.isDarwin then "libxgboost.dylib" else "libxgboost.so";
+    libname = "libxgboost${stdenv.hostPlatform.extensions.sharedLibrary}";
   in ''
+    runHook preInstall
     mkdir -p $out
     cp -r ../include $out
     install -Dm755 ../lib/${libname} $out/lib/${libname}
     install -Dm755 ../xgboost $out/bin/xgboost
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Scalable, Portable and Distributed Gradient Boosting (GBDT, GBRT or GBM) Library";
-    homepage = https://github.com/dmlc/xgboost;
+    homepage = "https://github.com/dmlc/xgboost";
     license = licenses.asl20;
-    platforms = [ "x86_64-linux" "i686-linux" "x86_64-darwin" ];
+    platforms = platforms.unix;
     maintainers = with maintainers; [ abbradar ];
   };
 }

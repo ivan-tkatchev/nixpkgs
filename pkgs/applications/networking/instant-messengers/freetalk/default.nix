@@ -1,13 +1,11 @@
-{ stdenv, fetchFromGitHub
-, guile, pkgconfig, glib, loudmouth, gmp, libidn, readline, libtool
+{ lib, stdenv, fetchFromGitHub
+, guile, pkg-config, glib, loudmouth, gmp, libidn, readline, libtool
 , libunwind, ncurses, curl, jansson, texinfo
-, automake, autoconf
-}:
-
+, automake, autoconf }:
 stdenv.mkDerivation rec {
-  name = "freetalk-${version}";
+  pname = "freetalk";
   version = "4.1";
-  
+
   src = fetchFromGitHub {
     owner = "GNUFreetalk";
     repo = "freetalk";
@@ -19,18 +17,17 @@ stdenv.mkDerivation rec {
     ./autogen.sh
   '';
 
- nativeBuildInputs = [ pkgconfig ];
- buildInputs = [
+  nativeBuildInputs = [ pkg-config texinfo autoconf automake ];
+  buildInputs = [
     guile glib loudmouth gmp libidn readline libtool
-    libunwind ncurses curl jansson texinfo
-    autoconf automake
+    libunwind ncurses curl jansson
   ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description =  "Console XMPP client";
     license = licenses.gpl3Plus ;
     maintainers = with maintainers; [ raskin ];
     platforms = platforms.linux;
-    downloadPage = "http://www.gnu.org/software/freetalk/";
+    downloadPage = "https://www.gnu.org/software/freetalk/";
   };
 }

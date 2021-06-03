@@ -1,27 +1,37 @@
-{ fetchurl, stdenv, octave ? null }:
+{ lib, stdenv, fetchFromGitHub, cmake, octave ? null }:
 
 stdenv.mkDerivation rec {
-  name = "nlopt-2.4.2";
+  pname = "nlopt";
+  version = "2.7.0";
 
-  src = fetchurl {
-    url = "http://ab-initio.mit.edu/nlopt/${name}.tar.gz";
-    sha256 = "12cfkkhcdf4zmb6h7y6qvvdvqjs2xf9sjpa3rl3bq76px4yn76c0";
+  src = fetchFromGitHub {
+    owner = "stevengj";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "0xm8y9cg5p2vgxbn8wn8gqfpxkbm0m4qsidp0bq1dqs8gvj9017v";
   };
 
+  nativeBuildInputs = [ cmake ];
   buildInputs = [ octave ];
 
-  configureFlags = "--with-cxx --enable-shared --with-pic --without-guile --without-python
-  --without-matlab " +
-    stdenv.lib.optionalString (octave != null) ("--with-octave " +
-        "M_INSTALL_DIR=$(out)/${octave.sitePath}/m " +
-        "OCT_INSTALL_DIR=$(out)/${octave.sitePath}/oct ");
+  configureFlags = [
+    "--with-cxx"
+    "--enable-shared"
+    "--with-pic"
+    "--without-guile"
+    "--without-python"
+    "--without-matlab"
+  ] ++ lib.optionals (octave != null) [
+    "--with-octave"
+    "M_INSTALL_DIR=$(out)/${octave.sitePath}/m"
+    "OCT_INSTALL_DIR=$(out)/${octave.sitePath}/oct"
+  ];
 
   meta = {
-    homepage = http://ab-initio.mit.edu/nlopt/;
+    homepage = "https://nlopt.readthedocs.io/en/latest/";
     description = "Free open-source library for nonlinear optimization";
-    license = stdenv.lib.licenses.lgpl21Plus;
-    hydraPlatforms = stdenv.lib.platforms.linux;
-    broken = (octave != null);              # cannot cope with Octave 4.x
+    license = lib.licenses.lgpl21Plus;
+    hydraPlatforms = lib.platforms.linux;
   };
 
 }

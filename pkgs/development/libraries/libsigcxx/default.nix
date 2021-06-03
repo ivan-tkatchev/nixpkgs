@@ -1,24 +1,30 @@
-{ stdenv, fetchurl, fetchpatch, pkgconfig, gnum4 }:
-let
-  ver_maj = "2.10"; # odd major numbers are unstable
-  ver_min = "0";
-in
+{ lib, stdenv, fetchurl, pkg-config, meson, ninja, gnome }:
+
 stdenv.mkDerivation rec {
-  name = "libsigc++-${ver_maj}.${ver_min}";
+  pname = "libsigc++";
+  version = "2.10.6";
 
   src = fetchurl {
-    url = "mirror://gnome/sources/libsigc++/${ver_maj}/${name}.tar.xz";
-    sha256 = "f843d6346260bfcb4426259e314512b99e296e8ca241d771d21ac64f28298d81";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-3aF23EaBvanVoqwbxVJzvdOBZit6bUnpGCZ9E+h3Ths=";
   };
 
-  nativeBuildInputs = [ pkgconfig gnum4 ];
+  nativeBuildInputs = [ pkg-config meson ninja ];
 
   doCheck = true;
 
-  meta = with stdenv.lib; {
-    homepage = http://libsigc.sourceforge.net/;
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      attrPath = "libsigcxx";
+      versionPolicy = "odd-unstable";
+    };
+  };
+
+  meta = with lib; {
+    homepage = "https://libsigcplusplus.github.io/libsigcplusplus/";
     description = "A typesafe callback system for standard C++";
-    license = licenses.lgpl21;
+    license = licenses.lgpl21Plus;
     platforms = platforms.all;
   };
 }

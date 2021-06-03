@@ -1,8 +1,13 @@
-{ stdenv, appleDerivation }:
+{ appleDerivation', stdenvNoCC }:
 
-appleDerivation {
+appleDerivation' stdenvNoCC {
   installPhase = ''
     mkdir -p $out/include/
     cp removefile.h checkint.h $out/include/
+  '';
+
+  appleHeaders = ''
+    checkint.h
+    removefile.h
   '';
 }

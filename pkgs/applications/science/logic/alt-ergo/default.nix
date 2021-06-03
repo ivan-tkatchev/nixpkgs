@@ -1,23 +1,52 @@
-{ fetchurl, stdenv, ocamlPackages }:
+{ fetchFromGitHub, lib, which, ocamlPackages }:
 
-stdenv.mkDerivation rec {
-  name = "alt-ergo-${version}";
-  version = "1.30";
+let
+  pname = "alt-ergo";
+  version = "2.4.0";
 
-  src = fetchurl {
-    url    = "https://alt-ergo.ocamlpro.com/download_manager.php?target=${name}.tar.gz";
-    name   = "${name}.tar.gz";
-    sha256 = "025pacb4ax864fn5x8k78mw6hiig4jcazblj18gzxspg4f1l5n1g";
+  src = fetchFromGitHub {
+    owner = "OCamlPro";
+    repo = pname;
+    rev = version;
+    sha256 = "1jm1yrvsg8iyfp9bb728zdx2i7yb6z7minjrfs27k5ncjqkjm65g";
   };
 
-  buildInputs = with ocamlPackages;
-    [ ocaml findlib camlzip ocamlgraph zarith lablgtk ocplib-simplex ];
+  useDune2 = true;
+
+  nativeBuildInputs = [ which ];
+
+in
+
+let alt-ergo-lib = ocamlPackages.buildDunePackage rec {
+  pname = "alt-ergo-lib";
+  inherit version src useDune2 nativeBuildInputs;
+  configureFlags = pname;
+  buildInputs = with ocamlPackages; [ dune-configurator ];
+  propagatedBuildInputs = with ocamlPackages; [ num ocplib-simplex stdlib-shims zarith ];
+}; in
+
+let alt-ergo-parsers = ocamlPackages.buildDunePackage rec {
+  pname = "alt-ergo-parsers";
+  inherit version src useDune2 nativeBuildInputs;
+  configureFlags = pname;
+  buildInputs = with ocamlPackages; [ menhir ];
+  propagatedBuildInputs = [ alt-ergo-lib ] ++ (with ocamlPackages; [ camlzip psmt2-frontend ]);
+}; in
+
+ocamlPackages.buildDunePackage {
+
+  inherit pname version src useDune2 nativeBuildInputs;
+
+  configureFlags = pname;
+
+  buildInputs = [ alt-ergo-parsers ] ++ (with ocamlPackages; [
+    cmdliner menhir ])
+  ;
 
   meta = {
     description = "High-performance theorem prover and SMT solver";
     homepage    = "https://alt-ergo.ocamlpro.com/";
-    license     = stdenv.lib.licenses.cecill-c; # LGPL-2 compatible
-    platforms   = stdenv.lib.platforms.linux ++ stdenv.lib.platforms.darwin;
-    maintainers = [ stdenv.lib.maintainers.thoughtpolice ];
+    license     = lib.licenses.ocamlpro_nc;
+    maintainers = [ lib.maintainers.thoughtpolice ];
   };
 }

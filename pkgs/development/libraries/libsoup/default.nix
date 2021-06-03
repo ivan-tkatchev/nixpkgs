@@ -1,54 +1,69 @@
-{ stdenv, fetchurl, glib, libxml2, pkgconfig, gnome3
-, gnomeSupport ? true, sqlite, glib-networking, gobjectIntrospection
-, valaSupport ? true, vala_0_40
-, intltool, python3 }:
+{ stdenv, lib, fetchurl, fetchpatch, glib, libxml2, meson, ninja, pkg-config, gnome, libsysprof-capture
+, gnomeSupport ? true, sqlite, glib-networking, gobject-introspection, vala
+, libpsl, python3, brotli
+}:
 
-let
-  pname = "libsoup";
-  version = "2.62.2";
-in
 stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
+  pname = "libsoup";
+  version = "2.72.0";
 
   src = fetchurl {
-    url = "mirror://gnome/sources/${pname}/${gnome3.versionBranch version}/${name}.tar.xz";
-    sha256 = "1dkrz1iwsswscayfmjxqv2q00b87snlq9nxdccn5vck0vbinylwy";
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "11skbyw2pw32178q3h8pi7xqa41b2x4k6q4k9f75zxmh8s23y30p";
   };
 
-  prePatch = ''
+  patches = [
+    (fetchpatch {
+      # https://gitlab.gnome.org/GNOME/libsoup/-/issues/222
+      url = "https://gitlab.gnome.org/GNOME/libsoup/commit/b5e4f15a09d197b6a9b4b2d78b33779f27d828af.patch";
+      sha256 = "1hqk8lqzc200hi0nwbwq9qm6f03z296cnd79d4ql30683s80xqws";
+    })
+  ];
+
+  postPatch = ''
     patchShebangs libsoup/
-  '' + stdenv.lib.optionalString valaSupport
-  ''
-     substituteInPlace libsoup/Makefile.in --replace "\$(DESTDIR)\$(vapidir)" "\$(DESTDIR)\$(girdir)/../vala/vapi"
   '';
 
   outputs = [ "out" "dev" ];
 
-  buildInputs = [ python3 sqlite ];
-  nativeBuildInputs = [ pkgconfig intltool gobjectIntrospection ]
-    ++ stdenv.lib.optionals valaSupport [ vala_0_40 ];
+  buildInputs = [
+    python3
+    sqlite
+    libpsl
+    glib.out
+    brotli
+  ] ++ lib.optionals stdenv.isLinux [
+    libsysprof-capture
+  ];
+  nativeBuildInputs = [ meson ninja pkg-config gobject-introspection vala glib ];
   propagatedBuildInputs = [ glib libxml2 ];
 
-  # glib-networking is a runtime dependency, not a compile-time dependency
-  configureFlags = [
-    "--disable-tls-check"
-    "--enable-vala=${if valaSupport then "yes" else "no"}"
-    "--with-gnome=${if gnomeSupport then "yes" else "no"}"
+  NIX_CFLAGS_COMPILE = [ "-lpthread" ];
+
+  mesonFlags = [
+    "-Dtls_check=false" # glib-networking is a runtime dependency, not a compile-time dependency
+    "-Dgssapi=disabled"
+    "-Dvapi=enabled"
+    "-Dgnome=${lib.boolToString gnomeSupport}"
+    "-Dntlm=disabled"
+  ] ++ lib.optionals (!stdenv.isLinux) [
+    "-Dsysprof=disabled"
   ];
 
-  doCheck = false; # fails with "no: command not found"
+  doCheck = false; # ERROR:../tests/socket-test.c:37:do_unconnected_socket_test: assertion failed (res == SOUP_STATUS_OK): (2 == 200)
 
   passthru = {
     propagatedUserEnvPackages = [ glib-networking.out ];
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = pname;
+      versionPolicy = "odd-unstable";
     };
   };
 
   meta = {
     description = "HTTP client/server library for GNOME";
-    homepage = https://wiki.gnome.org/Projects/libsoup;
-    license = stdenv.lib.licenses.gpl2;
+    homepage = "https://wiki.gnome.org/Projects/libsoup";
+    license = lib.licenses.lgpl2Plus;
     inherit (glib.meta) maintainers platforms;
   };
 }

@@ -1,19 +1,36 @@
-{ stdenv, fetchFromGitHub, python, cunit, dpdk, libaio, libuuid, numactl, openssl }:
+{ lib, stdenv
+, fetchurl
+, fetchFromGitHub
+, fetchpatch
+, ncurses
+, python3
+, cunit
+, dpdk
+, libaio
+, libbsd
+, libuuid
+, numactl
+, openssl
+}:
 
 stdenv.mkDerivation rec {
-  name = "spdk-${version}";
-  version = "18.04";
+  pname = "spdk";
+  version = "21.04";
 
   src = fetchFromGitHub {
     owner = "spdk";
     repo = "spdk";
     rev = "v${version}";
-    sha256 = "07i13jkf63h5ld9djksxl445v1mj6m5cbq4xydix9y5qcxwlss3n";
+    sha256 = "sha256-Xmmgojgtt1HwTqG/1ZOJVo1BcdAH0sheu40d73OJ68w=";
   };
 
-  nativeBuildInputs = [ python ];
+  nativeBuildInputs = [
+    python3
+  ];
 
-  buildInputs = [ cunit dpdk libaio libuuid numactl openssl ];
+  buildInputs = [
+    cunit dpdk libaio libbsd libuuid numactl openssl ncurses
+  ];
 
   postPatch = ''
     patchShebangs .
@@ -21,13 +38,13 @@ stdenv.mkDerivation rec {
 
   configureFlags = [ "--with-dpdk=${dpdk}" ];
 
-  NIX_CFLAGS_COMPILE = [ "-mssse3" ]; # Necessary to compile.
+  NIX_CFLAGS_COMPILE = "-mssse3"; # Necessary to compile.
+  # otherwise does not find strncpy when compiling
+  NIX_LDFLAGS = "-lbsd";
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Set of libraries for fast user-mode storage";
-    homepage = http://www.spdk.io;
+    homepage = "https://spdk.io/";
     license = licenses.bsd3;
     platforms =  [ "x86_64-linux" ];
     maintainers = with maintainers; [ orivej ];

@@ -1,7 +1,7 @@
-{ stdenv, lib, fetchgit, python, gyp, utillinux }:
+{ stdenv, lib, fetchgit, python2, util-linux }:
 
-stdenv.mkDerivation rec {
-  name = "bud-${version}";
+stdenv.mkDerivation {
+  pname = "bud";
 
   version = "0.34.1";
 
@@ -11,9 +11,11 @@ stdenv.mkDerivation rec {
     sha256 = "08yr6l4lc2m6rng06253fcaznf6sq0v053wfr8bbym42c32z0xdh";
   };
 
-  buildInputs = [
-    python gyp
-  ] ++ lib.optional stdenv.isLinux utillinux;
+  nativeBuildInputs = [
+    python2 python2.pkgs.gyp
+  ] ++ lib.optional stdenv.isLinux util-linux;
+
+  strictDeps = true;
 
   buildPhase = ''
     python ./gyp_bud -f make
@@ -29,6 +31,8 @@ stdenv.mkDerivation rec {
     description = "A TLS terminating proxy";
     license     = licenses.mit;
     platforms   = platforms.linux;
+    # Does not build on aarch64-linux.
+    badPlatforms = [ "aarch64-linux" ];
     maintainers = with maintainers; [ cstrahan ];
   };
 }

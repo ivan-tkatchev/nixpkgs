@@ -1,4 +1,4 @@
-{ stdenv, lib, writeText, buildPythonPackage, fetchPypi }:
+{ lib, buildPythonPackage, fetchPypi }:
 
 buildPythonPackage rec {
   pname = "fpdf";
@@ -13,9 +13,9 @@ buildPythonPackage rec {
   doCheck = false;
 
   meta = {
-    homepage = https://github.com/reingart/pyfpdf;
+    homepage = "https://github.com/reingart/pyfpdf";
     description = "Simple PDF generation for Python";
     license = lib.licenses.lgpl3;
-    maintainers = with lib.maintainers; [ geistesk ];
+    maintainers = with lib.maintainers; [ oxzi ];
   };
 }

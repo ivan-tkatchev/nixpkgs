@@ -1,32 +1,38 @@
-{ lib, buildPythonPackage, fetchFromGitHub, pytest, pytestrunner, pytestcov, pytestflakes, pytestpep8, sphinx, six }:
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, pytestCheckHook
+, six
+}:
 
 buildPythonPackage rec {
   pname = "python-utils";
-  version = "2.2.0";
-  name = pname + "-" + version;
+  version = "2.5.6";
 
   src = fetchFromGitHub {
     owner = "WoLpH";
-    repo = "python-utils";
+    repo = pname;
     rev = "v${version}";
-    sha256 = "1i3q9frai08nvrcmh4dg4rr0grncm68w2c097z5g1mfwdf9sv7df";
+    sha256 = "0gd2jana5w6bn7z58di4a8dwcxvc8rx282jawbw7ws7qm2a5klz3";
   };
 
-  checkInputs = [ pytest pytestrunner pytestcov pytestflakes pytestpep8 sphinx ];
-
+  # disable coverage and linting
   postPatch = ''
-    # pytest-runner is only actually required in checkPhase
-    substituteInPlace setup.py --replace "setup_requires=['pytest-runner']," ""
+    sed -i '/--cov/d' pytest.ini
+    sed -i '/--flake8/d' pytest.ini
   '';
 
-  # Tests failing
-  doCheck = false;
+  propagatedBuildInputs = [
+    six
+  ];
 
-  checkPhase = ''
-    py.test
-  '';
+  checkInputs = [
+    pytestCheckHook
+  ];
 
-  propagatedBuildInputs = [ six ];
+  pytestFlagsArray = [
+    "_python_utils_tests"
+  ];
 
   meta = with lib; {
     description = "Module with some convenient utilities";

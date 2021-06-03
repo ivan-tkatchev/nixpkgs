@@ -1,16 +1,16 @@
-{ stdenv, buildPythonPackage, fetchPypi
-, pytest, pytest_xdist, virtualenv, process-tests, coverage }:
+{ lib, buildPythonPackage, fetchPypi
+, pytest, coverage }:
 
 buildPythonPackage rec {
   pname = "pytest-cov";
-  version = "2.5.1";
+  version = "2.11.1";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "03aa752cf11db41d281ea1d807d954c4eda35cfa1b21d6971966cc041bbf6e2d";
+    sha256 = "359952d9d39b9f822d9d29324483e7ba04a3a17dd7d05aa6beb7ea01e359e5f7";
   };
 
-  buildInputs = [ pytest pytest_xdist virtualenv process-tests ];
+  buildInputs = [ pytest ];
   propagatedBuildInputs = [ coverage ];
 
   # xdist related tests fail with the following error
@@ -22,9 +22,9 @@ buildPythonPackage rec {
     py.test tests
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Plugin for coverage reporting with support for both centralised and distributed testing, including subprocesses and multiprocessing";
-    homepage = https://github.com/pytest-dev/pytest-cov;
+    homepage = "https://github.com/pytest-dev/pytest-cov";
     license = licenses.mit;
   };
 }

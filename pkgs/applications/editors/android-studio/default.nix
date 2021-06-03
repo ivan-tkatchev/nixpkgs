@@ -1,4 +1,4 @@
-{ stdenv, callPackage, fetchurl, makeFontsConf, gnome2 }:
+{ callPackage, makeFontsConf, gnome2, buildFHSUserEnv }:
 
 let
   mkStudio = opts: callPackage (import ./common.nix opts) {
@@ -6,66 +6,41 @@ let
       fontDirectories = [];
     };
     inherit (gnome2) GConf gnome_vfs;
+    inherit buildFHSUserEnv;
   };
   stableVersion = {
-    version = "3.1.3.0"; # "Android Studio 3.1.3"
-    build = "173.4819257";
-    sha256Hash = "196yaswbxh2nd83gimjxr8ggr5xkdxq7n3xlh6ax73v59pj4hryq";
+    version = "4.2.1.0"; # "Android Studio 4.2.1"
+    build = "202.7351085";
+    sha256Hash = "074y6i0h8zamjgvvs882im44clds3g6aq8rssl7sq1wx6hrn5q36";
   };
-  latestVersion = {
-    version = "3.3.0.2"; # "Android Studio 3.3 Canary 3"
-    build = "181.4884283";
-    sha256Hash = "0r93yzw87cgzz60p60gknij5vaqmv1a1kyd4cr9gx8cbxw46lhwh";
+  betaVersion = {
+    version = "2020.3.1.16"; # "Android Studio Arctic Fox (2020.3.1) Beta 1"
+    sha256Hash = "0mp1cmxkqc022nv8cggywbwcf8lp6r802nh8hcw5j00hcdnhkcq0";
   };
-in rec {
-  # Old alias
-  preview = beta;
-
-  # Attributes are named by the corresponding release channels
+  latestVersion = { # canary & dev
+    version = "2021.1.1.1"; # "Android Studio Bumblebee (2021.1.1) Canary 1"
+    sha256Hash = "0aavmk8byw817356jm28rl998gcp3zm7x3fq14hm2awzhk5jaklm";
+  };
+in {
+  # Attributes are named by their corresponding release channels
 
   stable = mkStudio (stableVersion // {
+    channel = "stable";
     pname = "android-studio";
-    #pname = "android-studio-stable"; # TODO: Rename and provide symlink
-
-    meta = with stdenv.lib; {
-      description = "The Official IDE for Android (stable channel)";
-      longDescription = ''
-        Android Studio is the official IDE for Android app development, based on
-        IntelliJ IDEA.
-      '';
-      homepage = https://developer.android.com/studio/index.html;
-      license = licenses.asl20;
-      platforms = [ "x86_64-linux" ];
-      maintainers = with maintainers; [ primeos ];
-    };
   });
 
-  beta = mkStudio (latestVersion // {
-    pname = "android-studio-preview";
-    #pname = "android-studio-beta"; # TODO: Rename and provide symlink
-    version = "3.2.0.21"; # "Android Studio 3.2 Beta 4"
-    build = "181.4886486";
-    sha256Hash = "1n4lcy0ng87fv45qjlpdb2zn3zl5lg6jwkbaijhbsm2rh4ljisr3";
-
-    meta = stable.meta // {
-      description = "The Official IDE for Android (beta channel)";
-      homepage = https://developer.android.com/studio/preview/index.html;
-    };
+  beta = mkStudio (betaVersion // {
+    channel = "beta";
+    pname = "android-studio-beta";
   });
 
   dev = mkStudio (latestVersion // {
+    channel = "dev";
     pname = "android-studio-dev";
-
-    meta = beta.meta // {
-      description = "The Official IDE for Android (dev channel)";
-    };
   });
 
   canary = mkStudio (latestVersion // {
+    channel = "canary";
     pname = "android-studio-canary";
-
-    meta = beta.meta // {
-      description = "The Official IDE for Android (canary channel)";
-    };
   });
 }

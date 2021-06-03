@@ -1,62 +1,58 @@
-{ stdenv, fetchurl, chromaprint, fetchpatch, fftw, flac, faad2, mp4v2
+{ lib, mkDerivation, fetchurl, fetchFromGitHub, chromaprint
+, fftw, flac, faad2, glibcLocales, mp4v2
 , libid3tag, libmad, libopus, libshout, libsndfile, libusb1, libvorbis
-, pkgconfig, portaudio, portmidi, protobuf, qt4, rubberband, scons, sqlite
-, taglib, vampSDK
+, libGLU, libxcb, lilv, lv2, opusfile
+, pkg-config, portaudio, portmidi, protobuf, qtbase, qtscript, qtsvg
+, qtx11extras, rubberband, sconsPackages, sqlite, taglib, upower, vamp-plugin-sdk
 }:
 
-stdenv.mkDerivation rec {
-  name = "mixxx-${version}";
-  version = "2.0.0";
+let
+  # Because libshout 2.4.2 and newer seem to break streaming in mixxx, build it
+  # with 2.4.1 instead.
+  libshout241 = libshout.overrideAttrs (o: rec {
+    name = "libshout-2.4.1";
+    src = fetchurl {
+      url = "http://downloads.xiph.org/releases/libshout/${name}.tar.gz";
+      sha256 = "0kgjpf8jkgyclw11nilxi8vyjk4s8878x23qyxnvybbgqbgbib7k";
+    };
+  });
+in
+mkDerivation rec {
+  pname = "mixxx";
+  version = "2.2.4";
 
-  src = fetchurl {
-    url = "https://downloads.mixxx.org/${name}/${name}-src.tar.gz";
-    sha256 = "0vb71w1yq0xwwsclrn2jj9bk8w4n14rfv5c0aw46c11mp8xz7f71";
+  src = fetchFromGitHub {
+    owner = "mixxxdj";
+    repo = "mixxx";
+    rev = "release-${version}";
+    sha256 = "1dj9li8av9b2kbm76jvvbdmihy1pyrw0s4xd7dd524wfhwr1llxr";
   };
 
-  patches = [
-    (fetchpatch {
-      url = "https://sources.debian.net/data/main/m/mixxx/2.0.0~dfsg-7.1/debian/patches/0007-fix_gcc6_issue.patch";
-      sha256 = "0kpyv10wcjcvbijk6vpq54gx9sqzrq4kq2qilc1czmisp9qdy5sd";
-    })
-    (fetchpatch {
-      url = "https://622776.bugs.gentoo.org/attachment.cgi?id=487284";
-      name = "sqlite.patch";
-      sha256 = "1qqbd8nrxrjcc1dwvyqfq1k2yz3l071sfcgd2dmpk6j8d4j5kx31";
-    })
- ];
-
+  nativeBuildInputs = [ sconsPackages.scons_3_1_2 ];
   buildInputs = [
-    chromaprint fftw flac faad2 mp4v2 libid3tag libmad libopus libshout libsndfile
-    libusb1 libvorbis pkgconfig portaudio portmidi protobuf qt4
-    rubberband scons sqlite taglib vampSDK
+    chromaprint fftw flac faad2 glibcLocales mp4v2 libid3tag libmad libopus libshout241 libsndfile
+    libusb1 libvorbis libxcb libGLU lilv lv2 opusfile pkg-config portaudio portmidi protobuf qtbase qtscript qtsvg
+    qtx11extras rubberband sqlite taglib upower vamp-plugin-sdk
   ];
+
+  enableParallelBuilding = true;
 
   sconsFlags = [
     "build=release"
-    "qtdir=${qt4}"
+    "qtdir=${qtbase}"
     "faad=1"
+    "opus=1"
   ];
 
-  buildPhase = ''
-    runHook preBuild
-    mkdir -p "$out"
-    scons \
-      -j$NIX_BUILD_CORES -l$NIX_BUILD_CORES \
-      $sconsFlags "prefix=$out"
-    runHook postBuild
-  '';
+  qtWrapperArgs = [
+    "--set LOCALE_ARCHIVE ${glibcLocales}/lib/locale/locale-archive"
+  ];
 
-  installPhase = ''
-    runHook preInstall
-    scons $sconsFlags "prefix=$out" install
-    runHook postInstall
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = https://mixxx.org;
+  meta = with lib; {
+    homepage = "https://mixxx.org";
     description = "Digital DJ mixing software";
     license = licenses.gpl2Plus;
-    maintainers = [ maintainers.aszlig maintainers.goibhniu ];
+    maintainers = [ maintainers.goibhniu maintainers.bfortz ];
     platforms = platforms.linux;
   };
 }

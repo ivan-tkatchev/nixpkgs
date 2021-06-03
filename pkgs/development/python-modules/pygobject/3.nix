@@ -1,28 +1,67 @@
-{ stdenv, fetchurl, buildPythonPackage, python, pkgconfig, glib, gobjectIntrospection, pycairo, cairo, which, ncurses}:
+{ lib
+, stdenv
+, fetchurl
+, buildPythonPackage
+, pkg-config
+, glib
+, gobject-introspection
+, pycairo
+, cairo
+, which
+, ncurses
+, meson
+, ninja
+, isPy3k
+, gnome
+}:
 
 buildPythonPackage rec {
-  major = "3.26";
-  minor = "1";
-  version = "${major}.${minor}";
-  format = "other";
   pname = "pygobject";
-  name = pname + "-" + version;
-
-  src = fetchurl {
-    url = "mirror://gnome/sources/pygobject/${major}/${name}.tar.xz";
-    sha256 = "1afi0jdjd9sanrzjwhv7z1k7qxlb91fqa6yqc2dbpjkhkjdpnmzm";
-  };
+  version = "3.40.1";
 
   outputs = [ "out" "dev" ];
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ glib gobjectIntrospection ]
-                 ++ stdenv.lib.optionals stdenv.isDarwin [ which ncurses ];
-  propagatedBuildInputs = [ pycairo cairo ];
+  disabled = !isPy3k;
 
-  meta = {
-    homepage = https://pygobject.readthedocs.io/;
+  format = "other";
+
+  src = fetchurl {
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "0d80g5kgf2i9cginyhalvb7ibfk9g30yilqzmcsw6h6byj8xbih0";
+  };
+
+  nativeBuildInputs = [
+    pkg-config
+    meson
+    ninja
+    gobject-introspection
+  ];
+
+  buildInputs = [
+    glib
+    gobject-introspection
+  ] ++ lib.optionals stdenv.isDarwin [
+    ncurses
+  ];
+
+  propagatedBuildInputs = [
+    pycairo
+    cairo
+  ];
+
+  passthru = {
+    updateScript = gnome.updateScript {
+      packageName = pname;
+      attrPath = "python3.pkgs.${pname}3";
+      versionPolicy = "odd-unstable";
+    };
+  };
+
+  meta = with lib; {
+    homepage = "https://pygobject.readthedocs.io/";
     description = "Python bindings for Glib";
-    platforms = stdenv.lib.platforms.unix;
+    license = licenses.lgpl21Plus;
+    maintainers = with maintainers; [ jtojnar ];
+    platforms = platforms.unix;
   };
 }

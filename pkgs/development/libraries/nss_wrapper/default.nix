@@ -1,21 +1,20 @@
-{ stdenv, fetchurl, cmake, pkgconfig }:
+{ lib, stdenv, fetchurl, cmake, pkg-config }:
 
 stdenv.mkDerivation rec {
-  name = "nss_wrapper-1.1.3";
+  name = "nss_wrapper-1.1.11";
 
   src = fetchurl {
     url = "mirror://samba/cwrap/${name}.tar.gz";
-    sha256 = "18rsaw8r8xwn5003arc7xw8iliwbmzxfxgacmp6lhsdwqla4rf69";
+    sha256 = "1q5l6w69yc71ly8gcbnkrcbnq6b64cbiiv99m0z5vn5lgwp36igv";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ cmake ];
+  nativeBuildInputs = [ cmake pkg-config ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A wrapper for the user, group and hosts NSS API";
     homepage = "https://git.samba.org/?p=nss_wrapper.git;a=summary;";
     license = licenses.bsd3;
-    maintainers = with maintainers; [ wkennington ];
-    platforms = platforms.all;
+    platforms = platforms.unix;
+    broken = stdenv.isDarwin;
   };
 }

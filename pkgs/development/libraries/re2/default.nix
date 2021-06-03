@@ -1,26 +1,37 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
-  name = "re2-${version}";
-  version = "20140304";
+  pname = "re2";
+  version = "2021-04-01";
 
-  src = fetchurl {
-    url = "https://re2.googlecode.com/files/${name}.tgz";
-    sha256 = "19wn0472c9dsxp35d0m98hlwhngx1f2xhxqgr8cb5x72gnjx3zqb";
+  src = fetchFromGitHub {
+    owner = "google";
+    repo = "re2";
+    rev = version;
+    sha256 = "1iia0883lssj7ckbsr0n7yb3gdw24c8wnl2q5hhzlml23h4ipbh3";
   };
 
   preConfigure = ''
     substituteInPlace Makefile --replace "/usr/local" "$out"
-  '' + stdenv.lib.optionalString stdenv.isDarwin ''
-    # Fixed in https://github.com/google/re2/commit/b2c9765b4a7afbea8b6be1dae548b6f4d5f39e42
-    substituteInPlace Makefile \
-        --replace '-dynamiclib' '-dynamiclib -Wl,-install_name,$(libdir)/libre2.so.$(SONAME)'
+    # we're using gnu sed, even on darwin
+    substituteInPlace Makefile  --replace "SED_INPLACE=sed -i '''" "SED_INPLACE=sed -i"
   '';
 
+  buildFlags = lib.optionals stdenv.hostPlatform.isStatic [ "static" ];
+
+  preCheck = "patchShebangs runtests";
+  doCheck = true;
+  checkTarget = "test";
+
+  installTargets = lib.optionals stdenv.hostPlatform.isStatic [ "static-install" ];
+
+  doInstallCheck = true;
+  installCheckTarget = "testinstall";
+
   meta = {
-    homepage = https://code.google.com/p/re2/;
+    homepage = "https://github.com/google/re2";
     description = "An efficient, principled regular expression library";
-    license = stdenv.lib.licenses.bsd3;
-    platforms = with stdenv.lib.platforms; all;
+    license = lib.licenses.bsd3;
+    platforms = with lib.platforms; all;
   };
 }

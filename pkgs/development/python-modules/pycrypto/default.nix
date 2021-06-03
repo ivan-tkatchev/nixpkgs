@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, buildPythonPackage, pycryptodome }:
+{ buildPythonPackage, pycryptodome }:
 
 # This is a dummy package providing the drop-in replacement pycryptodome.
 # https://github.com/NixOS/nixpkgs/issues/21671
@@ -21,7 +21,7 @@ buildPythonPackage rec {
   doCheck = false;
 
   meta = {
-    homepage = http://www.pycrypto.org/;
+    homepage = "http://www.pycrypto.org/";
     description = "Python Cryptography Toolkit";
     platforms = pycryptodome.meta.platforms;
   };

@@ -1,11 +1,11 @@
-{ lib, buildEnv, qtbase }: name: paths:
+{ buildEnv, qtbase }: name: paths:
 
 buildEnv {
   inherit name;
   paths = [ qtbase ] ++ paths;
 
   pathsToLink = [ "/bin" "/mkspecs" "/include" "/lib" "/share" ];
-  extraOutputsToInstall = [ "dev" ];
+  extraOutputsToInstall = [ "out" "dev" ];
 
   postBuild = ''
     rm "$out/bin/qmake"

@@ -1,24 +1,30 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchFromGitHub }:
 
 stdenv.mkDerivation rec {
-  name = "hwdata-${version}";
-  version = "0.313";
+  pname = "hwdata";
+  version = "0.347";
 
-  src = fetchurl {
-    url = "https://github.com/vcrhonek/hwdata/archive/v0.313.tar.gz";
-    sha256 = "0x0qk2cim1mv8cl8h8rwqn8mbbs43j04rn06m81b531i182zii17";
+  src = fetchFromGitHub {
+    owner = "vcrhonek";
+    repo = "hwdata";
+    rev = "v${version}";
+    sha256 = "19kmz25zq6qqs67ppqhws4mh3qf6zrp55cpyxyw36q95yjdcqp21";
   };
 
   preConfigure = "patchShebangs ./configure";
 
-  configureFlags = "--datadir=$(prefix)/data";
+  configureFlags = [ "--datadir=${placeholder "out"}/share" ];
 
   doCheck = false; # this does build machine-specific checks (e.g. enumerates PCI bus)
 
+  outputHashMode = "recursive";
+  outputHashAlgo = "sha256";
+  outputHash = "0haaczd6pi9q2vdlvbwn7100sb87zsy64z94xhpbmlari4vzjmz0";
+
   meta = {
-    homepage = https://github.com/vcrhonek/hwdata;
+    homepage = "https://github.com/vcrhonek/hwdata";
     description = "Hardware Database, including Monitors, pci.ids, usb.ids, and video cards";
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
+    license = lib.licenses.gpl2Plus;
+    platforms = lib.platforms.all;
   };
 }

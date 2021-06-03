@@ -1,14 +1,20 @@
-{ stdenv, buildPackages, hostPlatform, fetchurl, perl, buildLinux, libelf, utillinux, ... } @ args:
+{ lib, buildPackages, fetchurl, perl, buildLinux, nixosTests, modDirVersionArg ? null, ... } @ args:
+
+with lib;
 
 buildLinux (args // rec {
-  version = "4.18-rc5";
-  modDirVersion = "4.18.0-rc5";
-  extraMeta.branch = "4.18";
+  version = "5.12-rc6";
+  extraMeta.branch = "5.12";
+
+  # modDirVersion needs to be x.y.z, will always add .0
+  modDirVersion = if (modDirVersionArg == null) then builtins.replaceStrings ["-"] [".0-"] version else modDirVersionArg;
 
   src = fetchurl {
     url = "https://git.kernel.org/torvalds/t/linux-${version}.tar.gz";
-    sha256 = "1r7ia0dc4p8xvyrl5kx9v7ii1m25ly0hg6xyz3zwhaailg1y4jzk";
+    sha256 = "0w0zk2byimdbcvn8myqaq0ab6lyd43493fnkv9a1407dimpxb03d";
   };
+
+  kernelTests = args.kernelTests or [ nixosTests.kernel-generic.linux_testing ];
 
   # Should the testing kernels ever be built on Hydra?
   extraMeta.hydraPlatforms = [];

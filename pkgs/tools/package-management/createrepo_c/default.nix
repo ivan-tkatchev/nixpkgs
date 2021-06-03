@@ -1,18 +1,22 @@
-{ stdenv, fetchFromGitHub, cmake, pkgconfig, bzip2, expat, glib, curl, libxml2, python2, rpm, openssl, sqlite, file, xz, pcre, bash-completion }:
+{ lib, stdenv, fetchFromGitHub, cmake, pkg-config, bzip2, expat, glib, curl, libxml2, python3, rpm
+, openssl, sqlite, file, xz, pcre, bash-completion, zstd, zchunk, libmodulemd
+}:
 
 stdenv.mkDerivation rec {
-  rev  = "0.11.0";
-  name = "createrepo_c-${rev}";
+  pname = "createrepo_c";
+  version = "0.17.2";
 
   src = fetchFromGitHub {
-    inherit rev;
     owner  = "rpm-software-management";
     repo   = "createrepo_c";
-    sha256 = "1w9yynj8mxhw714gvgr0fibfks584b4y0n4vjckcf7y97cpdhjkn";
+    rev    = version;
+    sha256 = "sha256-rcrJjcWj+cTAE3k11Ynr7CQCOWD+rb60lcar0G2w06A=";
   };
 
   patches = [
+    # Use the output directory to install the bash completions.
     ./fix-bash-completion-path.patch
+    # Use the output directory to install the python modules.
     ./fix-python-install-path.patch
   ];
 
@@ -20,18 +24,18 @@ stdenv.mkDerivation rec {
     substituteInPlace CMakeLists.txt \
       --replace '@BASHCOMP_DIR@' "$out/share/bash-completion/completions"
     substituteInPlace src/python/CMakeLists.txt \
-      --replace "@PYTHON_INSTALL_PATH@" "$out/${python2.sitePackages}"
+      --replace "@PYTHON_INSTALL_DIR@" "$out/${python3.sitePackages}"
   '';
 
-  nativeBuildInputs = [ cmake pkgconfig ];
+  nativeBuildInputs = [ cmake pkg-config rpm ];
 
-  buildInputs = [ bzip2 expat glib curl libxml2 python2 rpm openssl sqlite file xz pcre bash-completion ];
+  buildInputs = [ bzip2 expat glib curl libxml2 python3 openssl sqlite file xz pcre bash-completion zstd zchunk libmodulemd ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "C implementation of createrepo";
-    homepage    = "http://rpm-software-management.github.io/createrepo_c/";
-    license     = licenses.gpl2;
-    platforms   = platforms.linux;
+    homepage    = "https://rpm-software-management.github.io/createrepo_c/";
+    license     = licenses.gpl2Plus;
+    platforms   = platforms.unix;
     maintainers = with maintainers; [ copumpkin ];
   };
 }

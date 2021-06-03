@@ -1,24 +1,45 @@
-{ stdenv, fetchurl, pkgconfig, python, glib, zlib, libpng, gnumake3, cmake }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, glib, zlib, libpng, cmake }:
 
-stdenv.mkDerivation rec {
-  version = "0.3.2";
-  name = "lensfun-${version}";
+let
+  version = "0.3.95";
+  pname = "lensfun";
 
-  src = fetchurl {
-    url = "mirror://sourceforge/lensfun/${version}/${name}.tar.gz";
-    sha256 = "0cfk8jjhs9nbfjfdy98plrj9ayi59aph0nx6ppslgjhlcvacm2xf";
+  # Fetch a more recent version of the repo containing a more recent lens
+  # database
+  lensfunDatabase = fetchFromGitHub {
+    owner = "lensfun";
+    repo = "lensfun";
+    rev = "4672d765a17bfef7bc994ca7008cb717c61045d5";
+    sha256 = "00x35xhpn55j7f8qzakb6wl1ccbljg1gqjb93jl9w3mha2bzsr41";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ glib zlib libpng cmake gnumake3 ];
+in
+stdenv.mkDerivation {
+  inherit pname version;
 
-  configureFlags = "-v";
+  src = fetchFromGitHub {
+    owner = "lensfun";
+    repo = "lensfun";
+    rev = "v${version}";
+    sha256 = "0isli0arns8bmxqpbr1jnbnqh5wvspixdi51adm671f9ngng7x5r";
+  };
 
-  meta = with stdenv.lib; {
-    platforms = platforms.linux;
-    maintainers = [ ];
-    license = stdenv.lib.licenses.lgpl3;
+  # replace database with a more recent snapshot
+  postUnpack = ''
+    rm -R source/data/db
+    cp -R ${lensfunDatabase}/data/db source/data
+  '';
+
+  nativeBuildInputs = [ cmake pkg-config ];
+  buildInputs = [ glib zlib libpng ];
+
+  cmakeFlags = [ "-DINSTALL_HELPER_SCRIPTS=OFF" ];
+
+  meta = with lib; {
+    platforms = platforms.linux ++ platforms.darwin;
+    maintainers = with maintainers; [ flokli ];
+    license = lib.licenses.lgpl3;
     description = "An opensource database of photographic lenses and their characteristics";
-    homepage = http://lensfun.sourceforge.net/;
+    homepage = "https://lensfun.github.io";
   };
 }

@@ -1,48 +1,49 @@
-{ stdenv, fetchFromGitHub, fetchpatch, autoreconfHook, autoconf, automake, asciidoc, docbook_xsl, docbook_xml_dtd_45, libxslt, xmlto, pkgconfig, json_c, kmod, which, systemd, utillinux
+{ lib, stdenv, fetchFromGitHub, autoreconfHook
+, asciidoctor, pkg-config, xmlto, docbook_xsl, docbook_xml_dtd_45, libxslt
+, json_c, kmod, which, util-linux, udev, keyutils
 }:
 
-let
-  version = "61.2";
-in stdenv.mkDerivation rec {
-  name = "libndctl-${version}";
+stdenv.mkDerivation rec {
+  pname = "libndctl";
+  version = "71.1";
 
   src = fetchFromGitHub {
-    owner = "pmem";
-    repo = "ndctl";
-    rev = "v${version}";
-    sha256 = "0vid78jzhmzh505bpwn8mvlamfhcvl6rlfjc29y4yn7zslpydxl7";
+    owner  = "pmem";
+    repo   = "ndctl";
+    rev    = "v${version}";
+    sha256 = "sha256-osux3DiKRh8ftHwyfFI+WSFx20+yJsg1nVx5nuoKJu4=";
   };
 
-  outputs = [ "out" "man" "dev" ];
+  outputs = [ "out" "lib" "man" "dev" ];
 
-  nativeBuildInputs = [
-    autoreconfHook asciidoc pkgconfig xmlto docbook_xml_dtd_45 docbook_xsl libxslt
-  ];
+  nativeBuildInputs =
+    [ autoreconfHook asciidoctor pkg-config xmlto docbook_xml_dtd_45 docbook_xsl libxslt
+      which
+    ];
 
-  buildInputs = [
-    json_c kmod systemd utillinux
-  ];
+  buildInputs =
+    [ json_c kmod util-linux udev keyutils
+    ];
 
-  patches = [
-    (fetchpatch {
-      name = "add-missing-include-for-ssize_t.patch";
-      url = "https://github.com/pmem/ndctl/commit/8f1798d14dda367c659b87362edb312739830ddf.patch";
-      sha256 = "1jr5kh087938msl22hgjngbf025n9iplz0czmybfp7lavl73m0pm";
-    })
-  ];
+  configureFlags =
+    [ "--without-bash"
+      "--without-systemd"
+    ];
 
-  preAutoreconf = ''
-    substituteInPlace configure.ac --replace "which" "${which}/bin/which"
+  patchPhase = ''
+    patchShebangs test
+
     substituteInPlace git-version --replace /bin/bash ${stdenv.shell}
     substituteInPlace git-version-gen --replace /bin/sh ${stdenv.shell}
+
     echo "m4_define([GIT_VERSION], [${version}])" > version.m4;
   '';
 
-  meta = with stdenv.lib; {
-    description = "Utility library for managing the libnvdimm (non-volatile memory device) sub-system in the Linux kernel";
-    homepage = https://github.com/pmem/ndctl;
-    license = licenses.lgpl21;
-    maintainers = with maintainers; [];
-    platforms = platforms.linux;
+  meta = with lib; {
+    description = "Tools for managing the Linux Non-Volatile Memory Device sub-system";
+    homepage    = "https://github.com/pmem/ndctl";
+    license     = licenses.lgpl21;
+    maintainers = with maintainers; [ thoughtpolice ];
+    platforms   = platforms.linux;
   };
 }

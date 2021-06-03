@@ -25,8 +25,16 @@ in {
         '';
       };
 
+      virtualHost = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Name of the nginx virtualhost to use and setup. If null, do not setup any virtualhost.
+        '';
+      };
+
       listenAddress = mkOption {
-        type = types.string;
+        type = types.str;
         default = "127.0.0.1";
         description = ''
           The host name or IP address on which to bind Airsonic.
@@ -73,13 +81,31 @@ in {
           ${cfg.home}/transcoders.
         '';
       };
+
+      jvmOptions = mkOption {
+        description = ''
+          Extra command line options for the JVM running AirSonic.
+          Useful for sending jukebox output to non-default alsa
+          devices.
+        '';
+        default = [
+        ];
+        type = types.listOf types.str;
+        example = [
+          "-Djavax.sound.sampled.Clip='#CODEC [plughw:1,0]'"
+          "-Djavax.sound.sampled.Port='#Port CODEC [hw:1]'"
+          "-Djavax.sound.sampled.SourceDataLine='#CODEC [plughw:1,0]'"
+          "-Djavax.sound.sampled.TargetDataLine='#CODEC [plughw:1,0]'"
+        ];
+      };
+
     };
   };
 
   config = mkIf cfg.enable {
     systemd.services.airsonic = {
       description = "Airsonic Media Server";
-      after = [ "local-fs.target" "network.target" ];
+      after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
 
       preStart = ''
@@ -92,12 +118,15 @@ in {
       '';
       serviceConfig = {
         ExecStart = ''
-          ${pkgs.jre}/bin/java -Xmx${toString cfg.maxMemory}m \
+          ${pkgs.jre8}/bin/java -Xmx${toString cfg.maxMemory}m \
           -Dairsonic.home=${cfg.home} \
           -Dserver.address=${cfg.listenAddress} \
           -Dserver.port=${toString cfg.port} \
           -Dairsonic.contextPath=${cfg.contextPath} \
           -Djava.awt.headless=true \
+          ${optionalString (cfg.virtualHost != null)
+            "-Dserver.use-forward-headers=true"} \
+          ${toString cfg.jvmOptions} \
           -verbose:gc \
           -jar ${pkgs.airsonic}/webapps/airsonic.war
         '';
@@ -107,11 +136,20 @@ in {
       };
     };
 
+    services.nginx = mkIf (cfg.virtualHost != null) {
+      enable = true;
+      recommendedProxySettings = true;
+      virtualHosts.${cfg.virtualHost} = {
+        locations.${cfg.contextPath}.proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+      };
+    };
+
     users.users.airsonic = {
       description = "Airsonic service user";
       name = cfg.user;
       home = cfg.home;
       createHome = true;
+      isSystemUser = true;
     };
   };
 }

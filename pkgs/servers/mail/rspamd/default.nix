@@ -1,36 +1,50 @@
-{ stdenv, fetchFromGitHub, cmake, perl
-, file, glib, gmime, libevent, luajit, openssl, pcre, pkgconfig, sqlite, ragel, icu, libfann }:
+{ stdenv, lib, fetchFromGitHub, cmake, perl
+, glib, luajit, openssl, pcre, pkg-config, sqlite, ragel, icu
+, hyperscan, jemalloc, blas, lapack, lua, libsodium
+, withBlas ? true
+, withHyperscan ? stdenv.isx86_64
+, withLuaJIT ? stdenv.isx86_64
+, nixosTests
+}:
 
-let libmagic = file;  # libmagic provided by file package ATM
-in
+assert withHyperscan -> stdenv.isx86_64;
 
 stdenv.mkDerivation rec {
-  name = "rspamd-${version}";
-  version = "1.7.3";
+  pname = "rspamd";
+  version = "2.7";
 
   src = fetchFromGitHub {
-    owner = "vstakhov";
+    owner = "rspamd";
     repo = "rspamd";
     rev = version;
-    sha256 = "1gb4zg8i1nj337f65s434h299ad19c0d7jyawb2glvv3n4cshm97";
+    sha256 = "sha256-LMLRDnKfGpApVsIvPNY2nxl+H5+qeVvwvwr3wdyyhjs=";
   };
 
-  nativeBuildInputs = [ cmake pkgconfig perl ];
-  buildInputs = [ glib gmime libevent libmagic luajit openssl pcre sqlite ragel icu libfann ];
+  hardeningEnable = [ "pie" ];
+
+  nativeBuildInputs = [ cmake pkg-config perl ];
+  buildInputs = [ glib openssl pcre sqlite ragel icu jemalloc libsodium ]
+    ++ lib.optional withHyperscan hyperscan
+    ++ lib.optionals withBlas [ blas lapack ]
+    ++ lib.optional withLuaJIT luajit ++ lib.optional (!withLuaJIT) lua;
 
   cmakeFlags = [
     "-DDEBIAN_BUILD=ON"
-    "-DRUNDIR=/var/run/rspamd"
+    "-DRUNDIR=/run/rspamd"
     "-DDBDIR=/var/lib/rspamd"
     "-DLOGDIR=/var/log/rspamd"
     "-DLOCAL_CONFDIR=/etc/rspamd"
-  ];
+    "-DENABLE_JEMALLOC=ON"
+  ] ++ lib.optional withHyperscan "-DENABLE_HYPERSCAN=ON"
+  ++ lib.optional (!withLuaJIT) "-DENABLE_LUAJIT=OFF";
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/vstakhov/rspamd;
+  passthru.tests.rspamd = nixosTests.rspamd;
+
+  meta = with lib; {
+    homepage = "https://rspamd.com";
     license = licenses.asl20;
     description = "Advanced spam filtering system";
-    maintainers = with maintainers; [ avnik fpletz ];
+    maintainers = with maintainers; [ avnik fpletz globin ];
     platforms = with platforms; linux;
   };
 }

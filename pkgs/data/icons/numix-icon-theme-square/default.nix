@@ -1,35 +1,45 @@
-{ stdenv, fetchFromGitHub, gtk3, numix-icon-theme }:
+{ lib, stdenv, fetchFromGitHub, gtk3, numix-icon-theme, hicolor-icon-theme }:
 
 stdenv.mkDerivation rec {
-  name = "${package-name}-${version}";
-  package-name = "numix-icon-theme-square";
-  version = "18-02-16";
+  pname = "numix-icon-theme-square";
+  version = "21.04.14";
 
   src = fetchFromGitHub {
     owner = "numixproject";
-    repo = package-name;
+    repo = pname;
     rev = version;
-    sha256 = "1gjwc0s6a7q1jby5bcwxkcmbs470m81y8s0clsm0qhcmcn1c36xj";
+    sha256 = "0ndxjp173dwz78m41mn818mh4bdsxa2ypv4wrwicx0v4d8z90ddj";
   };
 
-  nativeBuildInputs = [ gtk3 numix-icon-theme ];
+  nativeBuildInputs = [ gtk3 ];
+
+  propagatedBuildInputs = [ numix-icon-theme hicolor-icon-theme ];
+
+  dontDropIconThemeCache = true;
 
   installPhase = ''
-    mkdir -p $out/share/icons
-    cp -a Numix-Square{,-Light} $out/share/icons/
-  '';
+    runHook preInstall
 
-  postFixup = ''
+    mkdir -p $out/share/icons
+    cp -a Numix-Square{,-Light} $out/share/icons
+
+    for panel in $out/share/icons/*/*/panel; do
+      ln -sf $(realpath ${numix-icon-theme}/share/icons/Numix/16/$(readlink $panel)) $panel
+    done
+
     for theme in $out/share/icons/*; do
       gtk-update-icon-cache $theme
     done
+
+    runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Numix icon theme (square version)";
-    homepage = https://numixproject.org;
-    license = licenses.gpl3;
-    platforms = platforms.linux; # Maybe other non-darwin Unix
+    homepage = "https://numixproject.github.io";
+    license = licenses.gpl3Only;
+    # darwin cannot deal with file names differing only in case
+    platforms = platforms.linux;
     maintainers = with maintainers; [ romildo ];
   };
 }

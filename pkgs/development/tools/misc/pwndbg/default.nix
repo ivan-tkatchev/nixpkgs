@@ -1,18 +1,12 @@
-{ stdenv, fetchFromGitHub, pythonPackages, makeWrapper, gdb }:
+{ lib, stdenv
+, python3
+, fetchFromGitHub
+, makeWrapper
+, gdb
+}:
 
-stdenv.mkDerivation rec {
-  name = "pwndbg-2018-04-06";
-
-  src = fetchFromGitHub {
-    owner = "pwndbg";
-    repo = "pwndbg";
-    rev = "e225ba9f647ab8f7f4871075529c0ec239f43300";
-    sha256 = "1s6m93qi3baclgqqii4fnmzjmg0c6ipkscg7xiljaj5z4bs371j4";
-  };
-
-  nativeBuildInputs = [ makeWrapper ];
-
-  propagatedBuildInputs = with pythonPackages; [
+let
+  pythonPath = with python3.pkgs; makePythonPath [
     future
     isort
     psutil
@@ -23,26 +17,36 @@ stdenv.mkDerivation rec {
     six
     unicorn
     pygments
-    enum34
   ];
+
+in stdenv.mkDerivation rec {
+  pname = "pwndbg";
+  version = "2020.07.23";
+  format = "other";
+
+  src = fetchFromGitHub {
+    owner = "pwndbg";
+    repo = "pwndbg";
+    rev = version;
+    sha256 = "0w1dmjy8ii12367wza8c35a9q9x204fppf6x328q75bhb3gd845c";
+  };
+
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
     mkdir -p $out/share/pwndbg
     cp -r *.py pwndbg $out/share/pwndbg
+    chmod +x $out/share/pwndbg/gdbinit.py
     makeWrapper ${gdb}/bin/gdb $out/bin/pwndbg \
-      --add-flags "-q -x $out/share/pwndbg/gdbinit.py"
+      --add-flags "-q -x $out/share/pwndbg/gdbinit.py" \
+      --set NIX_PYTHONPATH ${pythonPath}
   '';
 
-  preFixup = ''
-    sed -i "/import sys/a import sys; sys.path[0:0] = '$PYTHONPATH'.split(':')" \
-      $out/share/pwndbg/gdbinit.py
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Exploit Development and Reverse Engineering with GDB Made Easy";
-    homepage = http://pwndbg.com;
+    homepage = "https://github.com/pwndbg/pwndbg";
     license = licenses.mit;
-    platforms = platforms.linux;
+    platforms = platforms.all;
     maintainers = with maintainers; [ mic92 ];
   };
 }

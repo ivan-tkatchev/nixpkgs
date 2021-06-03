@@ -1,74 +1,51 @@
-{ stdenv, fetchurl, ruby, bundler, libiconv, libxslt, libxml2, pkgconfig, libffi, glibc, imagemagickBig, postgresql }:
+{ lib, stdenv, fetchurl, bundlerEnv, ruby, makeWrapper }:
 
 let
-  gemspec = map (gem: fetchurl { url=gem.url; sha256=gem.hash; }) (import ./Gemfile.nix);
-in stdenv.mkDerivation rec {
-  version = "2.5.2";
-  name = "redmine-${version}";
+  version = "4.2.1";
+  rubyEnv = bundlerEnv {
+    name = "redmine-env-${version}";
 
-  src = fetchurl {
-    url = "https://www.redmine.org/releases/${name}.tar.gz";
-    sha256 = "0x0zwxyj4dwbk7l64s3lgny10mjf0ba8jwrbafsm4d72sncmacv0";
+    inherit ruby;
+    gemdir = ./.;
+    groups = [ "development" "ldap" "markdown" "minimagick" "openid" "test" ];
   };
+in
+  stdenv.mkDerivation rec {
+    pname = "redmine";
+    inherit version;
 
-  hardeningDisable = [ "format" ];
+    src = fetchurl {
+      url = "https://www.redmine.org/releases/${pname}-${version}.tar.gz";
+      sha256 = "1d217fhyvncpwahwlinr3vc20vn7jijaxxk1i56gw72z8b1hjhdd";
+    };
 
-  # taken from redmine (2.5.1-2~bpo70+3) in debian wheezy-backports
-  # needed to separate run-time and build-time directories
-  patches = [
-    ./2002_FHS_through_env_vars.patch
-    ./2004_FHS_plugins_assets.patch
-    ./2003_externalize_session_config.patch
-  ];
+    nativeBuildInputs = [ makeWrapper ];
+    buildInputs = [ rubyEnv rubyEnv.wrappedRuby rubyEnv.bundler ];
 
-  postPatch = ''
-    substituteInPlace lib/redmine/plugin.rb --replace "File.join(Rails.root, 'plugins')" "ENV['RAILS_PLUGINS']"
-    substituteInPlace lib/redmine/plugin.rb --replace "File.join(Rails.root, 'plugins', id.to_s, 'db', 'migrate')" "File.join(ENV['RAILS_PLUGINS'], id.to_s, 'db', 'migrate')"
-    substituteInPlace config/routes.rb --replace '"plugins/*", Rails.root' 'ENV["RAILS_PLUGINS"] + "/*"'
-  '';
+    # taken from https://www.redmine.org/issues/33784
+    # can be dropped when the upstream bug is closed and the fix is present in the upstream release
+    patches = [ ./0001-python3.patch ];
 
-  buildInputs = [
-    ruby bundler libiconv
-    libxslt libxml2 pkgconfig libffi
-    imagemagickBig postgresql
-  ];
+    buildPhase = ''
+      mv config config.dist
+      mv public/themes public/themes.dist
+    '';
 
-  installPhase = ''
-    mkdir -p $out/share/redmine/
-    cp -R . $out/share/redmine/
-    cd $out/share/redmine
-    ln -s ${./Gemfile.lock} Gemfile.lock
-    export HOME=$(pwd)
+    installPhase = ''
+      mkdir -p $out/bin $out/share
+      cp -r . $out/share/redmine
+      for i in config files log plugins public/plugin_assets public/themes tmp; do
+        rm -rf $out/share/redmine/$i
+        ln -fs /run/redmine/$i $out/share/redmine/$i
+      done
 
-    cat > config/database.yml <<EOF
-      production:
-        adapter: postgresql
-    EOF
+      makeWrapper ${rubyEnv.wrappedRuby}/bin/ruby $out/bin/rdm-mailhandler.rb --add-flags $out/share/redmine/extra/mail_handler/rdm-mailhandler.rb
+    '';
 
-    mkdir -p vendor/cache
-    ${stdenv.lib.concatStrings (map (gem: "ln -s ${gem} vendor/cache/${gem.name};") gemspec)}
-
-    bundle config build.nokogiri --use-system-libraries --with-iconv-dir="${libiconv}" --with-xslt-dir="${libxslt.dev}" --with-xml2-dir="${libxml2.dev}"
-
-    bundle install --verbose --local --deployment
-
-    # make sure we always load pg package
-    echo "gem \"pg\"" >> Gemfile
-
-    # make rails server happy
-    mkdir -p tmp/pids
-
-    # cleanup
-    rm config/database.yml
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = http://www.redmine.org/;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.garbas ];
-    license = licenses.gpl2;
-    # Marked as broken due to needing an update for security issues.
-    # See: https://github.com/NixOS/nixpkgs/issues/18856
-    broken = true;
-  };
-}
+    meta = with lib; {
+      homepage = "https://www.redmine.org/";
+      platforms = platforms.linux;
+      maintainers = [ maintainers.aanderse ];
+      license = licenses.gpl2;
+    };
+  }

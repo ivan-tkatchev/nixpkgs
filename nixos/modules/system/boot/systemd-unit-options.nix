@@ -6,7 +6,7 @@ with import ./systemd-lib.nix { inherit config lib pkgs; };
 let
   checkService = checkUnitConfig "Service" [
     (assertValueOneOf "Type" [
-      "simple" "forking" "oneshot" "dbus" "notify" "idle"
+      "exec" "simple" "forking" "oneshot" "dbus" "notify" "idle"
     ])
     (assertValueOneOf "Restart" [
       "no" "on-success" "on-failure" "on-abnormal" "on-abort" "always"
@@ -24,7 +24,7 @@ in rec {
       in
         if isList (head defs'')
         then concatLists defs''
-        else mergeOneOption loc defs';
+        else mergeEqualOption loc defs';
   };
 
   sharedOptions = {
@@ -210,6 +210,24 @@ in rec {
       '';
     };
 
+    startLimitBurst = mkOption {
+       type = types.int;
+       description = ''
+         Configure unit start rate limiting. Units which are started
+         more than startLimitBurst times within an interval time
+         interval are not permitted to start any more.
+       '';
+    };
+
+    startLimitIntervalSec = mkOption {
+       type = types.int;
+       description = ''
+         Configure unit start rate limiting. Units which are started
+         more than startLimitBurst times within an interval time
+         interval are not permitted to start any more.
+       '';
+    };
+
   };
 
 
@@ -217,14 +235,14 @@ in rec {
 
     environment = mkOption {
       default = {};
-      type = with types; attrsOf (nullOr (either str (either path package)));
+      type = with types; attrsOf (nullOr (oneOf [ str path package ]));
       example = { PATH = "/foo/bar/bin"; LANG = "nl_NL.UTF-8"; };
       description = "Environment variables passed to the service's processes.";
     };
 
     path = mkOption {
       default = [];
-      apply = ps: "${makeBinPath ps}:${makeSearchPathOutput "bin" "sbin" ps}";
+      type = with types; listOf (oneOf [ package str ]);
       description = ''
         Packages added to the service's <envar>PATH</envar>
         environment variable.  Both the <filename>bin</filename>
@@ -236,8 +254,7 @@ in rec {
     serviceConfig = mkOption {
       default = {};
       example =
-        { StartLimitInterval = 10;
-          RestartSec = 5;
+        { RestartSec = 5;
         };
       type = types.addCheck (types.attrsOf unitOption) checkService;
       description = ''
@@ -369,6 +386,16 @@ in rec {
       '';
     };
 
+    listenDatagrams = mkOption {
+      default = [];
+      type = types.listOf types.str;
+      example = [ "0.0.0.0:993" "/run/my-socket" ];
+      description = ''
+        For each item in this list, a <literal>ListenDatagram</literal>
+        option in the <literal>[Socket]</literal> section will be created.
+      '';
+    };
+
     socketConfig = mkOption {
       default = {};
       example = { ListenStream = "/run/my-socket"; };
@@ -394,7 +421,7 @@ in rec {
         Each attribute in this set specifies an option in the
         <literal>[Timer]</literal> section of the unit.  See
         <citerefentry><refentrytitle>systemd.timer</refentrytitle>
-        <manvolnum>7</manvolnum></citerefentry> and
+        <manvolnum>5</manvolnum></citerefentry> and
         <citerefentry><refentrytitle>systemd.time</refentrytitle>
         <manvolnum>7</manvolnum></citerefentry> for details.
       '';

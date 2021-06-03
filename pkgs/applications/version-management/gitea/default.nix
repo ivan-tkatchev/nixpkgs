@@ -1,22 +1,39 @@
-{ stdenv, buildGoPackage, fetchFromGitHub, makeWrapper
-, git, coreutils, bash, gzip, openssh
+{ lib
+, buildGoPackage
+, fetchurl
+, makeWrapper
+, git
+, bash
+, gzip
+, openssh
+, pam
 , sqliteSupport ? true
+, pamSupport ? true
+, nixosTests
 }:
 
-with stdenv.lib;
+with lib;
 
 buildGoPackage rec {
-  name = "gitea-${version}";
-  version = "1.4.2";
+  pname = "gitea";
+  version = "1.14.2";
 
-  src = fetchFromGitHub {
-    owner = "go-gitea";
-    repo = "gitea";
-    rev = "v${version}";
-    sha256 = "15iqvfvijg46444pybi7vg7xhl2x0pr5p1416qlc2nakkn3drpi1";
+  # not fetching directly from the git repo, because that lacks several vendor files for the web UI
+  src = fetchurl {
+    url = "https://github.com/go-gitea/gitea/releases/download/v${version}/gitea-src-${version}.tar.gz";
+    sha256 = "sha256-0EvKk0/ro1YAqvc5yCt8vn2LkRoIbXrFTwcQtomoWsM=";
   };
 
-  patches = [ ./static-root-path.patch ];
+  unpackPhase = ''
+    mkdir source/
+    tar xvf $src -C source/
+  '';
+
+  sourceRoot = "source";
+
+  patches = [
+    ./static-root-path.patch
+  ];
 
   postPatch = ''
     patchShebangs .
@@ -25,26 +42,41 @@ buildGoPackage rec {
 
   nativeBuildInputs = [ makeWrapper ];
 
-  buildFlags = optionalString sqliteSupport "-tags sqlite";
+  buildInputs = optional pamSupport pam;
 
-  outputs = [ "bin" "out" "data" ];
+  preBuild =
+    let
+      tags = optional pamSupport "pam"
+        ++ optional sqliteSupport "sqlite sqlite_unlock_notify";
+      tagsString = concatStringsSep " " tags;
+    in
+    ''
+      export buildFlagsArray=(
+        -tags="${tagsString}"
+        -ldflags='-X "main.Version=${version}" -X "main.Tags=${tagsString}"'
+      )
+    '';
+
+  outputs = [ "out" "data" ];
 
   postInstall = ''
     mkdir $data
-    cp -R $src/{public,templates} $data
+    cp -R ./go/src/${goPackagePath}/{public,templates,options} $data
     mkdir -p $out
-    cp -R $src/options/locale $out/locale
+    cp -R ./go/src/${goPackagePath}/options/locale $out/locale
 
-    wrapProgram $bin/bin/gitea \
+    wrapProgram $out/bin/gitea \
       --prefix PATH : ${makeBinPath [ bash git gzip openssh ]}
   '';
 
   goPackagePath = "code.gitea.io/gitea";
 
+  passthru.tests.gitea = nixosTests.gitea;
+
   meta = {
     description = "Git with a cup of tea";
-    homepage = https://gitea.io;
+    homepage = "https://gitea.io";
     license = licenses.mit;
-    maintainers = [ maintainers.disassembler ];
+    maintainers = with maintainers; [ disassembler kolaente ma27 ];
   };
 }

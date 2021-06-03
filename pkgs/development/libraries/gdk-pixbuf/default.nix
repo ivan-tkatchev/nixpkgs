@@ -1,68 +1,71 @@
-{ stdenv, fetchurl, fetchgit, fetchpatch, fixDarwinDylibNames, meson, ninja, pkgconfig, gettext, python3, libxml2, libxslt, docbook_xsl
-, docbook_xml_dtd_43, gtk-doc, glib, libtiff, libjpeg, libpng, libX11, gnome3
-, jasper, gobjectIntrospection, doCheck ? false, makeWrapper }:
+{ stdenv
+, fetchurl
+, nixosTests
+, fixDarwinDylibNames
+, meson
+, ninja
+, pkg-config
+, gettext
+, python3
+, libxslt
+, docbook-xsl-nons
+, docbook_xml_dtd_43
+, gi-docgen
+, glib
+, libtiff
+, libjpeg
+, libpng
+, gnome
+, gobject-introspection
+, doCheck ? false
+, makeWrapper
+, lib
+}:
 
-let
-  pname = "gdk-pixbuf";
-  version = "2.36.12";
-in
 stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
+  pname = "gdk-pixbuf";
+  version = "2.42.6";
 
-  # TODO: Change back once tests/bug753605-atsize.jpg is part of the dist tarball
-  # src = fetchurl {
-  #   url = "mirror://gnome/sources/${pname}/${gnome3.versionBranch version}/${name}.tar.xz";
-  #   sha256 = "0d534ysa6n9prd17wwzisq7mj6qkhwh8wcf8qgin1ar3hbs5ry7z";
-  # };
-  src = fetchgit {
-    url = https://gitlab.gnome.org/GNOME/gdk-pixbuf.git;
-    rev = version;
-    sha256 = "18lwqg63vyap2m1mw049rnb8fm869429xbf7636a2n21gs3d3jwv";
+  outputs = [ "out" "dev" "man" "devdoc" "installedTests" ];
+
+  src = fetchurl {
+    url = "mirror://gnome/sources/${pname}/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "0zz7pmw2z46g7mr1yjxbsdldd5pd03xbjc58inj8rxfqgrdvg9n4";
   };
 
   patches = [
-    # TODO: since 2.36.8 gdk-pixbuf gets configured to use mime-type sniffing,
-    # which requires access to shared-mime-info files during runtime.
-    # For now, we are patching the build script to avoid the dependency.
-    ./no-mime-sniffing.patch
-
-    # Fix installed tests with meson
-    # https://bugzilla.gnome.org/show_bug.cgi?id=795527
-    (fetchurl {
-      url = https://bugzilla.gnome.org/attachment.cgi?id=371381;
-      sha256 = "0nl1cixkjfa5kcfh0laz8h6hdsrpdkxqn7a1k35jrb6zwc9hbydn";
-    })
-
-    # Add missing test file bug753605-atsize.jpg
-    (fetchpatch {
-      url = https://gitlab.gnome.org/GNOME/gdk-pixbuf/commit/87f8f4bf01dfb9982c1ef991e4060a5e19fdb7a7.patch;
-      sha256 = "1slzywwnrzfx3zjzdsxrvp4g2q4skmv50pdfmyccp41j7bfyb2j0";
-    })
-
     # Move installed tests to a separate output
     ./installed-tests-path.patch
   ];
 
-  outputs = [ "out" "dev" "man" "devdoc" "installedTests" ];
-
-  setupHook = ./setup-hook.sh;
-
-  # !!! We might want to factor out the gdk-pixbuf-xlib subpackage.
-  buildInputs = [ libX11 ];
-
   nativeBuildInputs = [
-    meson ninja pkgconfig gettext python3 libxml2 libxslt docbook_xsl docbook_xml_dtd_43
-    gtk-doc gobjectIntrospection makeWrapper
-  ]
-    ++ stdenv.lib.optional stdenv.isDarwin fixDarwinDylibNames;
+    meson
+    ninja
+    pkg-config
+    gettext
+    python3
+    gobject-introspection
+    makeWrapper
+    glib
+    gi-docgen
 
-  propagatedBuildInputs = [ glib libtiff libjpeg libpng jasper ];
+    # for man pages
+    libxslt
+    docbook-xsl-nons
+    docbook_xml_dtd_43
+  ] ++ lib.optional stdenv.isDarwin fixDarwinDylibNames;
+
+  propagatedBuildInputs = [
+    glib
+    libtiff
+    libjpeg
+    libpng
+  ];
 
   mesonFlags = [
-    "-Ddocs=true"
-    "-Djasper=true"
-    "-Dx11=true"
-    "-Dgir=${if gobjectIntrospection != null then "true" else "false"}"
+    "-Dgtk_doc=true"
+    "-Dintrospection=${if gobject-introspection != null then "enabled" else "disabled"}"
+    "-Dgio_sniffing=false"
   ];
 
   postPatch = ''
@@ -72,26 +75,33 @@ stdenv.mkDerivation rec {
     substituteInPlace tests/meson.build --subst-var-by installedtestsprefix "$installedTests"
   '';
 
+  preInstall = ''
+    PATH=$PATH:$out/bin # for install script
+  '';
+
   postInstall =
-    # meson erroneously installs loaders with .dylib extension on Darwin.
-    # Their @rpath has to be replaced before gdk-pixbuf-query-loaders looks at them.
-    stdenv.lib.optionalString stdenv.isDarwin ''
+    ''
+      # All except one utility seem to be only useful during building.
+      moveToOutput "bin" "$dev"
+      moveToOutput "bin/gdk-pixbuf-thumbnailer" "$out"
+
+      # So that devhelp can find this.
+      mkdir -p "$devdoc/share/devhelp"
+      mv "$out/share/doc" "$devdoc/share/devhelp/books"
+    '' + lib.optionalString stdenv.isDarwin ''
+      # meson erroneously installs loaders with .dylib extension on Darwin.
+      # Their @rpath has to be replaced before gdk-pixbuf-query-loaders looks at them.
       for f in $out/${passthru.moduleDir}/*.dylib; do
           install_name_tool -change @rpath/libgdk_pixbuf-2.0.0.dylib $out/lib/libgdk_pixbuf-2.0.0.dylib $f
           mv $f ''${f%.dylib}.so
       done
-    ''
-    # All except one utility seem to be only useful during building.
-    + ''
-      moveToOutput "bin" "$dev"
-      moveToOutput "bin/gdk-pixbuf-thumbnailer" "$out"
-
+    '' + lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform) ''
       # We need to install 'loaders.cache' in lib/gdk-pixbuf-2.0/2.10.0/
       $dev/bin/gdk-pixbuf-query-loaders --update-cache
     '';
 
   # The fixDarwinDylibNames hook doesn't patch binaries.
-  preFixup = stdenv.lib.optionalString stdenv.isDarwin ''
+  preFixup = lib.optionalString stdenv.isDarwin ''
     for f in $out/bin/* $dev/bin/*; do
         install_name_tool -change @rpath/libgdk_pixbuf-2.0.0.dylib $out/lib/libgdk_pixbuf-2.0.0.dylib $f
     done
@@ -100,20 +110,29 @@ stdenv.mkDerivation rec {
   # The tests take an excessive amount of time (> 1.5 hours) and memory (> 6 GB).
   inherit doCheck;
 
+  setupHook = ./setup-hook.sh;
+
+  separateDebugInfo = stdenv.isLinux;
+
   passthru = {
-    updateScript = gnome3.updateScript {
+    updateScript = gnome.updateScript {
       packageName = pname;
-      attrPath = "gdk_pixbuf";
+      versionPolicy = "odd-unstable";
+    };
+
+    tests = {
+      installedTests = nixosTests.installed-tests.gdk-pixbuf;
     };
 
     # gdk_pixbuf_moduledir variable from gdk-pixbuf-2.0.pc
     moduleDir = "lib/gdk-pixbuf-2.0/2.10.0/loaders";
   };
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A library for image loading and manipulation";
-    homepage = http://library.gnome.org/devel/gdk-pixbuf/;
-    maintainers = [ maintainers.eelco ];
+    homepage = "https://gitlab.gnome.org/GNOME/gdk-pixbuf";
+    maintainers = [ maintainers.eelco ] ++ teams.gnome.members;
+    license = licenses.lgpl21Plus;
     platforms = platforms.unix;
   };
 }

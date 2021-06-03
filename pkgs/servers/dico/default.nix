@@ -1,33 +1,28 @@
-{ fetchurl, stdenv, libtool, gettext, zlib, readline, gsasl
-, guile, python, pcre, libffi, groff }:
+{ fetchurl, lib, stdenv, libtool, gettext, zlib, readline, gsasl
+, guile, python2, pcre, libffi, groff }:
 
 stdenv.mkDerivation rec {
-  name = "dico-2.5";
+  pname = "dico";
+  version = "2.11";
 
   src = fetchurl {
-    url = "mirror://gnu/dico/${name}.tar.xz";
-    sha256 = "0szm3z4xvq0pjj8kxl4paq63byamf281kzn1la0cdm5ngavypxxq";
+    url = "mirror://gnu/${pname}/${pname}-${version}.tar.xz";
+    sha256 = "sha256-rB+Y4jPQ+srKrBBZ87gThKVZLib9TDCCrtAD9l4lLFo=";
   };
 
   hardeningDisable = [ "format" ];
 
-  # XXX: Add support for GNU SASL.
   buildInputs =
-    [ libtool gettext zlib readline gsasl guile python pcre libffi groff ];
+    [ libtool gettext zlib readline gsasl guile python2 pcre libffi groff ];
 
-  # dicod fails to load modules, so the tests fail
-  doCheck = false;
+  doCheck = true;
 
-  preBuild = ''
-    sed -i -e '/gets is a security/d' gnu/stdio.in.h
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Flexible dictionary server and client implementing RFC 2229";
-    homepage    = http://www.gnu.org/software/dico/;
+    homepage    = "https://www.gnu.org/software/dico/";
     license     = licenses.gpl3Plus;
     maintainers = with maintainers; [ lovek323 ];
-    platforms   = platforms.unix;
+    platforms   = platforms.linux;
 
     longDescription = ''
       GNU Dico is a flexible modular implementation of DICT server

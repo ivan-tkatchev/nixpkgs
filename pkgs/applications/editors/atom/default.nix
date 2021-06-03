@@ -1,33 +1,66 @@
-{ stdenv, pkgs, fetchurl, lib, makeWrapper, gvfs, atomEnv}:
+{ lib, stdenv, pkgs, fetchurl, wrapGAppsHook, glib, gtk3, atomEnv }:
 
 let
-  common = pname: {version, sha256}: stdenv.mkDerivation rec {
-    name = "${pname}-${version}";
-    inherit version;
+  versions = {
+    atom = {
+      version = "1.54.0";
+      sha256 = "sha256-21AURgomEjuiTzeJ4MIx0mkyVi0b0mVdmFsFGNLXRP4";
+    };
+
+    atom-beta = {
+      version = "1.55.0";
+      beta = 0;
+      sha256 = "sha256-PICkTt54cPkDJVnXBTtSHUQVbmosOpZfVAiD5A3/n+Q=";
+      broken = true;
+    };
+  };
+
+  common = pname: {version, sha256, beta ? null, broken ? false}:
+      let fullVersion = version + lib.optionalString (beta != null) "-beta${toString beta}";
+      name = "${pname}-${fullVersion}";
+  in stdenv.mkDerivation {
+    inherit name;
+    version = fullVersion;
 
     src = fetchurl {
-      url = "https://github.com/atom/atom/releases/download/v${version}/atom-amd64.deb";
+      url = "https://github.com/atom/atom/releases/download/v${fullVersion}/atom-amd64.deb";
       name = "${name}.deb";
       inherit sha256;
     };
 
-    nativeBuildInputs = [ makeWrapper ];
+    nativeBuildInputs = [
+      wrapGAppsHook  # Fix error: GLib-GIO-ERROR **: No GSettings schemas are installed on the system
+    ];
 
-    buildCommand = ''
-      mkdir -p $out/usr/
-      ar p $src data.tar.xz | tar -C $out -xJ ./usr
-      substituteInPlace $out/usr/share/applications/${pname}.desktop \
-        --replace /usr/share/${pname} $out/bin
-      mv $out/usr/* $out/
-      rm -r $out/share/lintian
-      rm -r $out/usr/
-      sed -i "s/${pname})/.${pname}-wrapped)/" $out/bin/${pname}
-      # sed -i "s/'${pname}'/'.${pname}-wrapped'/" $out/bin/${pname}
-      wrapProgram $out/bin/${pname} \
-        --prefix "PATH" : "${gvfs}/bin"
+    buildInputs = [
+      gtk3  # Fix error: GLib-GIO-ERROR **: Settings schema 'org.gtk.Settings.FileChooser' is not installed
+    ];
 
-      fixupPhase
+    dontBuild = true;
+    dontConfigure = true;
 
+    unpackPhase = ''
+      ar p $src data.tar.xz | tar xJ ./usr/
+    '';
+
+    installPhase = ''
+      runHook preInstall
+
+      mkdir -p $out
+      mv usr/bin usr/share $out
+      rm -rf $out/share/lintian
+
+      runHook postInstall
+    '';
+
+    preFixup = ''
+      gappsWrapperArgs+=(
+        # needed for gio executable to be able to delete files
+        --prefix "PATH" : "${glib.bin}/bin"
+      )
+    '';
+
+    postFixup = ''
       share=$out/share/${pname}
 
       patchelf --set-interpreter "$(cat $NIX_CC/nix-support/dynamic-linker)" \
@@ -47,26 +80,16 @@ let
 
       find $share -name "*.node" -exec patchelf --set-rpath "${atomEnv.libPath}:$share" {} \;
 
-      paxmark m $share/atom
-      paxmark m $share/resources/app/apm/bin/node
+      sed -i -e "s|Exec=.*$|Exec=$out/bin/${pname}|" $out/share/applications/${pname}.desktop
     '';
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = "A hackable text editor for the 21st Century";
-      homepage = https://atom.io/;
+      homepage = "https://atom.io/";
       license = licenses.mit;
-      maintainers = with maintainers; [ offline nequissimus synthetica ysndr ];
+      maintainers = with maintainers; [ offline ysndr ];
       platforms = platforms.x86_64;
+      inherit broken;
     };
   };
-in stdenv.lib.mapAttrs common {
-  atom = {
-    version = "1.28.1";
-    sha256 = "03phnbsc45i0r799ni9br7s4qjy05fczbca64jd0sr4jhzi7qmlx";
-  };
-
-  atom-beta = {
-    version = "1.29.0-beta1";
-    sha256 = "121y716pnq4vpjrymr505prskvi5a2lnn8hw79q8b4hf7yz0j6rb";
-  };
-}
+in lib.mapAttrs common versions

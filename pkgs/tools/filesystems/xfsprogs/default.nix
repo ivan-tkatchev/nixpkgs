@@ -1,46 +1,41 @@
-{ stdenv, fetchpatch, fetchgit, autoconf, automake, gettext, libtool, readline, utillinux }:
-
-let
-  gentooPatch = name: sha256: fetchpatch {
-    url = "https://gitweb.gentoo.org/repo/gentoo.git/plain/sys-fs/xfsprogs/files/${name}?id=f4055adc94e11d182033a71e32f97b357c034aff";
-    inherit sha256;
-  };
-in
+{ lib, stdenv, buildPackages, fetchpatch, fetchurl, autoconf, automake, gettext, libtool, pkg-config
+, icu, libuuid, readline, inih
+}:
 
 stdenv.mkDerivation rec {
-  name = "xfsprogs-${version}";
-  version = "4.14.0";
+  pname = "xfsprogs";
+  version = "5.11.0";
 
-  src = fetchgit {
-    url = "https://git.kernel.org/pub/scm/fs/xfs/xfsprogs-dev.git";
-    rev = "v${version}";
-    sha256 = "19mg3avm188xz215hqbbh7251q27qwm7g1xr8ffrjwvzmdq55rxj";
+  src = fetchurl {
+    url = "mirror://kernel/linux/utils/fs/xfs/xfsprogs/${pname}-${version}.tar.xz";
+    sha256 = "0lxks616nmdk8zkdbwpq5sf9zz19smgy5rpmp3hpk2mvrl7kk70f";
   };
 
   outputs = [ "bin" "dev" "out" "doc" ];
 
-  nativeBuildInputs = [ autoconf automake libtool gettext ];
-  propagatedBuildInputs = [ utillinux ]; # Dev headers include <uuid/uuid.h>
-  buildInputs = [ readline ];
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
+  nativeBuildInputs = [
+    autoconf automake libtool gettext pkg-config
+    libuuid # codegen tool uses libuuid
+  ];
+  buildInputs = [ readline icu inih ];
+  propagatedBuildInputs = [ libuuid ]; # Dev headers include <uuid/uuid.h>
 
   enableParallelBuilding = true;
 
-  # Why is all this garbage needed? Why? Why?
-  patches = [
-    (gentooPatch "xfsprogs-4.12.0-sharedlibs.patch" "1i081749x91jvlrw84l4a3r081vqcvn6myqhnqbnfcfhd64h12bq")
-    (gentooPatch "xfsprogs-4.7.0-libxcmd-link.patch" "1lvy1ajzml39a631a7jqficnzsd40bzkca7hkxv1ybiqyp8sf55s")
-    (gentooPatch "xfsprogs-4.9.0-underlinking.patch" "1r7l8jphspy14i43zbfnjrnyrdm4cpgyfchblascxylmans0gci7")
-    ./glibc-2.27.patch
-  ];
-
+  # @sbindir@ is replaced with /run/current-system/sw/bin to fix dependency cycles
   preConfigure = ''
-    sed -i Makefile -e '/cp include.install-sh/d'
+    for file in scrub/{xfs_scrub_all.cron.in,xfs_scrub@.service.in,xfs_scrub_all.service.in}; do
+      substituteInPlace "$file" \
+        --replace '@sbindir@' '/run/current-system/sw/bin'
+    done
     make configure
+    patchShebangs ./install-sh
   '';
 
   configureFlags = [
     "--disable-lib64"
-    "--enable-readline"
+    "--with-systemd-unit-dir=${placeholder "out"}/lib/systemd/system"
   ];
 
   installFlags = [ "install-dev" ];
@@ -50,11 +45,11 @@ stdenv.mkDerivation rec {
     find . -type d -name .libs | xargs rm -rf
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://xfs.org/;
+  meta = with lib; {
+    homepage = "https://xfs.org/";
     description = "SGI XFS utilities";
-    license = licenses.lgpl21;
+    license = with licenses; [ gpl2Only lgpl21 gpl3Plus ];  # see https://git.kernel.org/pub/scm/fs/xfs/xfsprogs-dev.git/tree/debian/copyright
     platforms = platforms.linux;
-    maintainers = with maintainers; [ dezgeg ];
+    maintainers = with maintainers; [ dezgeg ajs124 ];
   };
 }

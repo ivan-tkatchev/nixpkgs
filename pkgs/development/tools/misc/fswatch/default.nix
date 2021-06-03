@@ -1,30 +1,33 @@
-{ stdenv
+{ lib, stdenv
 , fetchFromGitHub
 , autoreconfHook
-, findutils                     # for xargs
+                     # for xargs
 , gettext
 , libtool
 , makeWrapper
 , texinfo
+, CoreServices
 }:
 
 stdenv.mkDerivation rec {
-  name = "fswatch-${version}";
-  version = "1.12.0";
+  pname = "fswatch";
+  version = "1.15.0";
 
   src = fetchFromGitHub {
     owner = "emcrisostomo";
     repo = "fswatch";
     rev = version;
-    sha256 = "16f3g6s79gs1sp2ra3cka4c5mf5b557cx697bwcdfgj6r19ni5j7";
+    sha256 = "11479ac436g8bwk0lfnmdms0cirv9k11pdvfrrg9jwkki1j1abkk";
   };
 
-  nativeBuildInputs = [ autoreconfHook ];
-  buildInputs = [ gettext libtool makeWrapper texinfo ];
+  nativeBuildInputs = [ autoreconfHook makeWrapper ] ++ lib.optionals stdenv.isDarwin [ CoreServices ];
+  buildInputs = [ gettext libtool texinfo ];
 
-  meta = with stdenv.lib; {
+  enableParallelBuilding = true;
+
+  meta = with lib; {
     description = "A cross-platform file change monitor with multiple backends";
-    homepage = https://github.com/emcrisostomo/fswatch;
+    homepage = "https://github.com/emcrisostomo/fswatch";
     license = licenses.gpl3Plus;
     platforms = platforms.all;
     maintainers = with maintainers; [ pSub ];

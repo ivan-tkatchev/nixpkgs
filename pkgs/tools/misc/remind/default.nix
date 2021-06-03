@@ -1,38 +1,51 @@
-{stdenv, fetchurl, tk, tcllib, makeWrapper
+{ lib
+, stdenv
+, fetchurl
+, tk
+, tcllib
+, makeWrapper
 , tkremind ? true
-} :
+}:
 
-assert tkremind -> tk != null;
-assert tkremind -> tcllib != null;
-assert tkremind -> makeWrapper != null;
-
+let
+  inherit (lib) optional optionalString;
+  tclLibraries = lib.optionals tkremind [ tcllib tk ];
+  tclLibPaths = lib.concatStringsSep " "
+    (map (p: "${p}/lib/${p.libPrefix}") tclLibraries);
+  tkremindPatch = optionalString tkremind ''
+    substituteInPlace scripts/tkremind --replace "exec wish" "exec ${tk}/bin/wish"
+  '';
+in
 stdenv.mkDerivation rec {
-  name = "remind-3.1.15";
+  pname = "remind";
+  version = "03.03.06";
+
   src = fetchurl {
-    url = https://www.roaringpenguin.com/files/download/remind-03.01.15.tar.gz;
-    sha256 = "1hcfcxz5fjzl7606prlb7dgls5kr8z3wb51h48s6qm8ang0b9nla";
+    url = "https://dianne.skoll.ca/projects/remind/download/remind-${version}.tar.gz";
+    sha256 = "sha256-lpoMAXDJxwODY0/aoo25GRBYWFhE4uf11pR5/ITZX1s=";
   };
 
-  tclLibraries = if tkremind then [ tcllib tk ] else [];
-  tclLibPaths = stdenv.lib.concatStringsSep " "
-    (map (p: "${p}/lib/${p.libPrefix}") tclLibraries);
-
-  buildInputs = if tkremind then [ makeWrapper ] else [];
+  nativeBuildInputs = optional tkremind makeWrapper;
   propagatedBuildInputs = tclLibraries;
 
-  postPatch = if tkremind then ''
-    substituteInPlace scripts/tkremind --replace "exec wish" "exec ${tk}/bin/wish"
-  '' else "";
+  postPatch = ''
+    substituteInPlace ./configure \
+      --replace "sleep 1" "true"
+    substituteInPlace ./src/init.c \
+      --replace "rkrphgvba(0);" "" \
+      --replace "rkrphgvba(1);" ""
+    ${tkremindPatch}
+  '';
 
-  postInstall = if tkremind then ''
+  postInstall = optionalString tkremind ''
     wrapProgram $out/bin/tkremind --set TCLLIBPATH "${tclLibPaths}"
-  '' else "";
+  '';
 
-  meta = {
-    homepage = http://www.roaringpenguin.com/products/remind;
+  meta = with lib; {
+    homepage = "https://dianne.skoll.ca/projects/remind/";
     description = "Sophisticated calendar and alarm program for the console";
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = with stdenv.lib.maintainers; [viric raskin kovirobi];
-    platforms = with stdenv.lib.platforms; linux;
+    license = licenses.gpl2Only;
+    maintainers = with maintainers; [ raskin kovirobi ];
+    platforms = platforms.unix;
   };
 }

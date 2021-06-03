@@ -1,9 +1,9 @@
-{ stdenv, requireFile, zlib, libpng, libSM, libICE, fontconfig, xorg, libGLU, libGL, alsaLib, dbus, xkeyboardconfig, bc }:
+{ lib, stdenv, requireFile, zlib, libpng, libSM, libICE, fontconfig, xorg, libGLU, libGL, alsaLib, dbus, xkeyboardconfig, bc, addOpenGLRunpath }:
 
 let
   ld_library_path = builtins.concatStringsSep ":" [
     "${stdenv.cc.cc.lib}/lib64"
-    (stdenv.lib.makeLibraryPath [
+    (lib.makeLibraryPath [
       libGLU
       libGL
       xorg.libXmu
@@ -24,20 +24,21 @@ let
       zlib
       libpng
       dbus
+      addOpenGLRunpath.driverLink
     ])
   ];
   license_dir = "~/.config/houdini";
 in
 stdenv.mkDerivation rec {
-  version = "16.5.439";
-  name = "houdini-runtime-${version}";
+  version = "17.5.327";
+  pname = "houdini-runtime";
   src = requireFile rec {
-    name = "houdini-${version}-linux_x86_64_gcc4.8.tar.gz";
-    sha256 = "7e483072a0e6e751a93f2a2f968cccb2d95559c61106ffeb344c95975704321b";
+    name = "houdini-${version}-linux_x86_64_gcc6.3.tar.gz";
+    sha256 = "1byigmhmby8lgi2vmgxy9jlrrqk7jyr507zqkihq5bv8kfsanv1x";
     message = ''
       This nix expression requires that ${name} is already part of the store.
-      Download it from https://sidefx.com and add it to the nix store with:
-        
+      Download it from https://www.sidefx.com and add it to the nix store with:
+
           nix-prefetch-url <URL>
 
       This can't be done automatically because you need to create an account on
@@ -77,10 +78,11 @@ stdenv.mkDerivation rec {
   '';
   meta = {
     description = "3D animation application software";
-    homepage = https://sidefx.com;
-    license = stdenv.lib.licenses.unfree;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.canndrew ];
+    homepage = "https://www.sidefx.com";
+    license = lib.licenses.unfree;
+    platforms = lib.platforms.linux;
+    hydraPlatforms = [ ]; # requireFile src's should be excluded
+    maintainers = [ lib.maintainers.canndrew ];
   };
 }
 

@@ -1,65 +1,99 @@
 { lib
-, localSystem, crossSystem, config, overlays
-
-# Allow passing in bootstrap files directly so we can test the stdenv bootstrap process when changing the bootstrap tools
-, bootstrapFiles ? let
-  fetch = { file, sha256, executable ? true }: import <nix/fetchurl.nix> {
-    url = "http://tarballs.nixos.org/stdenv-darwin/x86_64/d5bdfcbfe6346761a332918a267e82799ec954d2/${file}";
-    inherit (localSystem) system;
-    inherit sha256 executable;
-  }; in {
-    sh      = fetch { file = "sh";    sha256 = "07wm33f1yzfpcd3rh42f8g096k4cvv7g65p968j28agzmm2s7s8m"; };
-    bzip2   = fetch { file = "bzip2"; sha256 = "0y9ri2aprkrp2dkzm6229l0mw4rxr2jy7vvh3d8mxv2698v2kdbm"; };
-    mkdir   = fetch { file = "mkdir"; sha256 = "0sb07xpy66ws6f2jfnpjibyimzb71al8n8c6y4nr8h50al3g90nr"; };
-    cpio    = fetch { file = "cpio";  sha256 = "0r5c54hg678w7zydx27bzl9p3v9fs25y5ix6vdfi1ilqim7xh65n"; };
-    tarball = fetch { file = "bootstrap-tools.cpio.bz2"; sha256 = "18hp5w6klr8g307ap4368r255qpzg9r0vwg9vqvj8f2zy1xilcjf"; executable = false; };
-  }
+, localSystem
+, crossSystem
+, config
+, overlays
+, crossOverlays ? [ ]
+  # Allow passing in bootstrap files directly so we can test the stdenv bootstrap process when changing the bootstrap tools
+, bootstrapFiles ? if localSystem.isAarch64 then
+    let
+      fetch = { file, sha256, executable ? true }: import <nix/fetchurl.nix> {
+        url = "http://tarballs.nixos.org/stdenv-darwin/aarch64/20acd4c4f14040485f40e55c0a76c186aa8ca4f3/${file}";
+        inherit (localSystem) system;
+        inherit sha256 executable;
+      }; in
+    {
+      sh = fetch { file = "sh"; sha256 = "17m3xrlbl99j3vm7rzz3ghb47094dyddrbvs2a6jalczvmx7spnj"; };
+      bzip2 = fetch { file = "bzip2"; sha256 = "1khs8s5klf76plhlvlc1ma838r8pc1qigk9f5bdycwgbn0nx240q"; };
+      mkdir = fetch { file = "mkdir"; sha256 = "1m9nk90paazl93v43myv2ay68c1arz39pqr7lk5ddbgb177hgg8a"; };
+      cpio = fetch { file = "cpio"; sha256 = "17pxq61yjjvyd738fy9f392hc9cfzkl612sdr9rxr3v0dgvm8y09"; };
+      tarball = fetch { file = "bootstrap-tools.cpio.bz2"; sha256 = "1v2332k33akm6mrm4bj749rxnnmc2pkbgcslmd0bbkf76bz2ildy"; executable = false; };
+    }
+  else
+    let
+      fetch = { file, sha256, executable ? true }: import <nix/fetchurl.nix> {
+        url = "http://tarballs.nixos.org/stdenv-darwin/x86_64/5ab5783e4f46c373c6de84deac9ad59b608bb2e6/${file}";
+        inherit (localSystem) system;
+        inherit sha256 executable;
+      }; in
+    {
+      sh = fetch { file = "sh"; sha256 = "sha256-nbb4XEk3go7ttiWrQyKQMLzPr+qUnwnHkWMtVCZsMCs="; };
+      bzip2 = fetch { file = "bzip2"; sha256 = "sha256-ybnA+JWrKhXSfn20+GVKXkHFTp2Zt79hat8hAVmsUOc="; };
+      mkdir = fetch { file = "mkdir"; sha256 = "sha256-nmvMxmfcY41/60Z/E8L9u0vgePW5l30Dqw1z+Nr02Hk="; };
+      cpio = fetch { file = "cpio"; sha256 = "sha256-cB36rN3NLj19Tk37Kc5bodMFMO+mCpEQkKKo0AEMkaU="; };
+      tarball = fetch { file = "bootstrap-tools.cpio.bz2"; sha256 = "sha256-kh2vKmjCr/HvR06czZbxUxV5KDRxSF27M6nN3cyofRI="; executable = false; };
+    }
 }:
 
-assert crossSystem == null;
+assert crossSystem == localSystem;
 
 let
-  inherit (localSystem) system platform;
+  inherit (localSystem) system;
+
+  # Bootstrap version needs to be known to reference headers included in the bootstrap tools
+  bootstrapLlvmVersion = if localSystem.isAarch64 then "11.1.0" else "7.1.0";
+
+  useAppleSDKLibs = localSystem.isAarch64;
+  haveKRB5 = localSystem.isx86_64;
+
+  # final toolchain is injected into llvmPackages_${finalLlvmVersion}
+  finalLlvmVersion = if localSystem.isAarch64 then "11" else "7";
+  finalLlvmPackages = "llvmPackages_${finalLlvmVersion}";
 
   commonImpureHostDeps = [
     "/bin/sh"
     "/usr/lib/libSystem.B.dylib"
     "/usr/lib/system/libunc.dylib" # This dependency is "hidden", so our scanning code doesn't pick it up
   ];
-in rec {
+
+in
+rec {
   commonPreHook = ''
-    export NIX_ENFORCE_PURITY="''${NIX_ENFORCE_PURITY-1}"
-    export NIX_ENFORCE_NO_NATIVE="''${NIX_ENFORCE_NO_NATIVE-1}"
+    export NIX_ENFORCE_NO_NATIVE=''${NIX_ENFORCE_NO_NATIVE-1}
+    export NIX_ENFORCE_PURITY=''${NIX_ENFORCE_PURITY-1}
     export NIX_IGNORE_LD_THROUGH_GCC=1
-    stripAllFlags=" " # the Darwin "strip" command doesn't know "-s"
-    export MACOSX_DEPLOYMENT_TARGET=10.10
-    export SDKROOT=
-    export CMAKE_OSX_ARCHITECTURES=x86_64
+    unset SDKROOT
+
     # Workaround for https://openradar.appspot.com/22671534 on 10.11.
     export gl_cv_func_getcwd_abort_bug=no
+
+    stripAllFlags=" " # the Darwin "strip" command doesn't know "-s"
   '';
 
-  bootstrapTools = derivation rec {
+  bootstrapTools = derivation ({
     inherit system;
 
-    name    = "bootstrap-tools";
+    name = "bootstrap-tools";
     builder = bootstrapFiles.sh; # Not a filename! Attribute 'sh' on bootstrapFiles
-    args    = [ ./unpack-bootstrap-tools.sh ];
+    args = if localSystem.isAarch64 then [ ./unpack-bootstrap-tools-aarch64.sh ] else [ ./unpack-bootstrap-tools.sh ];
 
     inherit (bootstrapFiles) mkdir bzip2 cpio tarball;
-    reexportedLibrariesFile =
-      ../../os-specific/darwin/apple-source-releases/Libsystem/reexported_libraries;
 
     __impureHostDeps = commonImpureHostDeps;
-  };
+  } // lib.optionalAttrs (config.contentAddressedByDefault or false) {
+    __contentAddressed = true;
+    outputHashAlgo = "sha256";
+    outputHashMode = "recursive";
+  });
 
-  stageFun = step: last: {shell             ? "${bootstrapTools}/bin/bash",
-                          overrides         ? (self: super: {}),
-                          extraPreHook      ? "",
-                          extraNativeBuildInputs,
-                          extraBuildInputs,
-                          libcxx,
-                          allowedRequisites ? null}:
+  stageFun = step: last: { shell ? "${bootstrapTools}/bin/bash"
+                         , overrides ? (self: super: { })
+                         , extraPreHook ? ""
+                         , extraNativeBuildInputs
+                         , extraBuildInputs
+                         , libcxx
+                         , allowedRequisites ? null
+                         }:
     let
       name = "bootstrap-stage${toString step}";
 
@@ -67,41 +101,75 @@ in rec {
         inherit (last) stdenv;
       };
 
-      coreutils = { name = "${name}-coreutils"; outPath = bootstrapTools; };
-      gnugrep   = { name = "${name}-gnugrep";   outPath = bootstrapTools; };
+      doSign = localSystem.isAarch64 && last != null;
+      doUpdateAutoTools = localSystem.isAarch64 && last != null;
 
-      bintools = import ../../build-support/bintools-wrapper {
-        inherit shell;
-        inherit (last) stdenvNoCC;
+      mkExtraBuildCommands = cc: ''
+        rsrc="$out/resource-root"
+        mkdir "$rsrc"
+        ln -s "${cc.lib or cc}/lib/clang/${cc.version}/include" "$rsrc"
+        ln -s "${last.pkgs."${finalLlvmPackages}".compiler-rt.out}/lib" "$rsrc/lib"
+        echo "-resource-dir=$rsrc" >> $out/nix-support/cc-cflags
+      '';
 
-        nativeTools  = false;
-        nativeLibc   = false;
-        inherit buildPackages coreutils gnugrep;
-        libc         = last.pkgs.darwin.Libsystem;
-        bintools     = { name = "${name}-binutils"; outPath = bootstrapTools; };
-      };
+      mkCC = overrides: import ../../build-support/cc-wrapper (
+        let args = {
+          inherit lib shell;
+          inherit (last) stdenvNoCC;
 
-      cc = if isNull last then "/dev/null" else import ../../build-support/cc-wrapper {
-        inherit shell;
-        inherit (last) stdenvNoCC;
+          nativeTools = false;
+          nativeLibc = false;
+          inherit buildPackages libcxx;
+          inherit (last.pkgs) coreutils gnugrep;
+          bintools = last.pkgs.darwin.binutils;
+          libc = last.pkgs.darwin.Libsystem;
+          isClang = true;
+          cc = last.pkgs."${finalLlvmPackages}".clang-unwrapped;
+        }; in args // (overrides args)
+      );
 
-        extraPackages = lib.optional (libcxx != null) libcxx;
+      cc = if last == null then "/dev/null" else
+      mkCC ({ cc, ... }: {
+        extraPackages = [
+          last.pkgs."${finalLlvmPackages}".libcxxabi
+          last.pkgs."${finalLlvmPackages}".compiler-rt
+        ];
+        extraBuildCommands = mkExtraBuildCommands cc;
+      });
 
-        nativeTools  = false;
-        propagateDoc = false;
-        nativeLibc   = false;
-        inherit buildPackages coreutils gnugrep bintools;
-        libc         = last.pkgs.darwin.Libsystem;
-        isClang      = true;
-        cc           = { name = "${name}-clang"; outPath = bootstrapTools; };
-      };
+      ccNoLibcxx = if last == null then "/dev/null" else
+      mkCC ({ cc, ... }: {
+        libcxx = null;
+        extraPackages = [
+          last.pkgs."${finalLlvmPackages}".compiler-rt
+        ];
+        extraBuildCommands = ''
+          echo "-rtlib=compiler-rt" >> $out/nix-support/cc-cflags
+          echo "-B${last.pkgs."${finalLlvmPackages}".compiler-rt}/lib" >> $out/nix-support/cc-cflags
+          echo "-nostdlib++" >> $out/nix-support/cc-cflags
+        '' + mkExtraBuildCommands cc;
+      });
 
       thisStdenv = import ../generic {
         name = "${name}-stdenv-darwin";
 
-        inherit config shell extraNativeBuildInputs extraBuildInputs;
+        inherit config shell extraBuildInputs;
+
+        extraNativeBuildInputs = extraNativeBuildInputs ++ lib.optionals doUpdateAutoTools [
+          last.pkgs.updateAutotoolsGnuConfigScriptsHook
+          last.pkgs.gnu-config
+        ];
+
         allowedRequisites = if allowedRequisites == null then null else allowedRequisites ++ [
-          cc.expand-response-params cc.bintools
+          cc.expand-response-params
+          cc.bintools
+        ] ++ lib.optionals doUpdateAutoTools [
+          last.pkgs.updateAutotoolsGnuConfigScriptsHook
+          last.pkgs.gnu-config
+        ] ++ lib.optionals doSign [
+          last.pkgs.darwin.postLinkSignHook
+          last.pkgs.darwin.sigtool
+          last.pkgs.darwin.signingUtils
         ];
 
         buildPlatform = localSystem;
@@ -118,7 +186,7 @@ in rec {
           ${commonPreHook}
           ${extraPreHook}
         '';
-        initialPath  = [ bootstrapTools ];
+        initialPath = [ bootstrapTools ];
 
         fetchurlBoot = import ../../build-support/fetchurl {
           inherit lib;
@@ -130,36 +198,164 @@ in rec {
         __stdenvImpureHostDeps = commonImpureHostDeps;
         __extraImpureHostDeps = commonImpureHostDeps;
 
-        extraAttrs = {
-          inherit platform;
-          parent = last;
-
-          # This is used all over the place so I figured I'd just leave it here for now
-          secure-format-patch = ./darwin-secure-format.patch;
+        overrides = self: super: (overrides self super) // {
+          inherit ccNoLibcxx;
+          fetchurl = thisStdenv.fetchurlBoot;
         };
-        overrides  = self: super: (overrides self super) // { fetchurl = thisStdenv.fetchurlBoot; };
       };
 
-    in {
+    in
+    {
       inherit config overlays;
       stdenv = thisStdenv;
     };
 
   stage0 = stageFun 0 null {
-    overrides = self: super: with stage0; rec {
-      darwin = super.darwin // {
+    overrides = self: super: with stage0; {
+      coreutils = stdenv.mkDerivation {
+        name = "bootstrap-stage0-coreutils";
+        buildCommand = ''
+          mkdir -p $out
+          ln -s ${bootstrapTools}/bin $out/bin
+        '';
+      };
+
+      gnugrep = stdenv.mkDerivation {
+        name = "bootstrap-stage0-gnugrep";
+        buildCommand = ''
+          mkdir -p $out
+          ln -s ${bootstrapTools}/bin $out/bin
+        '';
+      };
+
+      pbzx = stdenv.mkDerivation {
+        name = "bootstrap-stage0-pbzx";
+        phases = [ "installPhase" ];
+        installPhase = ''
+          mkdir -p $out/bin
+          ln -s ${bootstrapTools}/bin/pbzx $out/bin
+        '';
+      };
+
+      cpio = stdenv.mkDerivation {
+        name = "bootstrap-stage0-cpio";
+        phases = [ "installPhase" ];
+        installPhase = ''
+          mkdir -p $out/bin
+          ln -s ${bootstrapFiles.cpio} $out/bin/cpio
+        '';
+      };
+
+      darwin = super.darwin.overrideScope (selfDarwin: superDarwin: {
+        darwin-stubs = superDarwin.darwin-stubs.override { inherit (self) stdenvNoCC fetchurl; };
+
+        dyld = {
+          name = "bootstrap-stage0-dyld";
+          buildCommand = ''
+            mkdir -p $out
+            ln -s ${bootstrapTools}/lib     $out/lib
+            ln -s ${bootstrapTools}/include $out/include
+          '';
+        };
+
+        sigtool = stdenv.mkDerivation {
+          name = "bootstrap-stage0-sigtool";
+          phases = [ "installPhase" ];
+          installPhase = ''
+            mkdir -p $out/bin
+            ln -s ${bootstrapTools}/bin/sigtool $out/bin
+
+            # Rewrite nuked references
+            sed -e "s|[^( ]*\bsigtool\b|$out/bin/sigtool|g" \
+              ${bootstrapTools}/bin/codesign > $out/bin/codesign
+            chmod a+x $out/bin/codesign
+          '';
+        };
+
+        print-reexports = stdenv.mkDerivation {
+          name = "bootstrap-stage0-print-reexports";
+          phases = [ "installPhase" ];
+          installPhase = ''
+            mkdir -p $out/bin
+            ln -s ${bootstrapTools}/bin/print-reexports $out/bin
+          '';
+        };
+
+        rewrite-tbd = stdenv.mkDerivation {
+          name = "bootstrap-stage0-rewrite-tbd";
+          phases = [ "installPhase" ];
+          installPhase = ''
+            mkdir -p $out/bin
+            ln -s ${bootstrapTools}/bin/rewrite-tbd $out/bin
+          '';
+        };
+
+        binutils-unwrapped = { name = "bootstrap-stage0-binutils"; outPath = bootstrapTools; };
+
+        cctools = {
+          name = "bootstrap-stage0-cctools";
+          outPath = bootstrapTools;
+          targetPrefix = "";
+        };
+
+        binutils = lib.makeOverridable (import ../../build-support/bintools-wrapper) {
+          shell = "${bootstrapTools}/bin/bash";
+          inherit lib;
+          inherit (self) stdenvNoCC;
+
+          nativeTools = false;
+          nativeLibc = false;
+          inherit (self) buildPackages coreutils gnugrep;
+          libc = selfDarwin.Libsystem;
+          bintools = selfDarwin.binutils-unwrapped;
+          inherit (selfDarwin) postLinkSignHook signingUtils;
+        };
+      } // lib.optionalAttrs (! useAppleSDKLibs) {
+        CF = stdenv.mkDerivation {
+          name = "bootstrap-stage0-CF";
+          buildCommand = ''
+            mkdir -p $out/Library/Frameworks
+            ln -s ${bootstrapTools}/Library/Frameworks/CoreFoundation.framework $out/Library/Frameworks
+          '';
+        };
+
         Libsystem = stdenv.mkDerivation {
           name = "bootstrap-stage0-Libsystem";
           buildCommand = ''
             mkdir -p $out
-            ln -s ${bootstrapTools}/lib $out/lib
+
+            cp -r ${selfDarwin.darwin-stubs}/usr/lib $out/lib
+            chmod -R +w $out/lib
+            substituteInPlace $out/lib/libSystem.B.tbd --replace /usr/lib/system $out/lib/system
+
+            ln -s libSystem.B.tbd $out/lib/libSystem.tbd
+
+            for name in c dbm dl info m mx poll proc pthread rpcsvc util gcc_s.10.4 gcc_s.10.5; do
+              ln -s libSystem.tbd $out/lib/lib$name.tbd
+            done
+
+            ln -s ${bootstrapTools}/lib/*.o $out/lib
+
+            ln -s ${bootstrapTools}/lib/libresolv.9.dylib $out/lib
+            ln -s libresolv.9.dylib $out/lib/libresolv.dylib
+
             ln -s ${bootstrapTools}/include-Libsystem $out/include
           '';
         };
-        dyld = bootstrapTools;
-      };
+      });
 
-      llvmPackages_5 = {
+      "${finalLlvmPackages}" = {
+        clang-unwrapped = stdenv.mkDerivation {
+          name = "bootstrap-stage0-clang";
+          version = bootstrapLlvmVersion;
+          buildCommand = ''
+            mkdir -p $out/lib
+            ln -s ${bootstrapTools}/bin $out/bin
+            ln -s ${bootstrapTools}/lib/clang $out/lib/clang
+            ln -s ${bootstrapTools}/include $out/include
+          '';
+        };
+
         libcxx = stdenv.mkDerivation {
           name = "bootstrap-stage0-libcxx";
           phases = [ "installPhase" "fixupPhase" ];
@@ -168,8 +364,9 @@ in rec {
             ln -s ${bootstrapTools}/lib/libc++.dylib $out/lib/libc++.dylib
             ln -s ${bootstrapTools}/include/c++      $out/include/c++
           '';
-          linkCxxAbi = false;
-          setupHook = ../../development/compilers/llvm/3.9/libc++/setup-hook.sh;
+          passthru = {
+            isLLVM = true;
+          };
         };
 
         libcxxabi = stdenv.mkDerivation {
@@ -179,236 +376,431 @@ in rec {
             ln -s ${bootstrapTools}/lib/libc++abi.dylib $out/lib/libc++abi.dylib
           '';
         };
+
+        compiler-rt = stdenv.mkDerivation {
+          name = "bootstrap-stage0-compiler-rt";
+          buildCommand = ''
+            mkdir -p $out/lib
+            ln -s ${bootstrapTools}/lib/libclang_rt* $out/lib
+            ln -s ${bootstrapTools}/lib/darwin       $out/lib/darwin
+          '';
+        };
       };
     };
 
-    extraNativeBuildInputs = [];
-    extraBuildInputs = [];
+    extraNativeBuildInputs = [ ];
+    extraBuildInputs = [ ];
     libcxx = null;
   };
 
-  stage1 = prevStage: let
-    persistent = _: super: { python = super.python.override { configd = null; }; };
-  in with prevStage; stageFun 1 prevStage {
-    extraPreHook = "export NIX_CFLAGS_COMPILE+=\" -F${bootstrapTools}/Library/Frameworks\"";
-    extraNativeBuildInputs = [];
-    extraBuildInputs = [ ];
-    libcxx = pkgs.libcxx;
+  stage1 = prevStage:
+    let
+      persistent = self: super: with prevStage; {
+        cmake = super.cmakeMinimal;
 
-    allowedRequisites =
-      [ bootstrapTools ] ++ (with pkgs; [ libcxx libcxxabi ]) ++ [ pkgs.darwin.Libsystem ];
+        inherit pbzx cpio;
 
-    overrides = persistent;
-  };
+        python3 = super.python3Minimal;
 
-  stage2 = prevStage: let
-    persistent = self: super: with prevStage; {
-      inherit
-        zlib patchutils m4 scons flex perl bison unifdef unzip openssl python
-        libxml2 gettext sharutils gmp libarchive ncurses pkg-config libedit groff
-        openssh sqlite sed serf openldap db cyrus-sasl expat apr-util subversion xz
-        findfreetype libssh curl cmake autoconf automake libtool ed cpio coreutils;
+        ninja = super.ninja.override { buildDocs = false; };
 
-      darwin = super.darwin // {
-        inherit (darwin)
-          dyld Libsystem xnu configd ICU libdispatch libclosure launchd;
-      };
-    };
-  in with prevStage; stageFun 2 prevStage {
-    extraPreHook = ''
-      export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
-    '';
+        "${finalLlvmPackages}" = super."${finalLlvmPackages}" // (
+          let
+            tools = super."${finalLlvmPackages}".tools.extend (_: _: {
+              inherit (pkgs."${finalLlvmPackages}") clang-unwrapped;
+            });
+            libraries = super."${finalLlvmPackages}".libraries.extend (_: _: {
+              inherit (pkgs."${finalLlvmPackages}") compiler-rt libcxx libcxxabi;
+            });
+          in
+          { inherit tools libraries; } // tools // libraries
+        );
 
-    extraNativeBuildInputs = [ pkgs.xz ];
-    extraBuildInputs = [ pkgs.darwin.CF ];
-    libcxx = pkgs.libcxx;
+        darwin = super.darwin.overrideScope (selfDarwin: _: {
+          inherit (darwin) rewrite-tbd binutils-unwrapped;
 
-    allowedRequisites =
-      [ bootstrapTools ] ++
-      (with pkgs; [ xz.bin xz.out libcxx libcxxabi ]) ++
-      (with pkgs.darwin; [ dyld Libsystem CF ICU locale ]);
+          signingUtils = darwin.signingUtils.override {
+            inherit (selfDarwin) sigtool;
+          };
 
-    overrides = persistent;
-  };
-
-  stage3 = prevStage: let
-    persistent = self: super: with prevStage; {
-      inherit
-        patchutils m4 scons flex perl bison unifdef unzip openssl python
-        gettext sharutils libarchive pkg-config groff bash subversion
-        openssh sqlite sed serf openldap db cyrus-sasl expat apr-util
-        findfreetype libssh curl cmake autoconf automake libtool cpio;
-
-      llvmPackages_5 = super.llvmPackages_5 // (let
-        libraries = super.llvmPackages_5.libraries.extend (_: _: {
-          inherit (llvmPackages_5) libcxx libcxxabi;
+          binutils = darwin.binutils.override {
+            coreutils = self.coreutils;
+            libc = selfDarwin.Libsystem;
+            inherit (selfDarwin) postLinkSignHook signingUtils;
+          };
         });
-      in { inherit libraries; } // libraries);
-
-      darwin = super.darwin // {
-        inherit (darwin)
-          dyld Libsystem xnu configd libdispatch libclosure launchd libiconv locale;
       };
+    in
+    with prevStage; stageFun 1 prevStage {
+      extraPreHook = "export NIX_CFLAGS_COMPILE+=\" -F${bootstrapTools}/Library/Frameworks\"";
+      extraNativeBuildInputs = [ ];
+      extraBuildInputs = [ pkgs.darwin.CF ];
+      libcxx = pkgs."${finalLlvmPackages}".libcxx;
+
+      allowedRequisites =
+        [ bootstrapTools ] ++
+        (with pkgs; [ coreutils gnugrep ]) ++
+        (with pkgs."${finalLlvmPackages}"; [ libcxx libcxxabi compiler-rt clang-unwrapped ]) ++
+        (with pkgs.darwin; [ Libsystem CF ] ++ lib.optional useAppleSDKLibs objc4);
+
+      overrides = persistent;
     };
-  in with prevStage; stageFun 3 prevStage {
-    shell = "${pkgs.bash}/bin/bash";
 
-    # We have a valid shell here (this one has no bootstrap-tools runtime deps) so stageFun
-    # enables patchShebangs above. Unfortunately, patchShebangs ignores our $SHELL setting
-    # and instead goes by $PATH, which happens to contain bootstrapTools. So it goes and
-    # patches our shebangs back to point at bootstrapTools. This makes sure bash comes first.
-    extraNativeBuildInputs = with pkgs; [ xz pkgs.bash ];
-    extraBuildInputs = [ pkgs.darwin.CF ];
-    libcxx = pkgs.libcxx;
+  stage2 = prevStage:
+    let
+      persistent = self: super: with prevStage; {
+        inherit
+          zlib patchutils m4 scons flex perl bison unifdef unzip openssl python3
+          libxml2 gettext sharutils gmp libarchive ncurses pkg-config libedit groff
+          openssh sqlite sed serf openldap db cyrus-sasl expat apr-util subversion xz
+          findfreetype libssh curl cmake autoconf automake libtool ed cpio coreutils
+          libssh2 nghttp2 libkrb5 ninja brotli;
 
-    extraPreHook = ''
-      export PATH=${pkgs.bash}/bin:$PATH
-      export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
-    '';
+        "${finalLlvmPackages}" = super."${finalLlvmPackages}" // (
+          let
+            tools = super."${finalLlvmPackages}".tools.extend (_: _: {
+              inherit (pkgs."${finalLlvmPackages}") clang-unwrapped;
+            });
+            libraries = super."${finalLlvmPackages}".libraries.extend (_: libSuper: {
+              inherit (pkgs."${finalLlvmPackages}") compiler-rt;
+              libcxx = libSuper.libcxx.override {
+                stdenv = overrideCC self.stdenv self.ccNoLibcxx;
+              };
+              libcxxabi = libSuper.libcxxabi.override ({
+                stdenv = overrideCC self.stdenv self.ccNoLibcxx;
+              } // lib.optionalAttrs (finalLlvmVersion == "7") {
+                # TODO: the bootstrapping of llvm packages isn't consistent.
+                # `standalone` may be redundant if darwin behaves like useLLVM (or
+                # has useLLVM = true).
+                standalone = true;
+              });
+            });
+          in
+          { inherit tools libraries; } // tools // libraries
+        );
 
-    allowedRequisites =
-      [ bootstrapTools ] ++
-      (with pkgs; [ xz.bin xz.out bash libcxx libcxxabi ]) ++
-      (with pkgs.darwin; [ dyld ICU Libsystem locale ]);
-
-    overrides = persistent;
-  };
-
-  stage4 = prevStage: let
-    persistent = self: super: with prevStage; {
-      inherit
-        gnumake gzip gnused bzip2 gawk ed xz patch bash
-        ncurses libffi zlib gmp pcre gnugrep
-        coreutils findutils diffutils patchutils;
-
-      llvmPackages_5 = super.llvmPackages_5 // (let
-        tools = super.llvmPackages_5.tools.extend (llvmSelf: _: {
-          inherit (llvmPackages_5) llvm clang-unwrapped;
+        darwin = super.darwin.overrideScope (_: _: {
+          inherit (darwin)
+            binutils dyld Libsystem xnu configd ICU libdispatch libclosure
+            launchd CF objc4 darwin-stubs sigtool postLinkSignHook signingUtils;
         });
-        libraries = super.llvmPackages_5.libraries.extend (llvmSelf: _: {
-          inherit (llvmPackages_5) libcxx libcxxabi compiler-rt;
-        });
-      in { inherit tools libraries; } // tools // libraries);
-
-      darwin = super.darwin // {
-        inherit (darwin) dyld Libsystem libiconv locale;
       };
-    };
-  in with prevStage; stageFun 4 prevStage {
-    shell = "${pkgs.bash}/bin/bash";
-    extraNativeBuildInputs = with pkgs; [ xz pkgs.bash ];
-    extraBuildInputs = [ pkgs.darwin.CF ];
-    libcxx = pkgs.libcxx;
+    in
+    with prevStage; stageFun 2 prevStage {
+      extraPreHook = ''
+        export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
+      '';
 
-    extraPreHook = ''
-      export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
-    '';
-    overrides = lib.composeExtensions persistent (self: super: {
-      # Hack to make sure we don't link ncurses in bootstrap tools. The proper
-      # solution is to avoid passing -L/nix-store/...-bootstrap-tools/lib,
-      # quite a sledgehammer just to get the C runtime.
-      gettext = super.gettext.overrideAttrs (old: {
-         configureFlags = old.configureFlags ++ [
-           "--disable-curses"
-         ];
+      extraNativeBuildInputs = [ pkgs.xz ];
+      extraBuildInputs = [ pkgs.darwin.CF ];
+      libcxx = pkgs."${finalLlvmPackages}".libcxx;
+
+      allowedRequisites =
+        [ bootstrapTools ] ++
+        (with pkgs; [
+          xz.bin
+          xz.out
+          zlib
+          libxml2.out
+          curl.out
+          openssl.out
+          libssh2.out
+          nghttp2.lib
+          coreutils
+          gnugrep
+          pcre.out
+          gmp
+          libiconv
+          brotli.lib
+        ] ++ lib.optional haveKRB5 libkrb5) ++
+        (with pkgs."${finalLlvmPackages}"; [
+          libcxx
+          libcxxabi
+          compiler-rt
+          clang-unwrapped
+        ]) ++
+        (with pkgs.darwin; [ dyld Libsystem CF ICU locale ] ++ lib.optional useAppleSDKLibs objc4);
+
+      overrides = persistent;
+    };
+
+  stage3 = prevStage:
+    let
+      persistent = self: super: with prevStage; {
+        inherit
+          patchutils m4 scons flex perl bison unifdef unzip openssl python3
+          gettext sharutils libarchive pkg-config groff bash subversion
+          openssh sqlite sed serf openldap db cyrus-sasl expat apr-util
+          findfreetype libssh curl cmake autoconf automake libtool cpio
+          libssh2 nghttp2 libkrb5 ninja;
+
+        # Avoid pulling in a full python and its extra dependencies for the llvm/clang builds.
+        libxml2 = super.libxml2.override { pythonSupport = false; };
+
+        "${finalLlvmPackages}" = super."${finalLlvmPackages}" // (
+          let
+            libraries = super."${finalLlvmPackages}".libraries.extend (_: _: {
+              inherit (pkgs."${finalLlvmPackages}") libcxx libcxxabi;
+            });
+          in
+          { inherit libraries; } // libraries
+        );
+
+        darwin = super.darwin.overrideScope (_: _: {
+          inherit (darwin)
+            dyld Libsystem xnu configd libdispatch libclosure launchd libiconv
+            locale darwin-stubs sigtool;
+        });
+      };
+    in
+    with prevStage; stageFun 3 prevStage {
+      shell = "${pkgs.bash}/bin/bash";
+
+      # We have a valid shell here (this one has no bootstrap-tools runtime deps) so stageFun
+      # enables patchShebangs above. Unfortunately, patchShebangs ignores our $SHELL setting
+      # and instead goes by $PATH, which happens to contain bootstrapTools. So it goes and
+      # patches our shebangs back to point at bootstrapTools. This makes sure bash comes first.
+      extraNativeBuildInputs = with pkgs; [ xz ];
+      extraBuildInputs = [ pkgs.darwin.CF pkgs.bash ];
+      libcxx = pkgs."${finalLlvmPackages}".libcxx;
+
+      extraPreHook = ''
+        export PATH=${pkgs.bash}/bin:$PATH
+        export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
+      '';
+
+      allowedRequisites =
+        [ bootstrapTools ] ++
+        (with pkgs; [
+          xz.bin
+          xz.out
+          bash
+          zlib
+          libxml2.out
+          curl.out
+          openssl.out
+          libssh2.out
+          nghttp2.lib
+          coreutils
+          gnugrep
+          pcre.out
+          gmp
+          libiconv
+          brotli.lib
+        ] ++ lib.optional haveKRB5 libkrb5) ++
+        (with pkgs."${finalLlvmPackages}"; [
+          libcxx
+          libcxx.dev
+          libcxxabi
+          libcxxabi.dev
+          compiler-rt
+          clang-unwrapped
+        ]) ++
+        (with pkgs.darwin; [ dyld ICU Libsystem locale ] ++ lib.optional useAppleSDKLibs objc4);
+
+      overrides = persistent;
+    };
+
+  stage4 = prevStage:
+    let
+      persistent = self: super: with prevStage; {
+        inherit
+          gnumake gzip gnused bzip2 gawk ed xz patch bash python3
+          ncurses libffi zlib gmp pcre gnugrep cmake
+          coreutils findutils diffutils patchutils ninja libxml2;
+
+        # Hack to make sure we don't link ncurses in bootstrap tools. The proper
+        # solution is to avoid passing -L/nix-store/...-bootstrap-tools/lib,
+        # quite a sledgehammer just to get the C runtime.
+        gettext = super.gettext.overrideAttrs (drv: {
+          configureFlags = drv.configureFlags ++ [
+            "--disable-curses"
+          ];
+        });
+
+        "${finalLlvmPackages}" = super."${finalLlvmPackages}" // (
+          let
+            tools = super."${finalLlvmPackages}".tools.extend (llvmSelf: _: {
+              clang-unwrapped-all-outputs = pkgs."${finalLlvmPackages}".clang-unwrapped-all-outputs.override { llvm = llvmSelf.llvm; };
+              libllvm = pkgs."${finalLlvmPackages}".libllvm.override { inherit libxml2; };
+            });
+            libraries = super."${finalLlvmPackages}".libraries.extend (llvmSelf: _: {
+              inherit (pkgs."${finalLlvmPackages}") libcxx libcxxabi compiler-rt;
+            });
+          in
+          { inherit tools libraries; } // tools // libraries
+        );
+
+        darwin = super.darwin.overrideScope (_: superDarwin: {
+          inherit (darwin) dyld Libsystem libiconv locale darwin-stubs;
+
+          # See useAppleSDKLibs in darwin-packages.nix
+          CF = if useAppleSDKLibs then super.darwin.CF else
+          superDarwin.CF.override {
+            inherit libxml2;
+            python3 = prevStage.python3;
+          };
+        });
+      };
+    in
+    with prevStage; stageFun 4 prevStage {
+      shell = "${pkgs.bash}/bin/bash";
+      extraNativeBuildInputs = with pkgs; [ xz ];
+      extraBuildInputs = [ pkgs.darwin.CF pkgs.bash ];
+      libcxx = pkgs."${finalLlvmPackages}".libcxx;
+
+      extraPreHook = ''
+        export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
+      '';
+      overrides = persistent;
+    };
+
+  stdenvDarwin = prevStage:
+    let
+      doSign = localSystem.isAarch64;
+      pkgs = prevStage;
+      persistent = self: super: with prevStage; {
+        inherit
+          gnumake gzip gnused bzip2 gawk ed xz patch bash
+          ncurses libffi zlib gmp pcre gnugrep
+          coreutils findutils diffutils patchutils pbzx;
+
+        darwin = super.darwin.overrideScope (_: _: {
+          inherit (darwin) dyld ICU Libsystem Csu libiconv rewrite-tbd;
+        } // lib.optionalAttrs (super.stdenv.targetPlatform == localSystem) {
+          inherit (darwin) binutils binutils-unwrapped cctools;
+        });
+      } // lib.optionalAttrs (super.stdenv.targetPlatform == localSystem) {
+        inherit llvm;
+
+        # Need to get rid of these when cross-compiling.
+        "${finalLlvmPackages}" = super."${finalLlvmPackages}" // (
+          let
+            tools = super."${finalLlvmPackages}".tools.extend (_: super: {
+              inherit (pkgs."${finalLlvmPackages}") llvm clang-unwrapped;
+            });
+            libraries = super."${finalLlvmPackages}".libraries.extend (_: _: {
+              inherit (pkgs."${finalLlvmPackages}") compiler-rt libcxx libcxxabi;
+            });
+          in
+          { inherit tools libraries; } // tools // libraries
+        );
+
+        inherit binutils binutils-unwrapped;
+      };
+    in
+    import ../generic rec {
+      name = "stdenv-darwin";
+
+      inherit config;
+      inherit (pkgs.stdenv) fetchurlBoot;
+
+      buildPlatform = localSystem;
+      hostPlatform = localSystem;
+      targetPlatform = localSystem;
+
+      preHook = commonPreHook + ''
+        export NIX_COREFOUNDATION_RPATH=${pkgs.darwin.CF}/Library/Frameworks
+        export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
+      '';
+
+      __stdenvImpureHostDeps = commonImpureHostDeps;
+      __extraImpureHostDeps = commonImpureHostDeps;
+
+      initialPath = import ../common-path.nix { inherit pkgs; };
+      shell = "${pkgs.bash}/bin/bash";
+
+      cc = pkgs."${finalLlvmPackages}".libcxxClang;
+
+      extraNativeBuildInputs = lib.optionals localSystem.isAarch64 [
+        pkgs.updateAutotoolsGnuConfigScriptsHook
+      ];
+
+      extraBuildInputs = [ pkgs.darwin.CF ];
+
+      extraAttrs = {
+        libc = pkgs.darwin.Libsystem;
+        shellPackage = pkgs.bash;
+        inherit bootstrapTools;
+      };
+
+      allowedRequisites = (with pkgs; [
+        xz.out
+        xz.bin
+        gmp.out
+        gnumake
+        findutils
+        bzip2.out
+        bzip2.bin
+        zlib.out
+        zlib.dev
+        libffi.out
+        coreutils
+        ed
+        diffutils
+        gnutar
+        gzip
+        ncurses.out
+        ncurses.dev
+        ncurses.man
+        gnused
+        bash
+        gawk
+        gnugrep
+        patch
+        pcre.out
+        gettext
+        binutils.bintools
+        darwin.binutils
+        darwin.binutils.bintools
+        curl.out
+        openssl.out
+        libssh2.out
+        nghttp2.lib
+        brotli.lib
+        cc.expand-response-params
+        libxml2.out
+      ] ++ lib.optional haveKRB5 libkrb5
+      ++ lib.optionals localSystem.isAarch64 [
+        pkgs.updateAutotoolsGnuConfigScriptsHook
+        pkgs.gnu-config
+      ])
+      ++ (with pkgs."${finalLlvmPackages}"; [
+        libcxx
+        libcxx.dev
+        libcxxabi
+        libcxxabi.dev
+        llvm
+        llvm.lib
+        compiler-rt
+        compiler-rt.dev
+        clang-unwrapped
+        libclang.dev
+        libclang.lib
+      ])
+      ++ (with pkgs.darwin; [
+        dyld
+        Libsystem
+        CF
+        cctools
+        ICU
+        libiconv
+        locale
+        libtapi
+      ] ++ lib.optional useAppleSDKLibs objc4
+      ++ lib.optionals doSign [ postLinkSignHook sigtool signingUtils ]);
+
+      overrides = lib.composeExtensions persistent (self: super: {
+        darwin = super.darwin.overrideScope (_: superDarwin: {
+          inherit (prevStage.darwin) CF darwin-stubs;
+          xnu = superDarwin.xnu.override { inherit (prevStage) python3; };
+        });
+      } // lib.optionalAttrs (super.stdenv.targetPlatform == localSystem) {
+        clang = cc;
+        llvmPackages = super.llvmPackages // { clang = cc; };
+        inherit cc;
       });
-    });
-  };
-
-  stdenvDarwin = prevStage: let
-    pkgs = prevStage;
-    persistent = self: super: with prevStage; {
-      inherit
-        gnumake gzip gnused bzip2 gawk ed xz patch bash
-        ncurses libffi zlib llvm gmp pcre gnugrep
-        coreutils findutils diffutils patchutils;
-
-      llvmPackages_5 = super.llvmPackages_5 // (let
-        tools = super.llvmPackages_5.tools.extend (_: super: {
-          # Build man pages with final stdenv not before
-          llvm = lib.extendDerivation
-            true
-            { inherit (super.llvm) man; }
-            llvmPackages_5.llvm;
-          clang-unwrapped = lib.extendDerivation
-            true
-            { inherit (super.clang-unwrapped) man; }
-            llvmPackages_5.clang-unwrapped;
-        });
-        libraries = super.llvmPackages_5.libraries.extend (_: _: {
-          inherit (llvmPackages_5) compiler-rt libcxx libcxxabi;
-        });
-      in { inherit tools libraries; } // tools // libraries);
-
-      darwin = super.darwin // {
-        inherit (darwin) dyld ICU Libsystem libiconv;
-      } // lib.optionalAttrs (super.targetPlatform == localSystem) {
-        inherit (darwin) binutils binutils-unwrapped cctools;
-      };
-    } // lib.optionalAttrs (super.targetPlatform == localSystem) {
-      # Need to get rid of these when cross-compiling.
-      inherit binutils binutils-unwrapped;
     };
-  in import ../generic rec {
-    name = "stdenv-darwin";
-
-    inherit config;
-    inherit (pkgs.stdenv) fetchurlBoot;
-
-    buildPlatform = localSystem;
-    hostPlatform = localSystem;
-    targetPlatform = localSystem;
-
-    preHook = commonPreHook + ''
-      export NIX_COREFOUNDATION_RPATH=${pkgs.darwin.CF}/Library/Frameworks
-      export PATH_LOCALE=${pkgs.darwin.locale}/share/locale
-    '';
-
-    __stdenvImpureHostDeps = commonImpureHostDeps;
-    __extraImpureHostDeps = commonImpureHostDeps;
-
-    initialPath = import ../common-path.nix { inherit pkgs; };
-    shell       = "${pkgs.bash}/bin/bash";
-
-    # Hack to avoid man pages in stdenv, building bootstrap python
-    cc = pkgs.llvmPackages.libcxxClang.override {
-      cc = builtins.removeAttrs pkgs.llvmPackages.clang-unwrapped [ "man" ];
-    };
-
-    extraNativeBuildInputs = [];
-    extraBuildInputs = [ pkgs.darwin.CF ];
-
-    extraAttrs = {
-      inherit platform bootstrapTools;
-      libc         = pkgs.darwin.Libsystem;
-      shellPackage = pkgs.bash;
-
-      # This is used all over the place so I figured I'd just leave it here for now
-      secure-format-patch = ./darwin-secure-format.patch;
-    };
-
-    allowedRequisites = (with pkgs; [
-      xz.out xz.bin libcxx libcxxabi gmp.out gnumake findutils bzip2.out
-      bzip2.bin llvmPackages.llvm llvmPackages.llvm.lib llvmPackages.compiler-rt llvmPackages.compiler-rt.dev
-      zlib.out zlib.dev libffi.out coreutils ed diffutils gnutar
-      gzip ncurses.out ncurses.dev ncurses.man gnused bash gawk
-      gnugrep llvmPackages.clang-unwrapped llvmPackages.clang-unwrapped.lib patch pcre.out gettext
-      binutils.bintools darwin.binutils darwin.binutils.bintools
-      cc.expand-response-params
-    ]) ++ (with pkgs.darwin; [
-      dyld Libsystem CF cctools ICU libiconv locale
-    ]);
-
-    overrides = lib.composeExtensions persistent (self: super: {
-      clang = cc;
-      llvmPackages = super.llvmPackages // { clang = cc; };
-      inherit cc;
-
-      darwin = super.darwin // {
-        xnu = super.darwin.xnu.override { python = super.python.override { configd = null; }; };
-      };
-    });
-  };
 
   stagesDarwin = [
     ({}: stage0)

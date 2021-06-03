@@ -1,36 +1,31 @@
-{ stdenv, fetchFromGitHub, pkgconfig, pidgin, json-glib }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, pidgin, json-glib }:
 
 stdenv.mkDerivation rec {
-  name = "pidgin-skypeweb-${version}";
-  version = "1.2.2";
+  pname = "pidgin-skypeweb";
+  version = "1.7";
 
   src = fetchFromGitHub {
     owner = "EionRobb";
     repo = "skype4pidgin";
-    rev = "${version}";
-    sha256 = "1lxpz316jmns6i143v4j6sd6k0a4a54alw08rvwjckf2rig57lj2";
+    rev = version;
+    sha256 = "11snyrjhm58gjvdmr5h5ajii3ah4a7c8zw3cavjv9xnnwrpfm5rb";
   };
 
   setSourceRoot = ''
     sourceRoot=$(echo */skypeweb)
   '';
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ pidgin json-glib ];
 
-  makeFlags = [
-    "PLUGIN_DIR_PURPLE=/lib/pidgin/"
-    "DATA_ROOT_DIR_PURPLE=/share"
-    "DESTDIR=$(out)"
-  ];
+  PKG_CONFIG_PURPLE_PLUGINDIR = "${placeholder "out"}/lib/purple-2";
+  PKG_CONFIG_PURPLE_DATADIR = "${placeholder "out"}/share";
 
-  postInstall = "ln -s \$out/lib/pidgin \$out/share/pidgin-skypeweb";
-
-  meta = with stdenv.lib; {
-    homepage = https://github.com/EionRobb/skype4pidgin;
+  meta = with lib; {
+    homepage = "https://github.com/EionRobb/skype4pidgin";
     description = "SkypeWeb plugin for Pidgin";
     license = licenses.gpl3;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ jgeerds ];
+    maintainers = with maintainers; [ ];
   };
 }

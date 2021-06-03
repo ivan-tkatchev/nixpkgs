@@ -1,12 +1,12 @@
-{ stdenv, fetchurl, pkgconfig, perl, utillinux, keyutils, nss, nspr, python2, pam
+{ lib, stdenv, fetchurl, pkg-config, perl, util-linux, keyutils, nss, nspr, python2, pam, enablePython ? false
 , intltool, makeWrapper, coreutils, bash, gettext, cryptsetup, lvm2, rsync, which, lsof }:
 
 stdenv.mkDerivation rec {
-  name = "ecryptfs-${version}";
+  pname = "ecryptfs";
   version = "111";
 
   src = fetchurl {
-    url = "http://launchpad.net/ecryptfs/trunk/${version}/+download/ecryptfs-utils_${version}.orig.tar.gz";
+    url = "https://launchpad.net/ecryptfs/trunk/${version}/+download/ecryptfs-utils_${version}.orig.tar.gz";
     sha256 = "0zwq19siiwf09h7lwa7n7mgmrr8cxifp45lmwgcfr8c1gviv6b0i";
   };
 
@@ -17,8 +17,8 @@ stdenv.mkDerivation rec {
     FILES="$(grep -r '/bin/sh' src/utils -l; find src -name \*.c)"
     for file in $FILES; do
       substituteInPlace "$file" \
-        --replace /bin/mount ${utillinux}/bin/mount \
-        --replace /bin/umount ${utillinux}/bin/umount \
+        --replace /bin/mount ${util-linux}/bin/mount \
+        --replace /bin/umount ${util-linux}/bin/umount \
         --replace /sbin/mount.ecryptfs_private ${wrapperDir}/mount.ecryptfs_private \
         --replace /sbin/umount.ecryptfs_private ${wrapperDir}/umount.ecryptfs_private \
         --replace /sbin/mount.ecryptfs $out/sbin/mount.ecryptfs \
@@ -33,8 +33,15 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ perl nss nspr python2 pam intltool makeWrapper ];
+  configureFlags = lib.optionals (!enablePython) [ "--disable-pywrap" ];
+
+  nativeBuildInputs = [ pkg-config makeWrapper ]
+  # if python2 support is requested, it is needed at builtime as well as runtime.
+  ++ lib.optionals (enablePython) [ python2 ]
+  ;
+  buildInputs = [ perl nss nspr pam intltool ]
+  ++ lib.optionals (enablePython) [ python2 ]
+  ;
   propagatedBuildInputs = [ coreutils gettext cryptsetup lvm2 rsync keyutils which ];
 
   postInstall = ''
@@ -51,7 +58,7 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Enterprise-class stacked cryptographic filesystem";
     license     = licenses.gpl2Plus;
     maintainers = with maintainers; [ obadz ];

@@ -1,108 +1,212 @@
-{ lib, stdenv, buildEnv, haskell, nodejs, fetchurl, fetchpatch, makeWrapper }:
-
-# To update:
-# 1) Update versions in ./update-elm.rb and run it.
-# 2) Checkout elm-reactor and run `elm-package install -y` inside.
-# 3) Run ./elm2nix.rb in elm-reactor's directory.
-# 4) Move the resulting 'package.nix' to 'packages/elm-reactor-elm.nix'.
-
+{ lib, stdenv, pkgs
+, haskell, haskellPackages, nodejs
+, fetchurl, fetchpatch, makeWrapper, writeScriptBin
+  # Rust dependecies
+, curl, rustPlatform, openssl, pkg-config, Security
+}:
 let
-  makeElmStuff = deps:
-    let json = builtins.toJSON (lib.mapAttrs (name: info: info.version) deps);
-        cmds = lib.mapAttrsToList (name: info: let
-                 pkg = stdenv.mkDerivation {
+  fetchElmDeps = import ./fetchElmDeps.nix { inherit stdenv lib fetchurl; };
 
-                   name = lib.replaceChars ["/"] ["-"] name + "-${info.version}";
-
-                   src = fetchurl {
-                     url = "https://github.com/${name}/archive/${info.version}.tar.gz";
-                     meta.homepage = "https://github.com/${name}/";
-                     inherit (info) sha256;
-                   };
-
-                   phases = [ "unpackPhase" "installPhase" ];
-
-                   installPhase = ''
-                     mkdir -p $out
-                     cp -r * $out
-                   '';
-
-                 };
-               in ''
-                 mkdir -p elm-stuff/packages/${name}
-                 ln -s ${pkg} elm-stuff/packages/${name}/${info.version}
-               '') deps;
-    in ''
-      export HOME=/tmp
-      mkdir elm-stuff
-      cat > elm-stuff/exact-dependencies.json <<EOF
-      ${json}
-      EOF
-    '' + lib.concatStrings cmds;
-
-  hsPkgs = haskell.packages.ghc802.override {
-    overrides = self: super:
-      let hlib = haskell.lib;
-          elmRelease = import ./packages/release.nix { inherit (self) callPackage; };
-          elmPkgs' = elmRelease.packages;
-          elmPkgs = elmPkgs' // {
-
-            elm-reactor = hlib.overrideCabal elmPkgs'.elm-reactor (drv: {
-              buildTools = drv.buildTools or [] ++ [ self.elm-make ];
-              preConfigure = makeElmStuff (import ./packages/elm-reactor-elm.nix);
-            });
-
-            elm-repl = hlib.overrideCabal elmPkgs'.elm-repl (drv: {
-              doCheck = false;
+  hsPkgs = haskellPackages.override {
+    overrides = self: super: with haskell.lib; with lib;
+      let elmPkgs = rec {
+            elm = overrideCabal (self.callPackage ./packages/elm.nix { }) (drv: {
+              # sadly with parallelism most of the time breaks compilation
+              enableParallelBuilding = false;
+              preConfigure = self.fetchElmDeps {
+                elmPackages = (import ./packages/elm-srcs.nix);
+                elmVersion = drv.version;
+                registryDat = ./registry.dat;
+              };
               buildTools = drv.buildTools or [] ++ [ makeWrapper ];
-              postInstall =
-                let bins = lib.makeBinPath [ nodejs self.elm-make ];
-                in ''
-                  wrapProgram $out/bin/elm-repl \
-                    --prefix PATH ':' ${bins}
-                '';
+              jailbreak = true;
+              postInstall = ''
+                wrapProgram $out/bin/elm \
+                  --prefix PATH ':' ${lib.makeBinPath [ nodejs ]}
+              '';
+
+              description = "A delightful language for reliable webapps";
+              homepage = "https://elm-lang.org/";
+              license = licenses.bsd3;
+              maintainers = with maintainers; [ domenkozar turbomack ];
             });
 
             /*
-            This is not a core Elm package, and it's hosted on GitHub.
-            To update, run:
-
-                cabal2nix --jailbreak --revision refs/tags/foo http://github.com/avh4/elm-format > packages/elm-format.nix
-
-            where foo is a tag for a new version, for example "0.3.1-alpha".
+            The elm-format expression is updated via a script in the https://github.com/avh4/elm-format repo:
+            `package/nix/build.sh`
             */
-            elm-format = self.callPackage ./packages/elm-format.nix { };
-            elm-interface-to-json = self.callPackage ./packages/elm-interface-to-json.nix {
-              aeson-pretty = self.aeson-pretty_0_7_2;
-              either = hlib.overrideCabal self.either (drv :{
-                jailbreak = true;
-                version = "4.4.1.1";
-                sha256 = "1lrlwqqnm6ibfcydlv5qvvssw7bm0c6yypy0rayjzv1znq7wp1xh";
-                libraryHaskellDepends = drv.libraryHaskellDepends or [] ++ [
-                  self.exceptions self.free self.mmorph self.monad-control
-                  self.MonadRandom self.profunctors self.transformers
-                  self.transformers-base
-                ];
-              });
-            };
+            elm-format = justStaticExecutables (overrideCabal (self.callPackage ./packages/elm-format.nix {}) (drv: {
+              jailbreak = true;
+
+              description = "Formats Elm source code according to a standard set of rules based on the official Elm Style Guide";
+              homepage = "https://github.com/avh4/elm-format";
+              license = licenses.bsd3;
+              maintainers = with maintainers; [ avh4 turbomack ];
+            }));
+
+            elmi-to-json = justStaticExecutables (overrideCabal (self.callPackage ./packages/elmi-to-json.nix {}) (drv: {
+              prePatch = ''
+                substituteInPlace package.yaml --replace "- -Werror" ""
+                hpack
+              '';
+              jailbreak = true;
+
+              description = "Tool that reads .elmi files (Elm interface file) generated by the elm compiler";
+              homepage = "https://github.com/stoeffel/elmi-to-json";
+              license = licenses.bsd3;
+              maintainers = [ maintainers.turbomack ];
+            }));
+
+            elm-instrument = justStaticExecutables (overrideCabal (self.callPackage ./packages/elm-instrument.nix {}) (drv: {
+              prePatch = ''
+                sed "s/desc <-.*/let desc = \"${drv.version}\"/g" Setup.hs --in-place
+              '';
+              jailbreak = true;
+              # Tests are failing because of missing instances for Eq and Show type classes
+              doCheck = false;
+
+              description = "Instrument Elm code as a preprocessing step for elm-coverage";
+              homepage = "https://github.com/zwilias/elm-instrument";
+              license = licenses.bsd3;
+              maintainers = [ maintainers.turbomack ];
+            }));
+
+            inherit fetchElmDeps;
+            elmVersion = elmPkgs.elm.version;
           };
       in elmPkgs // {
         inherit elmPkgs;
-        elmVersion = elmRelease.version;
-        # https://github.com/elm-lang/elm-compiler/issues/1566
-        indents = hlib.overrideCabal super.indents (drv: {
-          version = "0.3.3";
-          #test dep tasty has a version mismatch
-          doCheck = false;
-          sha256 = "16lz21bp9j14xilnq8yym22p3saxvc9fsgfcf5awn2a6i6n527xn";
-          libraryHaskellDepends = drv.libraryHaskellDepends ++ [super.concatenative];
-        });
+
+        # Needed for elm-format
+        indents = self.callPackage ./packages/indents.nix {};
+        bimap = self.callPackage ./packages/bimap.nix {};
+        avh4-lib = doJailbreak (self.callPackage ./packages/avh4-lib.nix {});
+        elm-format-lib = doJailbreak (self.callPackage ./packages/elm-format-lib.nix {});
+        elm-format-test-lib = self.callPackage ./packages/elm-format-test-lib.nix {};
+        elm-format-markdown = self.callPackage ./packages/elm-format-markdown.nix {};
       };
   };
-in hsPkgs.elmPkgs // {
-  elm = lib.hiPrio (buildEnv {
-    name = "elm-${hsPkgs.elmVersion}";
-    paths = lib.mapAttrsToList (name: pkg: pkg) hsPkgs.elmPkgs;
-    pathsToLink = [ "/bin" ];
-  });
+
+  /* Node/NPM based dependecies can be upgraded using script `packages/generate-node-packages.sh`.
+
+      * Packages which rely on `bin-wrap` will fail by default
+        and can be patched using `patchBinwrap` function defined in `packages/lib.nix`.
+
+      * Packages which depend on npm installation of elm can be patched using
+        `patchNpmElm` function also defined in `packages/lib.nix`.
+  */
+  elmLib = import ./packages/lib.nix {
+    inherit lib writeScriptBin stdenv;
+    inherit (hsPkgs.elmPkgs) elm;
+  };
+
+  elmRustPackages =  {
+    elm-json = import ./packages/elm-json.nix {
+      inherit curl lib rustPlatform fetchurl openssl stdenv pkg-config Security;
+    } // {
+      meta = with lib; {
+        description = "Install, upgrade and uninstall Elm dependencies";
+        homepage = "https://github.com/zwilias/elm-json";
+        license = licenses.mit;
+        maintainers = [ maintainers.turbomack ];
+      };
+    };
+  };
+
+  elmNodePackages = with elmLib;
+    let
+      nodePkgs = import ./packages/node-composition.nix {
+          inherit nodejs pkgs;
+          inherit (stdenv.hostPlatform) system;
+        };
+    in with hsPkgs.elmPkgs; {
+
+      elm-test =
+        nodePkgs.elm-test // {
+          meta = with lib; {
+            description = "Runs elm-test suites from Node.js";
+            homepage = "https://github.com/rtfeldman/node-test-runner";
+            license = licenses.bsd3;
+            maintainers = [ maintainers.turbomack ];
+          };
+        };
+
+      elm-verify-examples = patchBinwrap [elmi-to-json]
+        nodePkgs.elm-verify-examples // {
+          meta = with lib; {
+            description = "Verify examples in your docs";
+            homepage = "https://github.com/stoeffel/elm-verify-examples";
+            license = licenses.bsd3;
+            maintainers = [ maintainers.turbomack ];
+          };
+        };
+
+      elm-coverage =
+        let patched = patchNpmElm (patchBinwrap [elmi-to-json] nodePkgs.elm-coverage);
+        in patched.override (old: {
+          # Symlink Elm instrument binary
+          preRebuild = (old.preRebuild or "") + ''
+            # Noop custom installation script
+            sed 's/\"install\".*/\"install\":\"echo no-op\"/g' --in-place package.json
+
+            # This should not be needed (thanks to binwrap* being nooped) but for some reason it still needs to be done
+            # in case of just this package
+            # TODO: investigate
+            sed 's/\"install\".*/\"install\":\"echo no-op\",/g' --in-place node_modules/elmi-to-json/package.json
+          '';
+          postInstall = (old.postInstall or "") + ''
+            mkdir -p unpacked_bin
+            ln -sf ${elm-instrument}/bin/elm-instrument unpacked_bin/elm-instrument
+          '';
+          meta = with lib; {
+            description = "Work in progress - Code coverage tooling for Elm";
+            homepage = "https://github.com/zwilias/elm-coverage";
+            license = licenses.bsd3;
+            maintainers = [ maintainers.turbomack ];
+          };
+        });
+
+      create-elm-app = patchNpmElm
+        nodePkgs.create-elm-app // {
+          meta = with lib; {
+            description = "Create Elm apps with no build configuration";
+            homepage = "https://github.com/halfzebra/create-elm-app";
+            license = licenses.mit;
+            maintainers = [ maintainers.turbomack ];
+          };
+        };
+
+      elm-review =
+        nodePkgs.elm-review // {
+          meta = with lib; {
+            description = "Analyzes Elm projects, to help find mistakes before your users find them";
+            homepage = "https://package.elm-lang.org/packages/jfmengels/elm-review/${nodePkgs.elm-review.version}";
+            license = licenses.bsd3;
+            maintainers = [ maintainers.turbomack ];
+          };
+        };
+
+      elm-language-server = nodePkgs."@elm-tooling/elm-language-server" // {
+        meta = with lib; {
+          description = "Language server implementation for Elm";
+          homepage = "https://github.com/elm-tooling/elm-language-server";
+          license = licenses.mit;
+          maintainers = [ maintainers.turbomack ];
+        };
+      };
+
+      elm-optimize-level-2 = nodePkgs."elm-optimize-level-2" // {
+        meta = with lib; {
+          description = "A second level of optimization for the Javascript that the Elm Compiler produces";
+          homepage = "https://github.com/mdgriffith/elm-optimize-level-2";
+          license = licenses.bsd3;
+          maintainers = [ maintainers.turbomack ];
+        };
+      };
+
+      inherit (nodePkgs) elm-doc-preview elm-live elm-upgrade elm-xref elm-analyse;
+    };
+
+in hsPkgs.elmPkgs // elmNodePackages // elmRustPackages // {
+  lib = elmLib;
 }

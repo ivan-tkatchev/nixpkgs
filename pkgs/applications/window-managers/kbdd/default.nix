@@ -1,22 +1,24 @@
-{ stdenv, fetchgit, pkgconfig, dbus-glib, autoreconfHook, xorg }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, dbus-glib, autoreconfHook, xorg }:
 
-stdenv.mkDerivation rec {
-  name = "kbdd";
+stdenv.mkDerivation {
+  pname = "kbdd";
+  version = "unstable-2021-04-26";
 
-  src = fetchgit {
-    url = https://github.com/qnikst/kbdd;
-    rev = "47dee0232f157cd865e43d92005a2ba107f6fd75";
-    sha256 = "1ys9w1lncsfg266g9sfnm95an2add3g51mryg0hnrzcqa4knz809";
+  src = fetchFromGitHub {
+    owner = "qnikst";
+    repo = "kbdd";
+    rev = "3145099e1fbbe65b27678be72465aaa5b5872874";
+    sha256 = "1gzcjnflgdqnjgphiqpzwbcx60hm0h2cprncm7i8xca3ln5q6ba1";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig ];
+  nativeBuildInputs = [ autoreconfHook pkg-config ];
   buildInputs = [ xorg.libX11 dbus-glib ];
 
   meta = {
     description = "Simple daemon and library to make per window layout using XKB";
-    homepage = https://github.com/qnikst/kbdd;
-    license = stdenv.lib.licenses.gpl3;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.wedens ];
+    homepage = "https://github.com/qnikst/kbdd";
+    license = lib.licenses.gpl2Plus;
+    platforms = lib.platforms.linux;
+    maintainers = [ lib.maintainers.wedens ];
   };
 }

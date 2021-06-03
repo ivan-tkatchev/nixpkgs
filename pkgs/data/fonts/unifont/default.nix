@@ -1,43 +1,52 @@
-{ stdenv, fetchurl, mkfontscale, mkfontdir }:
+{ lib, stdenv, fetchurl, mkfontscale
+, libfaketime, fonttosfnt
+}:
 
 stdenv.mkDerivation rec {
-  name = "unifont-${version}";
-  version = "11.0.01";
+  pname = "unifont";
+  version = "13.0.05";
 
   ttf = fetchurl {
-    url = "mirror://gnu/unifont/${name}/${name}.ttf";
-    sha256 = "03nnfnh4j60a4hy0d4hqpnvhlfx437hp4g1wjfjy91vzrcbmvkwi";
+    url = "mirror://gnu/unifont/${pname}-${version}/${pname}-${version}.ttf";
+    sha256 = "0ff7zbyqi45q0171rl9ckj6lpfhcj8a9850d8j89m7wbwky32isf";
   };
 
   pcf = fetchurl {
-    url = "mirror://gnu/unifont/${name}/${name}.pcf.gz";
-    sha256 = "03bqqz2ipy3afhwsfy30c2v97cc27grw11lc0vzcvrgvin9ys2v1";
+    url = "mirror://gnu/unifont/${pname}-${version}/${pname}-${version}.pcf.gz";
+    sha256 = "16n666p6rs6l4r8grh67gy4ls33qfnbb5xk7cksywzjwdh42js0r";
   };
 
-  nativeBuildInputs = [ mkfontscale mkfontdir ];
+  nativeBuildInputs = [ libfaketime fonttosfnt mkfontscale ];
 
-  phases = "installPhase";
+  phases = [ "buildPhase" "installPhase" ];
+
+  buildPhase =
+    ''
+      # convert pcf font to otb
+      faketime -f "1970-01-01 00:00:01" \
+      fonttosfnt -g 2 -m 2 -v -o "unifont.otb" "${pcf}"
+    '';
 
   installPhase =
     ''
-      mkdir -p $out/share/fonts $out/share/fonts/truetype
-      cp -v ${pcf} $out/share/fonts/unifont.pcf.gz
-      cp -v ${ttf} $out/share/fonts/truetype/unifont.ttf
-      cd $out/share/fonts
+      # install otb fonts
+      install -m 644 -D unifont.otb "$out/share/fonts/unifont.otb"
+      mkfontdir "$out/share/fonts"
+
+      # install pcf and ttf fonts
+      install -m 644 -D ${pcf} $out/share/fonts/unifont.pcf.gz
+      install -m 644 -D ${ttf} $out/share/fonts/truetype/unifont.ttf
+      cd "$out/share/fonts"
       mkfontdir
       mkfontscale
     '';
 
-  outputHashAlgo = "sha256";
-  outputHashMode = "recursive";
-  outputHash = "1ncllq42x1mlblf6h44garc3b5hkxv9dkpgbaipzll22p1l29yrf";
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Unicode font for Base Multilingual Plane";
-    homepage = http://unifoundry.com/unifont.html;
+    homepage = "http://unifoundry.com/unifont.html";
 
     # Basically GPL2+ with font exception.
-    license = http://unifoundry.com/LICENSE.txt;
+    license = "http://unifoundry.com/LICENSE.txt";
     maintainers = [ maintainers.rycee maintainers.vrthra ];
     platforms = platforms.all;
   };

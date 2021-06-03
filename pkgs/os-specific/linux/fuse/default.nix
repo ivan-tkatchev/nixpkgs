@@ -1,17 +1,17 @@
-{ stdenv, callPackage, utillinux }:
+{ callPackage, util-linux }:
 
 let
   mkFuse = args: callPackage (import ./common.nix args) {
-    inherit utillinux;
+    inherit util-linux;
   };
 in {
   fuse_2 = mkFuse {
-    version = "2.9.7";
-    sha256Hash = "1wyjjfb7p4jrkk15zryzv33096a5fmsdyr2p4b00dd819wnly2n2";
+    version = "2.9.9";
+    sha256Hash = "1yxxvm58c30pc022nl1wlg8fljqpmwnchkywic3r74zirvlcq23n";
   };
 
   fuse_3 = mkFuse {
-    version = "3.2.4";
-    sha256Hash = "1ybgd4s7naiyvaris7j6fzp604cgi5mgrn715x8l4kn5k9d840im";
+    version = "3.10.3";
+    sha256Hash = "054g3jqy8lhlj8kkwd16wxaxzynmh8h5iv20cryd0psg0hgmhd7v";
   };
 }

@@ -1,22 +1,48 @@
-{ stdenv, lib, buildGoPackage, fetchFromGitHub, pkgs }:
+{ lib, buildGoModule, fetchFromGitHub, go-rice }:
 
-buildGoPackage rec {
-  name = "cfssl-${version}";
-  version = "20170527";
-
-  goPackagePath = "github.com/cloudflare/cfssl";
+buildGoModule rec {
+  pname = "cfssl";
+  version = "1.5.0";
 
   src = fetchFromGitHub {
     owner = "cloudflare";
     repo = "cfssl";
-    rev = "114dc9691ec7bf3dac49d5953eccf7d91a0e0904";
-    sha256 = "1ijq43mrzrf1gkgj5ssxq7sgy6sd4rl706dzqkq9krqv5f6kwhj1";
+    rev = "v${version}";
+    sha256 = "1yzxz2l7h2d3f8j6l9xlm7g9659gsa17zf4q0883s0jh3l3xgs5n";
   };
 
-  meta = with stdenv.lib; {
-    homepage = https://cfssl.org/;
+  subPackages = [
+    "cmd/cfssl"
+    "cmd/cfssljson"
+    "cmd/cfssl-bundle"
+    "cmd/cfssl-certinfo"
+    "cmd/cfssl-newkey"
+    "cmd/cfssl-scan"
+    "cmd/multirootca"
+    "cmd/mkbundle"
+  ];
+
+  vendorSha256 = null;
+
+  doCheck = false;
+
+  nativeBuildInputs = [ go-rice ];
+
+  preBuild = ''
+    pushd cli/serve
+    rice embed-go
+    popd
+  '';
+
+  buildFlagsArray = ''
+    -ldflags=
+      -s -w
+      -X github.com/cloudflare/cfssl/cli/version.version=v${version}
+  '';
+
+  meta = with lib; {
+    homepage = "https://cfssl.org/";
     description = "Cloudflare's PKI and TLS toolkit";
-    platforms = platforms.linux;
     license = licenses.bsd2;
     maintainers = with maintainers; [ mbrgm ];
   };

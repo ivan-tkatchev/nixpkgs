@@ -1,29 +1,24 @@
-{ stdenv, fetchFromGitHub, ocaml, findlib, jbuilder, ocp-build, ocp-indent, cmdliner, re }:
+{ lib, fetchzip, buildDunePackage, cppo, ocp-indent, cmdliner, re }:
 
-stdenv.mkDerivation rec {
+buildDunePackage rec {
+  pname = "ocp-index";
+  version = "1.2.2";
 
-  version = "1.1.6";
-  name = "ocaml${ocaml.version}-ocp-index-${version}";
+  useDune2 = true;
 
-  src = fetchFromGitHub {
-    owner = "OCamlPro";
-    repo = "ocp-index";
-    rev = version;
-    sha256 = "0p367aphz9w71qbm3y47qwhgqmyai28l96i1ifb6kg7awph5qmj3";
+  src = fetchzip {
+    url = "https://github.com/OCamlPro/ocp-index/archive/${version}.tar.gz";
+    sha256 = "0k4i0aabyn750f4wqbnk0yv10kdjd6nhjw2pbmpc4cz639qcsm40";
   };
 
-  buildInputs = [ ocaml findlib jbuilder ocp-build cmdliner re ];
+  buildInputs = [ cppo cmdliner re ];
+
   propagatedBuildInputs = [ ocp-indent ];
 
-  buildPhase = "jbuilder build -p ocp-index";
-
-  inherit (jbuilder) installPhase;
-
   meta = {
-    homepage = http://typerex.ocamlpro.com/ocp-index.html;
+    homepage = "https://www.typerex.org/ocp-index.html";
     description = "A simple and light-weight documentation extractor for OCaml";
-    license = stdenv.lib.licenses.lgpl3;
-    platforms = ocaml.meta.platforms or [];
-    maintainers = with stdenv.lib.maintainers; [ vbgl ];
+    license = lib.licenses.lgpl3;
+    maintainers = with lib.maintainers; [ vbgl ];
   };
 }

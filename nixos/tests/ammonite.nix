@@ -1,20 +1,20 @@
-import ./make-test.nix ({ pkgs, ...} : {
+import ./make-test-python.nix ({ pkgs, ...} : {
   name = "ammonite";
-  meta = with pkgs.stdenv.lib.maintainers; {
+  meta = with pkgs.lib.maintainers; {
     maintainers = [ nequissimus ];
   };
 
   nodes = {
     amm =
-      { config, pkgs, ... }:
+      { pkgs, ... }:
         {
-          environment.systemPackages = [ pkgs.ammonite ];
+          environment.systemPackages = [ (pkgs.ammonite.override { jre = pkgs.jre8; }) ];
         };
     };
 
   testScript = ''
-    startAll;
+    start_all()
 
-    $amm->succeed("amm -c 'val foo = 21; println(foo * 2)' | grep 42")
+    amm.succeed("amm -c 'val foo = 21; println(foo * 2)' | grep 42")
   '';
 })

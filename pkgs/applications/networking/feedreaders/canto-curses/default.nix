@@ -1,8 +1,8 @@
-{ stdenv, fetchFromGitHub, python34Packages, readline, ncurses, canto-daemon }:
+{ lib, fetchFromGitHub, python3Packages, readline, ncurses, canto-daemon }:
 
-python34Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication rec {
   version = "0.9.9";
-  name = "canto-curses-${version}";
+  pname = "canto-curses";
 
   src = fetchFromGitHub {
     owner = "themoken";
@@ -24,9 +24,9 @@ python34Packages.buildPythonApplication rec {
       unreadable white text. An interface with almost infinite customization
       and extensibility using the excellent Python programming language.
     '';
-    homepage = https://codezen.org/canto-ng/;
-    license = stdenv.lib.licenses.gpl2;
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.devhell ];
+    homepage = "https://codezen.org/canto-ng/";
+    license = lib.licenses.gpl2;
+    platforms = lib.platforms.linux;
+    maintainers = [ lib.maintainers.devhell ];
   };
 }

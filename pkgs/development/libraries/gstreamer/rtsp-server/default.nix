@@ -1,29 +1,74 @@
-{ stdenv, fetchurl, meson, ninja, pkgconfig
-, gst-plugins-base, gettext, gobjectIntrospection
+{ lib, stdenv
+, fetchurl
+, meson
+, ninja
+, pkg-config
+, python3
+, gettext
+, gobject-introspection
+, gst-plugins-base
+, gst-plugins-bad
 }:
 
 stdenv.mkDerivation rec {
-  name = "gst-rtsp-server-1.14.0";
-
-  meta = with stdenv.lib; {
-    description = "Gstreamer RTSP server";
-    homepage    = "https://gstreamer.freedesktop.org";
-    longDescription = ''
-      a library on top of GStreamer for building an RTSP server.
-    '';
-    license     = licenses.lgpl2Plus;
-    platforms   = platforms.linux ++ platforms.darwin;
-    maintainers = with maintainers; [ bkchr ];
-  };
+  pname = "gst-rtsp-server";
+  version = "1.18.4";
 
   src = fetchurl {
-    url = "${meta.homepage}/src/gst-rtsp-server/${name}.tar.xz";
-    sha256 = "0mlp9ms5hfbyzyvmc9xgi7934g4zrh1sbgky2p9zc5fqprvs0rbb";
+    url = "https://gstreamer.freedesktop.org/src/${pname}/${pname}-${version}.tar.xz";
+    sha256 = "153c78klvzlmi86d0gmdf7w9crv11rkd4y82b14a0wdr83gbhsx4";
   };
 
-  outputs = [ "out" "dev" ];
+  outputs = [
+    "out"
+    "dev"
+    # "devdoc" # disabled until `hotdoc` is packaged in nixpkgs
+  ];
 
-  nativeBuildInputs = [ meson ninja gettext gobjectIntrospection pkgconfig ];
+  patches = [
+    # To use split outputs, we need this so double prefix won't be used in the
+    # pkg-config files. Hopefully, this won't be needed on the next release,
+    # _if_
+    # https://gitlab.freedesktop.org/gstreamer/gst-rtsp-server/merge_requests/1
+    # will be merged. For the current release, this merge request won't apply.
+    ./fix_pkgconfig_includedir.patch
+  ];
 
-  buildInputs = [ gst-plugins-base ];
+  nativeBuildInputs = [
+    meson
+    ninja
+    gettext
+    gobject-introspection
+    pkg-config
+    python3
+
+    # documentation
+    # TODO add hotdoc here
+  ];
+
+  buildInputs = [
+    gst-plugins-base
+    gst-plugins-bad
+  ];
+
+  mesonFlags = [
+    "-Dexamples=disabled" # requires many dependencies and probably not useful for our users
+    "-Ddoc=disabled" # `hotdoc` not packaged in nixpkgs as of writing
+  ];
+
+  postPatch = ''
+    patchShebangs \
+      scripts/extract-release-date-from-doap-file.py
+  '';
+
+  meta = with lib; {
+    description = "GStreamer RTSP server";
+    homepage = "https://gstreamer.freedesktop.org";
+    longDescription = ''
+      A library on top of GStreamer for building an RTSP server.
+    '';
+    license = licenses.lgpl2Plus;
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ bkchr ];
+  };
 }

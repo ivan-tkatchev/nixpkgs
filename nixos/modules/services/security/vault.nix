@@ -1,6 +1,7 @@
 { config, lib, pkgs, ... }:
 
 with lib;
+
 let
   cfg = config.services.vault;
 
@@ -24,14 +25,26 @@ let
           ${cfg.telemetryConfig}
         }
       ''}
+    ${cfg.extraConfig}
   '';
+
+  allConfigPaths = [configFile] ++ cfg.extraSettingsPaths;
+
+  configOptions = escapeShellArgs (concatMap (p: ["-config" p]) allConfigPaths);
+
 in
+
 {
   options = {
-
     services.vault = {
-
       enable = mkEnableOption "Vault daemon";
+
+      package = mkOption {
+        type = types.package;
+        default = pkgs.vault;
+        defaultText = "pkgs.vault";
+        description = "This option specifies the vault package to use.";
+      };
 
       address = mkOption {
         type = types.str;
@@ -58,11 +71,11 @@ in
         default = ''
           tls_min_version = "tls12"
         '';
-        description = "extra configuration";
+        description = "Extra text appended to the listener section.";
       };
 
       storageBackend = mkOption {
-        type = types.enum [ "inmem" "file" "consul" "zookeeper" "s3" "azure" "dynamodb" "etcd" "mssql" "mysql" "postgresql" "swift" "gcs" ];
+        type = types.enum [ "inmem" "file" "consul" "zookeeper" "s3" "azure" "dynamodb" "etcd" "mssql" "mysql" "postgresql" "swift" "gcs" "raft" ];
         default = "inmem";
         description = "The name of the type of storage backend";
       };
@@ -76,13 +89,56 @@ in
       storageConfig = mkOption {
         type = types.nullOr types.lines;
         default = null;
-        description = "Storage configuration";
+        description = ''
+          HCL configuration to insert in the storageBackend section.
+
+          Confidential values should not be specified here because this option's
+          value is written to the Nix store, which is publicly readable.
+          Provide credentials and such in a separate file using
+          <xref linkend="opt-services.vault.extraSettingsPaths"/>.
+        '';
       };
 
       telemetryConfig = mkOption {
         type = types.lines;
         default = "";
         description = "Telemetry configuration";
+      };
+
+      extraConfig = mkOption {
+        type = types.lines;
+        default = "";
+        description = "Extra text appended to <filename>vault.hcl</filename>.";
+      };
+
+      extraSettingsPaths = mkOption {
+        type = types.listOf types.path;
+        default = [];
+        description = ''
+          Configuration files to load besides the immutable one defined by the NixOS module.
+          This can be used to avoid putting credentials in the Nix store, which can be read by any user.
+
+          Each path can point to a JSON- or HCL-formatted file, or a directory
+          to be scanned for files with <literal>.hcl</literal> or
+          <literal>.json</literal> extensions.
+
+          To upload the confidential file with NixOps, use for example:
+
+          <programlisting><![CDATA[
+          # https://releases.nixos.org/nixops/latest/manual/manual.html#opt-deployment.keys
+          deployment.keys."vault.hcl" = let db = import ./db-credentials.nix; in {
+            text = ${"''"}
+              storage "postgresql" {
+                connection_url = "postgres://''${db.username}:''${db.password}@host.example.com/exampledb?sslmode=verify-ca"
+              }
+            ${"''"};
+            user = "vault";
+          };
+          services.vault.extraSettingsPaths = ["/run/keys/vault.hcl"];
+          services.vault.storageBackend = "postgresql";
+          users.users.vault.extraGroups = ["keys"];
+          ]]></programlisting>
+        '';
       };
     };
   };
@@ -105,6 +161,9 @@ in
     };
     users.groups.vault.gid = config.ids.gids.vault;
 
+    systemd.tmpfiles.rules = optional (cfg.storagePath != null)
+      "d '${cfg.storagePath}' 0700 vault vault - -";
+
     systemd.services.vault = {
       description = "Vault server daemon";
 
@@ -114,15 +173,13 @@ in
 
       restartIfChanged = false; # do not restart on "nixos-rebuild switch". It would seal the storage and disrupt the clients.
 
-      preStart = optionalString (cfg.storagePath != null) ''
-        install -d -m0700 -o vault -g vault "${cfg.storagePath}"
-      '';
-
+      startLimitIntervalSec = 60;
+      startLimitBurst = 3;
       serviceConfig = {
         User = "vault";
         Group = "vault";
-        PermissionsStartOnly = true;
-        ExecStart = "${pkgs.vault}/bin/vault server -config ${configFile}";
+        ExecStart = "${cfg.package}/bin/vault server ${configOptions}";
+        ExecReload = "${pkgs.coreutils}/bin/kill -SIGHUP $MAINPID";
         PrivateDevices = true;
         PrivateTmp = true;
         ProtectSystem = "full";
@@ -132,8 +189,6 @@ in
         KillSignal = "SIGINT";
         TimeoutStopSec = "30s";
         Restart = "on-failure";
-        StartLimitInterval = "60s";
-        StartLimitBurst = 3;
       };
 
       unitConfig.RequiresMountsFor = optional (cfg.storagePath != null) cfg.storagePath;

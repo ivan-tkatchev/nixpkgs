@@ -1,107 +1,121 @@
-{ stdenv, fetchurl, fetchpatch, autoreconfHook, pkgconfig, glib, expat, pam
-, intltool, spidermonkey_17 , gobjectIntrospection, libxslt, docbook_xsl
-, docbook_xml_dtd_412, gtk-doc
-, useSystemd ? stdenv.isLinux, systemd
-, doCheck ? false
+{ lib, stdenv, fetchurl, pkg-config, glib, expat, pam, perl, fetchpatch
+, intltool, spidermonkey_78, gobject-introspection, libxslt, docbook_xsl, dbus
+, docbook_xml_dtd_412, gtk-doc, coreutils
+, useSystemd ? (stdenv.isLinux && !stdenv.hostPlatform.isMusl), systemd, elogind
+# needed until gobject-introspection does cross-compile (https://github.com/NixOS/nixpkgs/pull/88222)
+, withIntrospection ? (stdenv.buildPlatform == stdenv.hostPlatform)
+# A few tests currently fail on musl (polkitunixusertest, polkitunixgrouptest, polkitidentitytest segfault).
+# Not yet investigated; it may be due to the "Make netgroup support optional"
+# patch not updating the tests correctly yet, or doing something wrong,
+# or being unrelated to that.
+, doCheck ? (stdenv.isLinux && !stdenv.hostPlatform.isMusl)
 }:
 
 let
 
-  system = "/var/run/current-system/sw";
-  setuid = "/run/wrappers/bin"; #TODO: from <nixos> config.security.wrapperDir;
-
-  foolVars = {
-    SYSCONF = "/etc";
-    DATA = "${system}/share"; # to find share/polkit-1/actions of other apps at runtime
-  };
+  system = "/run/current-system/sw";
+  setuid = "/run/wrappers/bin";
 
 in
 
 stdenv.mkDerivation rec {
-  name = "polkit-0.113";
+  pname = "polkit";
+  version = "0.118";
 
   src = fetchurl {
-    url = "https://www.freedesktop.org/software/polkit/releases/${name}.tar.gz";
-    sha256 = "109w86kfqrgz83g9ivggplmgc77rz8kx8646izvm2jb57h4rbh71";
+    url = "https://www.freedesktop.org/software/${pname}/releases/${pname}-${version}.tar.gz";
+    sha256 = "0swmg37jsxsxfsd2b3qm0l3zxr9ldvhpjw8lsgq3j8q7wy2fjm3d";
   };
 
   patches = [
+    # Don't use etc/dbus-1/system.d
+    # Upstream MR: https://gitlab.freedesktop.org/polkit/polkit/merge_requests/11
     (fetchpatch {
-      url = "http://src.fedoraproject.org/cgit/rpms/polkit.git/plain/polkit-0.113-agent-leaks.patch?id=fa6fd575804de92886c95d3bc2b7eb2abcd13760";
-      sha256 = "1cxnhj0y30g7ldqq1y6zwsbdwcx7h97d3mpd3h5jy7dhg3h9ym91";
+      url = "https://gitlab.freedesktop.org/polkit/polkit/commit/5dd4e22efd05d55833c4634b56e473812b5acbf2.patch";
+      sha256 = "17lv7xj5ksa27iv4zpm4zwd4iy8zbwjj4ximslfq3sasiz9kxhlp";
     })
+  ] ++ lib.optionals stdenv.hostPlatform.isMusl [
+    # Make netgroup support optional (musl does not have it)
+    # Upstream MR: https://gitlab.freedesktop.org/polkit/polkit/merge_requests/10
+    # We use the version of the patch that Alpine uses successfully.
     (fetchpatch {
-      url = "http://src.fedoraproject.org/cgit/rpms/polkit.git/plain/polkit-0.113-polkitpermission-leak.patch?id=fa6fd575804de92886c95d3bc2b7eb2abcd13760";
-      sha256 = "1h1rkd4avqyyr8q6836zzr3w10jf521gcqnvhrhzwdpgp1ay4si7";
-    })
-    (fetchpatch {
-      url = "http://src.fedoraproject.org/cgit/rpms/polkit.git/plain/polkit-0.113-itstool.patch?id=fa6fd575804de92886c95d3bc2b7eb2abcd13760";
-      sha256 = "0bxmjwp8ahy1y5g1l0kxmld0l3mlvb2l0i5n1qabia3d5iyjkyfh";
-    })
-    (fetchpatch {
-      name = "netgroup-optional.patch";
-      url = "https://bugs.freedesktop.org/attachment.cgi?id=118753";
-      sha256 = "1zq51dhmqi9zi86bj9dq4i4pxlxm41k3k4a091j07bd78cjba038";
+      name = "make-innetgr-optional.patch";
+      url = "https://git.alpinelinux.org/aports/plain/main/polkit/make-innetgr-optional.patch?id=391e7de6ced1a96c2dac812e0b12f1d7e0ea705e";
+      sha256 = "1p9qqqhnrfyjvvd50qh6vpl256kyfblm1qnhz5pm09klrl1bh1n4";
     })
   ];
 
-  postPatch = stdenv.lib.optionalString stdenv.isDarwin ''
+  postPatch = lib.optionalString stdenv.isDarwin ''
     sed -i -e "s/-Wl,--as-needed//" configure.ac
   '';
 
   outputs = [ "bin" "dev" "out" ]; # small man pages in $bin
 
   nativeBuildInputs =
-    [ gtk-doc pkgconfig autoreconfHook intltool gobjectIntrospection ]
+    [ glib gtk-doc pkg-config intltool perl ]
     ++ [ libxslt docbook_xsl docbook_xml_dtd_412 ]; # man pages
   buildInputs =
-    [ glib expat pam spidermonkey_17 gobjectIntrospection ]
-    ++ stdenv.lib.optional useSystemd systemd;
+    [ expat pam spidermonkey_78 ]
+    # On Linux, fall back to elogind when systemd support is off.
+    ++ lib.optional stdenv.isLinux (if useSystemd then systemd else elogind)
+    ++ lib.optional withIntrospection gobject-introspection;
 
-  # Ugly hack to overwrite hardcoded directories
-  # TODO: investigate a proper patch which will be accepted upstream
-  # After update it's good to check the sources via:
-  #   grep '\<PACKAGE_' '--include=*.[ch]' -R
-  CFLAGS = stdenv.lib.concatStringsSep " "
-    ( map (var: ''-DPACKAGE_${var}_DIR=\""${builtins.getAttr var foolVars}"\"'')
-        (builtins.attrNames foolVars) );
+  propagatedBuildInputs = [
+    glib # in .pc Requires
+  ];
 
   preConfigure = ''
+    chmod +x test/mocklibc/bin/mocklibc{,-test}.in
     patchShebangs .
-  '' + stdenv.lib.optionalString useSystemd /* bogus chroot detection */ ''
-    sed '/libsystemd autoconfigured/s/.*/:/' -i configure
-  ''
+
     # ‘libpolkit-agent-1.so’ should call the setuid wrapper on
     # NixOS.  Hard-coding the path is kinda ugly.  Maybe we can just
     # call through $PATH, but that might have security implications.
-  + ''
     substituteInPlace src/polkitagent/polkitagentsession.c \
       --replace   'PACKAGE_PREFIX "/lib/polkit-1/'   '"${setuid}/'
+    substituteInPlace test/data/etc/polkit-1/rules.d/10-testing.rules \
+      --replace   /bin/true ${coreutils}/bin/true \
+      --replace   /bin/false ${coreutils}/bin/false
+
+  '' + lib.optionalString useSystemd /* bogus chroot detection */ ''
+    sed '/libsystemd autoconfigured/s/.*/:/' -i configure
   '';
 
   configureFlags = [
-    #"--libexecdir=$(out)/libexec/polkit-1" # this and localstatedir are ignored by configure
-    "--with-systemdsystemunitdir=$(out)/etc/systemd/system"
+    "--datadir=${system}/share"
+    "--sysconfdir=/etc"
+    "--with-systemdsystemunitdir=${placeholder "out"}/etc/systemd/system"
     "--with-polkitd-user=polkituser" #TODO? <nixos> config.ids.uids.polkituser
     "--with-os-type=NixOS" # not recognized but prevents impurities on non-NixOS
-    "--enable-introspection"
-  ] ++ stdenv.lib.optional (!doCheck) "--disable-test";
+    (if withIntrospection then "--enable-introspection" else "--disable-introspection")
+  ] ++ lib.optional (!doCheck) "--disable-test";
 
-  makeFlags = "INTROSPECTION_GIRDIR=$(out)/share/gir-1.0 INTROSPECTION_TYPELIBDIR=$(out)/lib/girepository-1.0";
+  makeFlags = [
+    "INTROSPECTION_GIRDIR=${placeholder "out"}/share/gir-1.0"
+    "INTROSPECTION_TYPELIBDIR=${placeholder "out"}/lib/girepository-1.0"
+  ];
 
-  # The following is required on grsecurity/PaX due to spidermonkey's JIT
-  postBuild = stdenv.lib.optionalString stdenv.isLinux ''
-    paxmark mr src/polkitbackend/.libs/polkitd
-  '' + stdenv.lib.optionalString (stdenv.isLinux && doCheck) ''
-    paxmark mr test/polkitbackend/.libs/polkitbackendjsauthoritytest
-  '';
+  installFlags = [
+    "datadir=${placeholder "out"}/share"
+    "sysconfdir=${placeholder "out"}/etc"
+  ];
 
   inherit doCheck;
+  checkInputs = [ dbus ];
+  checkPhase = ''
+    # unfortunately this test needs python-dbusmock, but python-dbusmock needs polkit,
+    # leading to a circular dependency
+    substituteInPlace test/Makefile --replace polkitbackend ""
 
-  meta = with stdenv.lib; {
-    homepage = http://www.freedesktop.org/wiki/Software/polkit;
+    # tests need access to the system bus
+    dbus-run-session --config-file=${./system_bus.conf} -- sh -c 'DBUS_SYSTEM_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS make check'
+  '';
+
+  meta = with lib; {
+    homepage = "http://www.freedesktop.org/wiki/Software/polkit";
     description = "A toolkit for defining and handling the policy that allows unprivileged processes to speak to privileged processes";
+    license = licenses.gpl2;
     platforms = platforms.unix;
-    maintainers = [ ];
+    maintainers = teams.freedesktop.members ++ (with maintainers; [ ]);
   };
 }

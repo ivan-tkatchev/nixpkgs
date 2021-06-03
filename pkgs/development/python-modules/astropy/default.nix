@@ -1,32 +1,56 @@
 { lib
 , fetchPypi
+, setuptools-scm
 , buildPythonPackage
 , isPy3k
+, cython
+, jinja2
 , numpy
-, pytest }:
+, pytest
+, pytest-astropy
+, astropy-helpers
+, astropy-extension-helpers
+, pyerfa
+}:
 
 buildPythonPackage rec {
   pname = "astropy";
-  version = "3.0.3";
+  version = "4.2";
+  format = "pyproject";
 
   disabled = !isPy3k; # according to setup.py
 
-  doCheck = false; #Some tests are failing. More importantly setup.py hangs on completion. Needs fixing with a proper shellhook.
-
   src = fetchPypi {
     inherit pname version;
-    sha256 = "6af07abe5e263820a3dec93832a6ad74005013071490e125afbc6514411721da";
+    sha256 = "2c194f8a429b8399de64a413a06881ea49f0525cabaa2d78fc132b9e970adc6a";
   };
 
-  propagatedBuildInputs = [ pytest numpy ]; # yes it really has pytest in install_requires
+  nativeBuildInputs = [ setuptools-scm astropy-helpers astropy-extension-helpers cython jinja2 ];
+  propagatedBuildInputs = [ numpy pyerfa ];
+  checkInputs = [ pytest pytest-astropy ];
 
-  meta = {
+  preBuild = ''
+    export SETUPTOOLS_SCM_PRETEND_VERSION="${version}"
+  '';
+
+  # Tests must be run from the build directory.  astropy/samp tests
+  # require a network connection, so we ignore them. For some reason
+  # pytest --ignore does not work, so we delete the tests instead.
+  checkPhase = ''
+    cd build/lib.*
+    rm -f astropy/samp/tests/*
+    pytest
+  '';
+
+  # 368 failed, 10889 passed, 978 skipped, 69 xfailed in 196.24s
+  # doCheck = false;
+  doCheck = false;
+
+  meta = with lib; {
     description = "Astronomy/Astrophysics library for Python";
-    homepage = http://www.astropy.org;
-    license = lib.licenses.bsd3;
-    platforms = lib.platforms.all;
-    maintainers = with lib.maintainers; [ kentjames ];
+    homepage = "https://www.astropy.org";
+    license = licenses.bsd3;
+    platforms = platforms.all;
+    maintainers = [ maintainers.kentjames ];
   };
 }
-
-

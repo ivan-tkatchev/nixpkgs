@@ -1,39 +1,51 @@
-{stdenv, fetchurl, qmake, qtbase, qtsvg, pkgconfig, poppler, djvulibre, libspectre, cups
+{lib, mkDerivation, fetchurl, qmake, qtbase, qtsvg, pkg-config, poppler, djvulibre, libspectre, cups
 , file, ghostscript
 }:
 let
   s = # Generated upstream information
   rec {
     baseName="qpdfview";
-    version = "0.4.16";
+    version = "0.4.18";
     name="${baseName}-${version}";
     url="https://launchpad.net/qpdfview/trunk/${version}/+download/qpdfview-${version}.tar.gz";
-    sha256 = "0zysjhr58nnmx7ba01q3zvgidkgcqxjdj4ld3gx5fc7wzvl1dm7s";
+    sha256 = "0v1rl126hvblajnph2hkansgi0s8vjdc5yxrm4y3faa0lxzjwr6c";
   };
-  nativeBuildInputs = [ qmake pkgconfig ];
+  nativeBuildInputs = [ qmake pkg-config ];
   buildInputs = [
     qtbase qtsvg poppler djvulibre libspectre cups file ghostscript
   ];
+  # apply upstream fix for qt5.15 https://bazaar.launchpad.net/~adamreichold/qpdfview/trunk/revision/2104
+  patches = [ ./qpdfview-qt515-compat.patch ];
 in
-stdenv.mkDerivation {
-  inherit (s) name version;
-  inherit nativeBuildInputs buildInputs;
+mkDerivation {
+  pname = s.baseName;
+  inherit (s) version;
+  inherit nativeBuildInputs buildInputs patches;
   src = fetchurl {
     inherit (s) url sha256;
   };
 
-  # TODO: revert this once placeholder is supported
   preConfigure = ''
-    qmakeFlags="$qmakeFlags *.pro TARGET_INSTALL_PATH=$out/bin PLUGIN_INSTALL_PATH=$out/lib/qpdfview DATA_INSTALL_PATH=$out/share/qpdfview MANUAL_INSTALL_PATH=$out/share/man/man1 ICON_INSTALL_PATH=$out/share/icons/hicolor/scalable/apps LAUNCHER_INSTALL_PATH=$out/share/applications APPDATA_INSTALL_PATH=$out/share/appdata"
+    qmakeFlags+=(*.pro)
   '';
+
+  qmakeFlags = [
+    "TARGET_INSTALL_PATH=${placeholder "out"}/bin"
+    "PLUGIN_INSTALL_PATH=${placeholder "out"}/lib/qpdfview"
+    "DATA_INSTALL_PATH=${placeholder "out"}/share/qpdfview"
+    "MANUAL_INSTALL_PATH=${placeholder "out"}/share/man/man1"
+    "ICON_INSTALL_PATH=${placeholder "out"}/share/icons/hicolor/scalable/apps"
+    "LAUNCHER_INSTALL_PATH=${placeholder "out"}/share/applications"
+    "APPDATA_INSTALL_PATH=${placeholder "out"}/share/appdata"
+  ];
 
   meta = {
     inherit (s) version;
     description = "A tabbed document viewer";
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = [stdenv.lib.maintainers.raskin];
-    platforms = stdenv.lib.platforms.linux;
-    homepage = https://launchpad.net/qpdfview;
+    license = lib.licenses.gpl2Plus;
+    maintainers = [lib.maintainers.raskin];
+    platforms = lib.platforms.linux;
+    homepage = "https://launchpad.net/qpdfview";
     updateWalker = true;
   };
 }

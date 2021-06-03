@@ -1,35 +1,43 @@
 { lib
-, python
+, nixosTests
+, python3
 , groff
 , less
 }:
-
 let
-  py = python.override {
+  py = python3.override {
     packageOverrides = self: super: {
+      # TODO: https://github.com/aws/aws-cli/pull/5712
       colorama = super.colorama.overridePythonAttrs (oldAttrs: rec {
-        version = "0.3.7";
+        version = "0.4.3";
         src = oldAttrs.src.override {
           inherit version;
-          sha256 = "0avqkn6362v7k2kg3afb35g4sfdvixjgy890clip4q174p9whhz0";
+          sha256 = "189n8hpijy14jfan4ha9f5n06mnl33cxz7ay92wjqgkr639s0vg9";
         };
       });
     };
   };
 
-in py.pkgs.buildPythonApplication rec {
+in
+with py.pkgs; buildPythonApplication rec {
   pname = "awscli";
-  version = "1.15.58";
+  version = "1.19.52"; # N.B: if you change this, change botocore and boto3 to a matching version too
 
-  src = py.pkgs.fetchPypi {
+  src = fetchPypi {
     inherit pname version;
-    sha256 = "19wnr498q2mwbp8l978ahy9y7p7icahx53898fki6sbhd9pn2miq";
+    sha256 = "sha256-keKyuNeDC/90pn89KjoDTO8AGsmI8nqfDNSeGyM6iHQ=";
   };
+
+  # https://github.com/aws/aws-cli/issues/4837
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace "docutils>=0.10,<0.16" "docutils>=0.10"
+  '';
 
   # No tests included
   doCheck = false;
 
-  propagatedBuildInputs = with py.pkgs; [
+  propagatedBuildInputs = [
     botocore
     bcdoc
     s3transfer
@@ -42,22 +50,24 @@ in py.pkgs.buildPythonApplication rec {
     less
   ];
 
-  postPatch = ''
-    for i in {py,cfg}; do
-      substituteInPlace setup.$i --replace "botocore==1.10.10" "botocore>=1.10.9,<=1.11"
-    done
-  '';
-
   postInstall = ''
-    mkdir -p $out/etc/bash_completion.d
-    echo "complete -C $out/bin/aws_completer aws" > $out/etc/bash_completion.d/awscli
+    mkdir -p $out/share/bash-completion/completions
+    echo "complete -C $out/bin/aws_completer aws" > $out/share/bash-completion/completions/awscli
+
     mkdir -p $out/share/zsh/site-functions
     mv $out/bin/aws_zsh_completer.sh $out/share/zsh/site-functions
+
     rm $out/bin/aws.cmd
   '';
 
+  passthru = {
+    python = py; # for aws_shell
+
+    tests = { inherit (nixosTests) awscli; };
+  };
+
   meta = with lib; {
-    homepage = https://aws.amazon.com/cli/;
+    homepage = "https://aws.amazon.com/cli/";
     description = "Unified tool to manage your AWS services";
     license = licenses.asl20;
     maintainers = with maintainers; [ muflax ];

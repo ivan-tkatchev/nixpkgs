@@ -1,7 +1,7 @@
-{ stdenv, python }:
+{ lib, python3, glibcLocales }:
 let
 
-  localPython = python.override {
+  localPython = python3.override {
     packageOverrides = self: super: {
       cement = super.cement.overridePythonAttrs (oldAttrs: rec {
         version = "2.8.2";
@@ -20,6 +20,7 @@ let
       });
 
       pathspec = super.pathspec.overridePythonAttrs (oldAttrs: rec {
+        name = "${oldAttrs.pname}-${version}";
         version = "0.5.5";
         src = oldAttrs.src.override {
           inherit version;
@@ -61,6 +62,12 @@ in with localPython.pkgs; buildPythonApplication rec {
     sha256 = "128dgxyz2bgl3r4jdkbmjs280004bm0dwzln7p6ly3yjs2x37jl6";
   };
 
+  buildInputs = [
+    glibcLocales
+  ];
+
+  LC_ALL = "en_US.UTF-8";
+
   checkInputs = [
     pytest mock nose pathspec colorama requests docutils
   ];
@@ -76,14 +83,15 @@ in with localPython.pkgs; buildPythonApplication rec {
   ];
 
   postInstall = ''
-    mkdir -p $out/etc/bash_completion.d
-    mv $out/bin/eb_completion.bash $out/etc/bash_completion.d
+    mkdir -p $out/share/bash-completion/completions
+    mv $out/bin/eb_completion.bash $out/share/bash-completion/completions/
   '';
 
-  meta = with stdenv.lib; {
-    homepage = https://aws.amazon.com/elasticbeanstalk/;
+  meta = with lib; {
+    homepage = "https://aws.amazon.com/elasticbeanstalk/";
     description = "A command line interface for Elastic Beanstalk";
     maintainers = with maintainers; [ eqyiel ];
     license = licenses.asl20;
+    broken = true;
   };
 }

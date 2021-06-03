@@ -1,20 +1,22 @@
-{stdenv, fetchgit, autoreconfHook, halibut}:
+{lib, stdenv, fetchgit, autoreconfHook, halibut}:
 let
-  date = "20180522";
-  rev = "5b12791";
+  date = "20200705";
+  rev = "2a7d4a2";
 in
 stdenv.mkDerivation {
-  name = "agedu-${date}.${rev}";
+  pname = "agedu";
+  version = "${date}.${rev}";
+
   # upstream provides tarballs but it seems they disappear after the next version is released
   src = fetchgit {
-    url = https://git.tartarus.org/simon/agedu.git;
+    url = "https://git.tartarus.org/simon/agedu.git";
     inherit rev;
-    sha256 = "1zyxif0i3yil4xm8y9aqk6wsdwi7b3jg682lv6ds6a6bl047fz1q";
+    sha256 = "gRNscl/vhBoZaHFCs9JjDBHDRoEpILJLtiI4YV+K/b4=";
   };
 
   nativeBuildInputs = [autoreconfHook halibut];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A Unix utility for tracking down wasted disk space";
     longDescription = ''
        Most Unix file systems, in their default mode, helpfully record when a
@@ -27,9 +29,9 @@ stdenv.mkDerivation {
        agedu uses this information to tell you which files waste disk space when
        you haven't used them since a long time.
     '';
-    homepage = https://www.chiark.greenend.org.uk/~sgtatham/agedu/;
+    homepage = "https://www.chiark.greenend.org.uk/~sgtatham/agedu/";
     license = licenses.mit;
     maintainers = with maintainers; [ symphorien ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

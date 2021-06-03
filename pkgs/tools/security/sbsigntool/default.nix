@@ -1,29 +1,29 @@
-{ stdenv
-, fetchgit, autoconf, automake, pkgconfig, help2man
-, utillinux, openssl, libuuid, gnu-efi, libbfd
+{ lib, stdenv
+, fetchgit, autoconf, automake, pkg-config, help2man
+, openssl, libuuid, gnu-efi, libbfd
 }:
 
-stdenv.mkDerivation rec {
-  name = "sbsigntool-${version}";
-  version = "0.5";
+stdenv.mkDerivation {
+  pname = "sbsigntool";
+  version = "0.9.1";
 
   src = fetchgit {
-    url = "git://kernel.ubuntu.com/jk/sbsigntool";
-    rev = "951ee95a301674c046f55330cd7460e1314deff2";
-    sha256 = "1skqrfhvsaay01l94m57sxxqp909rvn07xwmzc6vzzfcnsh6f2yk";
+    url = "https://git.kernel.org/pub/scm/linux/kernel/git/jejb/sbsigntools.git";
+    rev = "v0.9.1";
+    sha256 = "098gxmhjn8acxjw5bq59wq4xhgkpx1xn8kjvxwdzpqkwq9ivrsbp";
   };
 
   patches = [ ./autoconf.patch ];
 
   prePatch = "patchShebangs .";
 
-  nativeBuildInputs = [ autoconf automake pkgconfig help2man ];
-  buildInputs = [ utillinux openssl libuuid gnu-efi libbfd ];
+  nativeBuildInputs = [ autoconf automake pkg-config help2man ];
+  buildInputs = [ openssl libuuid libbfd gnu-efi ];
 
   configurePhase = ''
     substituteInPlace configure.ac --replace "@@NIX_GNUEFI@@" "${gnu-efi}"
 
-    lib/ccan.git/tools/create-ccan-tree --build-type=automake lib/ccan "talloc read_write_all build_assert array_size"
+    lib/ccan.git/tools/create-ccan-tree --build-type=automake lib/ccan "talloc read_write_all build_assert array_size endian"
     touch AUTHORS
     touch ChangeLog
 
@@ -42,11 +42,12 @@ stdenv.mkDerivation rec {
     make install
     '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Tools for maintaining UEFI signature databases";
-    homepage    = http://jk.ozlabs.org/docs/sbkeysync-maintaing-uefi-key-databases;
+    homepage    = "http://jk.ozlabs.org/docs/sbkeysync-maintaing-uefi-key-databases";
     maintainers = [ maintainers.tstrobel ];
     platforms   = [ "x86_64-linux" ]; # Broken on i686
+    license     = licenses.gpl3;
   };
 }
 

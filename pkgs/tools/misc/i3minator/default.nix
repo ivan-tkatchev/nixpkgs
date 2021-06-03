@@ -1,32 +1,34 @@
-{ stdenv, fetchurl, pythonPackages, glibcLocales }:
+{ lib, fetchFromGitHub, python3Packages, glibcLocales }:
 
-pythonPackages.buildPythonApplication rec {
-  name = "i3minator-${version}";
+python3Packages.buildPythonApplication rec {
+  pname = "i3minator";
   version = "0.0.4";
 
-  src = fetchurl {
-    url = "https://github.com/carlesso/i3minator/archive/${version}.tar.gz";
-    sha256 = "11dn062788kwfs8k2ry4v8zr2gn40r6lsw770s9g2gvhl5n469dw";
+  src = fetchFromGitHub {
+    owner = "carlesso";
+    repo = "i3minator";
+    rev = version;
+    sha256 = "07dic5d2m0zw0psginpl43xn0mpxw7wilj49d02knz69f7c416lm";
   };
 
   LC_ALL = "en_US.UTF-8";
   buildInputs = [ glibcLocales ];
-  propagatedBuildInputs = [ pythonPackages.pyyaml pythonPackages.i3-py ];
+  propagatedBuildInputs = [ python3Packages.pyyaml python3Packages.i3-py ];
 
   # No tests
   doCheck = false;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "i3 project manager similar to tmuxinator";
     longDescription = ''
       A simple "workspace manager" for i3. It allows to quickly
       manage workspaces defining windows and their layout. The
       project is inspired by tmuxinator and uses i3-py.
     '';
-    homepage = https://github.com/carlesso/i3minator;
-    license = stdenv.lib.licenses.wtfpl;
+    homepage = "https://github.com/carlesso/i3minator";
+    license = lib.licenses.wtfpl;
     maintainers = with maintainers; [ domenkozar ];
-    platforms = stdenv.lib.platforms.linux;
+    platforms = lib.platforms.linux;
   };
 
 }

@@ -1,13 +1,15 @@
-{ stdenv, fetchgit, perl, xkeyboard_config }:
+{ lib, stdenv, fetchFromGitLab, perl, xkeyboard_config }:
 
 stdenv.mkDerivation rec {
-  name = "ckbcomp-${version}";
-  version = "1.133";
+  pname = "ckbcomp";
+  version = "1.199";
 
-  src = fetchgit {
-    url = "git://anonscm.debian.org/d-i/console-setup.git";
-    rev = "refs/tags/${version}";
-    sha256 = "1whli40ik5izyfs0m8d08gq8zcsdjscnxbsvxyxvdnkrvzw4izdz";
+  src = fetchFromGitLab {
+    domain = "salsa.debian.org";
+    owner = "installer-team";
+    repo = "console-setup";
+    rev = version;
+    sha256 = "0jvnxmqhfmj4aywskr2bk1q5p5fl8s4k4bch89965vcwi9bplalf";
   };
 
   buildInputs = [ perl ];
@@ -20,17 +22,15 @@ stdenv.mkDerivation rec {
   dontBuild = true;
 
   installPhase = ''
-    mkdir -p "$out"/bin
-    cp Keyboard/ckbcomp "$out"/bin/
-    mkdir -p "$out"/share/man/man1
-    cp man/ckbcomp.1 "$out"/share/man/man1
+    install -Dm0555 -t $out/bin Keyboard/ckbcomp
+    install -Dm0444 -t $out/share/man/man1 man/ckbcomp.1
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Compiles a XKB keyboard description to a keymap suitable for loadkeys";
-    homepage = http://anonscm.debian.org/cgit/d-i/console-setup.git;
+    homepage = "https://salsa.debian.org/installer-team/console-setup";
     license = licenses.gpl2Plus;
-    maintainers = with stdenv.lib.maintainers; [ dezgeg ];
+    maintainers = with lib.maintainers; [ dezgeg ];
     platforms = platforms.unix;
   };
 }

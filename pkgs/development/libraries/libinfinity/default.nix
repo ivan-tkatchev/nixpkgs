@@ -1,52 +1,53 @@
 { gtkWidgets ? false # build GTK widgets for libinfinity
-, daemon ? false # build infinote daemon
-, documentation ? false # build documentation
 , avahiSupport ? false # build support for Avahi in libinfinity
-, stdenv, fetchurl, pkgconfig, glib, libxml2, gnutls, gsasl
-, gtk2 ? null, gtkdoc ? null, avahi ? null, libdaemon ? null, libidn, gss
+, lib, stdenv, fetchurl, pkg-config, glib, libxml2, gnutls, gsasl
+, gobject-introspection
+, gtk3 ? null, gtk-doc, docbook_xsl, docbook_xml_dtd_412, avahi ? null, libdaemon, libidn, gss
 , libintl }:
 
+assert avahiSupport -> avahi != null;
+assert gtkWidgets -> gtk3 != null;
+
 let
-  edf = flag: feature: (if flag then "--with-" else "--without-") + feature;
-  optional = cond: elem: assert cond -> elem != null; if cond then [elem] else [];
+  mkFlag = flag: feature: (if flag then "--with-" else "--without-") + feature;
 
-in stdenv.mkDerivation rec {
+  self = stdenv.mkDerivation rec {
+    pname = "libinfinity";
+    version = "0.7.2";
+    src = fetchurl {
+      url = "https://github.com/gobby/${pname}/releases/download/${version}/${pname}-${version}.tar.gz";
+      sha256 = "17i3g61hxz9pzl3ryd1yr15142r25m06jfzjrpdy7ic1b8vjjw3f";
+    };
 
-  name = "libinfinity-${version}";
-  version = "0.7.1";
-  src = fetchurl {
-    url = "http://releases.0x539.de/libinfinity/${name}.tar.gz";
-    sha256 = "1jw2fhrcbpyz99bij07iyhy9ffyqdn87vl8cb1qz897y3f2f0vk2";
+    outputs = [ "bin" "out" "dev" "man" "devdoc" ];
+
+    nativeBuildInputs = [ pkg-config gtk-doc docbook_xsl docbook_xml_dtd_412 gobject-introspection ];
+    buildInputs = [ glib libxml2 gsasl libidn gss libintl libdaemon ]
+      ++ lib.optional gtkWidgets gtk3
+      ++ lib.optional avahiSupport avahi;
+
+    propagatedBuildInputs = [ gnutls ];
+
+    configureFlags = [
+      "--enable-gtk-doc"
+      "--enable-introspection"
+      (mkFlag gtkWidgets "inftextgtk")
+      (mkFlag gtkWidgets "infgtk")
+      "--with-infinoted"
+      "--with-libdaemon"
+      (mkFlag avahiSupport "avahi")
+    ];
+
+    passthru = {
+      infinoted = "${self.bin}/bin/infinoted-${lib.versions.majorMinor version}";
+    };
+
+    meta = {
+      homepage = "https://gobby.github.io/";
+      description = "An implementation of the Infinote protocol written in GObject-based C";
+      license = lib.licenses.lgpl2Plus;
+      maintainers = [ lib.maintainers.phreedom ];
+      platforms = with lib.platforms; linux ++ darwin;
+    };
   };
-
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ glib libxml2 gsasl libidn gss libintl ]
-    ++ optional gtkWidgets gtk2
-    ++ optional documentation gtkdoc
-    ++ optional avahiSupport avahi
-    ++ optional daemon libdaemon;
-
-  propagatedBuildInputs = [ gnutls ];
-
-  configureFlags = ''
-    ${if documentation then "--enable-gtk-doc" else "--disable-gtk-doc"}
-    ${edf gtkWidgets "inftextgtk"}
-    ${edf gtkWidgets "infgtk"}
-    ${edf daemon "infinoted"}
-    ${edf daemon "libdaemon"}
-    ${edf avahiSupport "avahi"}
-  '';
-
-  passthru = {
-    inherit version;
-  };
-
-  meta = {
-    homepage = http://gobby.0x539.de/;
-    description = "An implementation of the Infinote protocol written in GObject-based C";
-    license = stdenv.lib.licenses.lgpl2Plus;
-    maintainers = [ stdenv.lib.maintainers.phreedom ];
-    platforms = with stdenv.lib.platforms; linux ++ darwin;
-  };
-
-}
+in self

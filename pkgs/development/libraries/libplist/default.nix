@@ -1,31 +1,41 @@
-{ stdenv, fetchurl, pkgconfig, libxml2, swig2, python2Packages, glib }:
+{ lib, stdenv, autoreconfHook, fetchFromGitHub, pkg-config, enablePython ? false, python ? null, glib }:
 
-let
-  inherit (python2Packages) python cython;
-in stdenv.mkDerivation rec {
-  name = "libplist-${version}";
-  version = "2.0.0";
+stdenv.mkDerivation rec {
+  pname = "libplist";
+  version = "2.2.0";
 
-  nativeBuildInputs = [ pkgconfig swig2 python cython ];
+  src = fetchFromGitHub {
+    owner = "libimobiledevice";
+    repo = pname;
+    rev = version;
+    sha256 = "1vxhpjxniybqsg5wcygmdmr5dv7p2zb34dqnd3bi813rnnzsdjm6";
+  };
+
+  outputs = ["bin" "dev" "out" ] ++ lib.optional enablePython "py";
+
+  nativeBuildInputs = [
+    pkg-config
+    autoreconfHook
+  ] ++ lib.optionals enablePython [
+    python
+    python.pkgs.cython
+  ];
+
+  configureFlags = lib.optionals (!enablePython) [
+    "--without-cython"
+  ];
 
   propagatedBuildInputs = [ glib ];
 
-  passthru.swig = swig2;
-
-  outputs = ["bin" "dev" "out" "py"];
-
-  postFixup = ''
+  postFixup = lib.optionalString enablePython ''
     moveToOutput "lib/${python.libPrefix}" "$py"
   '';
 
-  src = fetchurl {
-    url = "https://www.libimobiledevice.org/downloads/${name}.tar.bz2";
-    sha256 = "00pnh9zf3iwdji2faccns7vagbmbrwbj9a8zp9s53a6rqaa9czis";
-  };
-
-  meta = {
-    homepage = https://github.com/JonathanBeck/libplist;
-    platforms = stdenv.lib.platforms.all;
-    maintainers = [ ];
+  meta = with lib; {
+    description = "A library to handle Apple Property List format in binary or XML";
+    homepage = "https://github.com/libimobiledevice/libplist";
+    license = licenses.lgpl21Plus;
+    maintainers = with maintainers; [ infinisil ];
+    platforms = platforms.linux ++ platforms.darwin;
   };
 }

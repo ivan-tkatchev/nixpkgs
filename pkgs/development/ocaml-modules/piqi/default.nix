@@ -1,16 +1,19 @@
-{stdenv, fetchurl, ocaml, findlib, camlp4, which, ulex, easy-format, ocaml_optcomp, xmlm, base64}:
+{ lib, stdenv, fetchFromGitHub, ocaml, findlib, which, sedlex_2, easy-format, xmlm, base64 }:
 
 stdenv.mkDerivation rec {
-  version = "0.6.13";
-  name    = "piqi-${version}";
- 
-  src = fetchurl {
-    url = "https://github.com/alavrik/piqi/archive/v${version}.tar.gz";
-    sha256 = "1whqr2bb3gds2zmrzqnv8vqka9928w4lx6mi6g244kmbwb2h8d8l";
+  version = "0.6.15";
+  pname = "piqi";
+  name = "ocaml${ocaml.version}-${pname}-${version}";
+
+  src = fetchFromGitHub {
+    owner = "alavrik";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "0v04hs85xv6d4ysqxyv1dik34dx49yab9shpi4x7iv19qlzl7csb";
   };
 
-  buildInputs = [ocaml findlib camlp4 which ocaml_optcomp];
-  propagatedBuildInputs = [ulex xmlm easy-format base64];
+  buildInputs = [ ocaml findlib which ];
+  propagatedBuildInputs = [ sedlex_2 xmlm easy-format base64 ];
 
   patches = [ ./no-ocamlpath-override.patch ];
 
@@ -26,8 +29,8 @@ stdenv.mkDerivation rec {
     make ocaml-install;
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://piqi.org;
+  meta = with lib; {
+    homepage = "http://piqi.org";
     description = "Universal schema language and a collection of tools built around it";
     license = licenses.asl20;
     maintainers = [ maintainers.maurer ];

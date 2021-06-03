@@ -1,36 +1,28 @@
-{ stdenv, fetchFromGitHub, meson, pkgconfig, ninja, glib, fuse3
-, docutils
-}:
+{ lib, stdenv, callPackage, fetchpatch }:
 
-let
-  inherit (stdenv.lib) optional;
-in stdenv.mkDerivation rec {
-  version = "3.4.0";
-  name = "sshfs-fuse-${version}";
+let mkSSHFS = args: callPackage (import ./common.nix args) { };
+in if stdenv.isDarwin then
+  mkSSHFS {
+    version = "2.10"; # macFUSE isn't yet compatible with libfuse 3.x
+    sha256 = "1dmw4kx6vyawcywiv8drrajnam0m29mxfswcp4209qafzx3mjlp1";
+    patches = [
+      # remove reference to fuse_darwin.h which doens't exist on recent macFUSE
+      ./fix-fuse-darwin-h.patch
 
-  src = fetchFromGitHub {
-    owner = "libfuse";
-    repo = "sshfs";
-    rev = "sshfs-${version}";
-    sha256 = "1mbhjgw6797bln579pfwmn79gs8isnv57z431lbfw7j8xkh75awl";
-  };
-
-  nativeBuildInputs = [ meson pkgconfig ninja docutils ];
-  buildInputs = [ fuse3 glib ];
-
-  NIX_CFLAGS_COMPILE = stdenv.lib.optional
-    (stdenv.system == "i686-linux")
-    "-D_FILE_OFFSET_BITS=64";
-
-  postInstall = ''
-    mkdir -p $out/sbin
-    ln -sf $out/bin/sshfs $out/sbin/mount.sshfs
-  '';
-
-  meta = with stdenv.lib; {
-    inherit (src.meta) homepage;
-    description = "FUSE-based filesystem that allows remote filesystems to be mounted over SSH";
-    platforms = platforms.linux;
-    maintainers = with maintainers; [ primeos ];
-  };
-}
+      # From https://github.com/libfuse/sshfs/pull/185:
+      # > With this patch, setting I/O size to a reasonable large value, will
+      # > result in much improved performance, e.g.: -o iosize=1048576
+      (fetchpatch {
+        name = "fix-configurable-blksize.patch";
+        url = "https://github.com/libfuse/sshfs/commit/667cf34622e2e873db776791df275c7a582d6295.patch";
+        sha256 = "0d65lawd2g2aisk1rw2vl65dgxywf4vqgv765n9zj9zysyya8a54";
+      })
+    ];
+    platforms = lib.platforms.darwin;
+  }
+else
+  mkSSHFS {
+    version = "3.7.1";
+    sha256 = "088mgcsqv9f2vly4xn6lvvkmqkgr9jjmjs9qp8938hl7j6rrgd17";
+    platforms = lib.platforms.linux;
+  }

@@ -1,13 +1,15 @@
-{ fetchurl, ncurses, stdenv,
+{ fetchFromGitHub, ncurses, lib, stdenv,
   updateAutotoolsGnuConfigScriptsHook }:
 
 stdenv.mkDerivation rec {
-  name = "freesweep-${version}";
+  pname = "freesweep";
   version = "1.0.1";
 
-  src = fetchurl {
-    url = "https://github.com/rwestlund/freesweep/archive/v${version}.tar.gz";
-    sha256 = "0l2kf14558lsq9qd2hs0kcyn9bbl1jdbzwrvcs6mnyjl7zpizcpj";
+  src = fetchFromGitHub {
+    owner = "rwestlund";
+    repo = "freesweep";
+    rev = "v${version}";
+    sha256 = "0grkwmz9whg1vlnk6gbr0vv9i2zgbd036182pk0xj4cavaj9rpjb";
   };
 
   nativeBuildInputs = [ updateAutotoolsGnuConfigScriptsHook ];
@@ -25,9 +27,9 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A console minesweeper-style game written in C for Unix-like systems";
-    homepage = https://github.com/rwestlund/freesweep;
+    homepage = "https://github.com/rwestlund/freesweep";
     license = licenses.gpl2;
     maintainers = with maintainers; [ kierdavis ];
     platforms = platforms.unix;

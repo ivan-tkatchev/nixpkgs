@@ -1,23 +1,23 @@
-{ stdenv, fetchurl, gmp
+{ lib, stdenv, fetchurl, gmp
 , withEmacsSupport ? true
 , withContrib ? true }:
 
 let
-  versionPkg = "0.3.11" ;
+  versionPkg = "0.4.1" ;
 
   contrib = fetchurl {
-    url = "mirror://sourceforge/ats2-lang/ATS2-Postiats-contrib-${versionPkg}.tgz" ;
-    sha256 = "300884eca8a54cb9b0daa19bd04a86252160cc8ad6ef494198babd56d5a579bc";
+    url = "mirror://sourceforge/ats2-lang/ATS2-Postiats-contrib-${versionPkg}.tgz";
+    sha256 = "184m4hz2xszhcfc6w9fw9qibhmcvgjmikwfwkb345xypr59jm93d";
   };
 
-  postInstallContrib = stdenv.lib.optionalString withContrib
+  postInstallContrib = lib.optionalString withContrib
   ''
     local contribDir=$out/lib/ats2-postiats-*/ ;
     mkdir -p $contribDir ;
     tar -xzf "${contrib}" --strip-components 1 -C $contribDir ;
   '';
 
-  postInstallEmacs = stdenv.lib.optionalString withEmacsSupport
+  postInstallEmacs = lib.optionalString withEmacsSupport
   ''
     local siteLispDir=$out/share/emacs/site-lisp/ats2 ;
     mkdir -p $siteLispDir ;
@@ -26,17 +26,17 @@ let
 in
 
 stdenv.mkDerivation rec {
-  name    = "ats2-${version}";
+  pname = "ats2";
   version = versionPkg;
 
   src = fetchurl {
-    url = "mirror://sourceforge/ats2-lang/ATS2-Postiats-${version}.tgz";
-    sha256 = "feba71f37e9688b8ff0a72c4eb21914ce59f19421350d9dc3f15ad6f8c28428a";
+    url = "mirror://sourceforge/ats2-lang/ATS2-Postiats-gmp-${version}.tgz";
+    sha256 = "0c4nqp6yzmpj0mcpg7ibmwyqi8hjw3sza8myvy4nzq3fa6wldy5l";
   };
 
   buildInputs = [ gmp ];
 
-  setupHook = with stdenv.lib;
+  setupHook = with lib;
     let
       hookFiles =
         [ ./setup-hook.sh ]
@@ -47,7 +47,7 @@ stdenv.mkDerivation rec {
 
   postInstall = postInstallContrib + postInstallEmacs;
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Functional programming language with dependent types";
     homepage    = "http://www.ats-lang.org";
     license     = licenses.gpl3Plus;

@@ -1,32 +1,50 @@
-{ stdenv, fetchurl, glib, intltool, menu-cache, pango, pkgconfig, vala_0_34
+{ lib
+, stdenv
+, fetchurl
+, glib
+, intltool
+, menu-cache
+, pango
+, pkg-config
+, vala
 , extraOnly ? false
-, withGtk3 ? false, gtk2, gtk3 }:
+, withGtk3 ? false, gtk2, gtk3
+}:
+
 let
     gtk = if withGtk3 then gtk3 else gtk2;
-    inherit (stdenv.lib) optional;
+    inherit (lib) optional;
 in
 stdenv.mkDerivation rec {
-  name = if extraOnly
-    then "libfm-extra-${version}"
-    else "libfm-${version}";
-  version = "1.3.0.2";
+  pname = if extraOnly
+          then "libfm-extra"
+          else "libfm";
+  version = "1.3.2";
 
   src = fetchurl {
     url = "mirror://sourceforge/pcmanfm/libfm-${version}.tar.xz";
-    sha256 = "0wkwbi1nyvqza3r1dhrq846axiiq0fy0dqgngnagh76fjrwnzl0q";
+    sha256 = "sha256-pQQmMDBM+OXYz/nVZca9VG8ii0jJYBU+02ajTofK0eU=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
-  buildInputs = [ glib gtk intltool pango vala_0_34 ]
+  nativeBuildInputs = [ vala pkg-config intltool ];
+  buildInputs = [ glib gtk pango ]
                 ++ optional (!extraOnly) menu-cache;
 
-  configureFlags = [ (optional extraOnly "--with-extra-only")
-                     (optional withGtk3 "--with-gtk=3") ];
+  configureFlags = [ "--sysconfdir=/etc" ]
+                   ++ optional extraOnly "--with-extra-only"
+                   ++ optional withGtk3 "--with-gtk=3";
+
+  installFlags = [ "sysconfdir=${placeholder "out"}/etc" ];
+
+  # libfm-extra is pulled in by menu-cache and thus leads to a collision for libfm
+  postInstall = optional (!extraOnly) ''
+     rm $out/lib/libfm-extra.so $out/lib/libfm-extra.so.* $out/lib/libfm-extra.la $out/lib/pkgconfig/libfm-extra.pc
+  '';
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    homepage = http://blog.lxde.org/?cat=28/;
+  meta = with lib; {
+    homepage = "https://blog.lxde.org/category/pcmanfm/";
     license = licenses.lgpl21Plus;
     description = "A glib-based library for file management";
     maintainers = [ maintainers.ttuegel ];

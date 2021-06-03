@@ -1,22 +1,20 @@
-{ stdenv, fetchPypi, buildPythonPackage, gssapi, pyasn1 }:
+{ lib, fetchPypi, buildPythonPackage, pyasn1 }:
 
 buildPythonPackage rec {
-  version = "2.5";
   pname = "ldap3";
+  version = "2.9";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "55078bbc981f715a8867b4c040402627fdfccf5664e0277a621416559748e384";
+    sha256 = "18c3ee656a6775b9b0d60f7c6c5b094d878d1d90fc03d56731039f0a4b546a91";
   };
-
-  buildInputs = [ gssapi ];
 
   propagatedBuildInputs = [ pyasn1 ];
 
   doCheck = false; # requires network
 
-  meta = with stdenv.lib; {
-    homepage = https://pypi.python.org/pypi/ldap3;
+  meta = with lib; {
+    homepage = "https://pypi.python.org/pypi/ldap3";
     description = "A strictly RFC 4510 conforming LDAP V3 pure Python client library";
     license = licenses.lgpl3;
   };

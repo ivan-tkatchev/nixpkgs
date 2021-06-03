@@ -1,29 +1,26 @@
-{ stdenv, buildPythonPackage, fetchPypi, gnupg1 }:
+{ lib, buildPythonPackage, fetchPypi, gnupg }:
 
 buildPythonPackage rec {
-  name    = "${pname}-${version}";
   pname   = "python-gnupg";
-  version = "0.4.3";
+  version = "0.4.7";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "2d158dfc6b54927752b945ebe57e6a0c45da27747fa3b9ae66eccc0d2147ac0d";
+    sha256 = "2061f56b1942c29b92727bf9aecbd3cea3893acc9cccbdc7eb4604285efe4ac7";
   };
-
-  propagatedBuildInputs = [ gnupg1 ];
 
   # Let's make the library default to our gpg binary
   patchPhase = ''
     substituteInPlace gnupg.py \
-    --replace "gpgbinary='gpg'" "gpgbinary='${gnupg1}/bin/gpg'"
+    --replace "gpgbinary='gpg'" "gpgbinary='${gnupg}/bin/gpg'"
     substituteInPlace test_gnupg.py \
-    --replace "gpgbinary=GPGBINARY" "gpgbinary='${gnupg1}/bin/gpg'" \
+    --replace "gpgbinary=GPGBINARY" "gpgbinary='${gnupg}/bin/gpg'" \
     --replace "test_search_keys" "disabled__test_search_keys"
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A wrapper for the Gnu Privacy Guard";
-    homepage    = https://pypi.python.org/pypi/python-gnupg;
+    homepage    = "https://pypi.python.org/pypi/python-gnupg";
     license     = licenses.bsd3;
     maintainers = with maintainers; [ copumpkin ];
     platforms   = platforms.unix;

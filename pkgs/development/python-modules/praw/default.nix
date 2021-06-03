@@ -1,48 +1,49 @@
-{ stdenv, buildPythonPackage, fetchFromGitHub
-, requests, decorator, flake8, mock, six, update_checker, pytestrunner, prawcore
-, pytest, betamax, betamax-serializers, betamax-matchers, requests_toolbelt
+{ lib
+, buildPythonPackage
+, fetchFromGitHub
+, betamax
+, betamax-serializers
+, betamax-matchers
+, mock
+, prawcore
+, pytestCheckHook
+, requests-toolbelt
+, update_checker
+, websocket_client
 }:
 
 buildPythonPackage rec {
   pname = "praw";
-  version = "5.4.0";
+  version = "7.2.0";
 
   src = fetchFromGitHub {
     owner = "praw-dev";
-    repo = "praw";
+    repo = pname;
     rev = "v${version}";
-    sha256 = "13vbh2r952ai2m6sc79psfwaj5fc8cssdg2pqpizg2mwd0l1s6lb";
+    sha256 = "sha256-/GV5ZhrJxeChcYwmH/9FsLceAYRSeTCDe4lMEwdTa8Y=";
   };
 
-  postPatch = ''
-    # drop upper bound of prawcore requirement
-    sed -ri "s/'(prawcore >=.+), <.+'/'\1'/" setup.py
-  '';
-
   propagatedBuildInputs = [
-    requests
-    decorator
-    flake8
     mock
-    six
-    update_checker
-    pytestrunner
     prawcore
+    update_checker
+    websocket_client
   ];
 
   checkInputs = [
-    pytest
     betamax
     betamax-serializers
     betamax-matchers
-    requests_toolbelt
+    pytestCheckHook
+    requests-toolbelt
   ];
 
-  meta = with stdenv.lib; {
+  pythonImportsCheck = [ "praw" ];
+
+  meta = with lib; {
     description = "Python Reddit API wrapper";
-    homepage = http://praw.readthedocs.org/;
-    license = licenses.gpl3;
-    platforms = platforms.all;
-    maintainers = with maintainers; [ jgeerds ];
+    homepage = "https://praw.readthedocs.org/";
+    license = licenses.bsd2;
+    maintainers = with maintainers; [ fab ];
   };
 }

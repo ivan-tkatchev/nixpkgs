@@ -1,15 +1,15 @@
-{ lib, buildPythonPackage, fetchPypi, setuptools_scm, requests, mock }:
+{ lib, buildPythonPackage, fetchPypi, setuptools-scm, requests, mock }:
 
 buildPythonPackage rec {
   pname = "pysolr";
-  version = "3.7.0";
+  version = "3.9.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "b2c5f920d1cabaff8b465447ee152c6985f120b5895f091cf7bf15ff71ade1dc";
+    sha256 = "1rj5jmscvxjwcmlfi6hmkj44l4x6n3ln5p7d8d18j566hzmmzw3f";
   };
 
-  nativeBuildInputs = [ setuptools_scm ];
+  nativeBuildInputs = [ setuptools-scm ];
 
   propagatedBuildInputs = [ requests ];
 
@@ -19,7 +19,7 @@ buildPythonPackage rec {
 
   meta = with lib; {
     description = "Lightweight Python wrapper for Apache Solr";
-    homepage = "http://github.com/toastdriven/pysolr/";
+    homepage = "https://github.com/toastdriven/pysolr/";
     license = licenses.bsd3;
   };
 }

@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, pkgconfig, fuse, perl }:
+{ lib, stdenv, fetchurl, pkg-config, fuse, perl }:
 
 stdenv.mkDerivation rec {
   name = "cromfs-1.5.10.2";
@@ -18,13 +18,14 @@ stdenv.mkDerivation rec {
     install util/unmkcromfs $out/bin
   '';
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ fuse perl ];
 
-  meta = {
+  meta = with lib; {
     description = "FUSE Compressed ROM filesystem with lzma";
-    homepage = https://bisqwit.iki.fi/source/cromfs.html;
-    maintainers = [ stdenv.lib.maintainers.viric ];
-    platforms = stdenv.lib.platforms.linux;
+    homepage = "https://bisqwit.iki.fi/source/cromfs.html";
+    license = licenses.gpl3;
+    maintainers = [ maintainers.viric ];
+    platforms = platforms.linux;
   };
 }

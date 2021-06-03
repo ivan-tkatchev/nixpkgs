@@ -1,41 +1,40 @@
-{ mkDerivation, ansi-terminal, ansi-wl-pprint, base, binary
-, bytestring, Cabal, cmark, containers, directory, fetchgit
-, filepath, free, HUnit, indents, json, mtl, optparse-applicative
-, parsec, process, QuickCheck, quickcheck-io, split, stdenv, tasty
-, tasty-golden, tasty-hunit, tasty-quickcheck, text
+{ mkDerivation, ansi-wl-pprint, avh4-lib, base, bimap, cmark
+, containers, elm-format-lib, elm-format-test-lib, fetchgit, json
+, lib, mtl, optparse-applicative, parsec, QuickCheck, quickcheck-io
+, relude, tasty, tasty-hspec, tasty-hunit, tasty-quickcheck, text
 }:
-mkDerivation {
+mkDerivation rec {
   pname = "elm-format";
-  version = "0.7.0";
+  version = "0.8.5";
   src = fetchgit {
-    url = "http://github.com/avh4/elm-format";
-    sha256 = "1snl2lrrzdwgzi68agi3sdw84aslj04pzzxpm1mam9ic6dzhn3jf";
-    rev = "da4b415c6a2b7e77b7d9f00beca3e45230e603fb";
+    url = "https://github.com/avh4/elm-format";
+    sha256 = "0bcjkcs1dy1csz0mpk7d4b5wf93fsj9p86x8fp42mb0pipdd0bh6";
+    rev = "80f15d85ee71e1663c9b53903f2b5b2aa444a3be";
+    fetchSubmodules = true;
   };
-
-  doHaddock = false;
-  isLibrary = true;
+  isLibrary = false;
   isExecutable = true;
-  setupHaskellDepends = [ base Cabal directory filepath process ];
-  libraryHaskellDepends = [
-    ansi-terminal ansi-wl-pprint base binary bytestring containers
-    directory filepath free indents json mtl optparse-applicative
-    parsec process split text
+  executableHaskellDepends = [
+    ansi-wl-pprint avh4-lib base containers elm-format-lib json
+    optparse-applicative relude text
   ];
-  executableHaskellDepends = [ base ];
   testHaskellDepends = [
-    base cmark containers HUnit mtl parsec QuickCheck quickcheck-io
-    split tasty tasty-golden tasty-hunit tasty-quickcheck text
+    ansi-wl-pprint avh4-lib base bimap cmark containers elm-format-lib
+    elm-format-test-lib json mtl optparse-applicative parsec QuickCheck
+    quickcheck-io relude tasty tasty-hspec tasty-hunit tasty-quickcheck
+    text
   ];
-  jailbreak = true;
-  postInstall = ''
-    ln -s $out/bin/elm-format-0.18 $out/bin/elm-format
-  '';
-  postPatch = ''
-    sed -i "s|desc <-.*||" ./Setup.hs
-    sed -i "s|gitDescribe = .*|gitDescribe = \\\\\"da4b415c\\\\\"\"|" ./Setup.hs
-  '';
-  homepage = http://elm-lang.org;
+  doHaddock = false;
+  homepage = "https://elm-lang.org";
   description = "A source code formatter for Elm";
-  license = stdenv.lib.licenses.bsd3;
+  license = lib.licenses.bsd3;
+  postPatch = ''
+    mkdir -p ./generated
+    cat <<EOHS > ./generated/Build_elm_format.hs
+    module Build_elm_format where
+
+    gitDescribe :: String
+    gitDescribe = "${version}"
+    EOHS
+  '';
 }

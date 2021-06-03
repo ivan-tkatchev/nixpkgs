@@ -1,25 +1,21 @@
-{ stdenv, fetchFromGitHub, frameworks, perl } :
+{ lib, stdenv, fetchFromGitHub, perl, AppKit, Cocoa, ScriptingBridge }:
+
 stdenv.mkDerivation rec {
-  version = "0.9.1";
-  name = "trash-${version}";
+  version = "0.9.2";
+  pname = "trash";
 
   src = fetchFromGitHub {
     owner = "ali-rantakari";
     repo = "trash";
     rev = "v${version}";
-    sha256 = "0ylkf7jxfy1pj7i1s48w28kzqjdfd57m2pw0jycsgcj5bkzwll41";
+    sha256 = "1d3rc03vgz32faj7qi18iiggxvxlqrj9lsk5jkpa9r1mcs5d89my";
   };
 
-  buildInputs = with frameworks; [
-    Cocoa
-    AppKit
-    ScriptingBridge
-    perl
-  ];
+  buildInputs = [ perl Cocoa AppKit ScriptingBridge ];
 
   patches = [ ./trash.diff ];
 
-  buildPhase = ''make all docs'';
+  buildPhase = "make all docs";
 
   installPhase = ''
     mkdir -p $out/bin
@@ -29,10 +25,10 @@ stdenv.mkDerivation rec {
   '';
 
   meta = {
-    homepage = https://github.com/ali-rantakari/trash;
+    homepage = "https://github.com/ali-rantakari/trash";
     description = "Small command-line program for OS X that moves files or
     folders to the trash.";
-    platforms = stdenv.lib.platforms.darwin;
-    license = stdenv.lib.licenses.mit;
+    platforms = lib.platforms.darwin;
+    license = lib.licenses.mit;
   };
 }

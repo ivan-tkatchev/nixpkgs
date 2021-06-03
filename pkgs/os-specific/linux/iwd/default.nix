@@ -1,65 +1,96 @@
-{ stdenv, fetchgit, autoreconfHook, readline, python3Packages }:
+{ lib, stdenv
+, fetchgit
+, autoreconfHook
+, pkg-config
+, ell
+, coreutils
+, docutils
+, readline
+, openssl
+, python3Packages
+}:
 
-let
-  ell = fetchgit {
-     url = https://git.kernel.org/pub/scm/libs/ell/ell.git;
-     rev = "0.6";
-     sha256 = "0cs0a7rjg9gl9gn9sc3b1y8mv2zbjg7rb87mla6kcrknjci76pgm";
-  };
-in stdenv.mkDerivation rec {
-  name = "iwd-${version}";
-  version = "0.3";
+stdenv.mkDerivation rec {
+  pname = "iwd";
+  version = "1.14";
 
   src = fetchgit {
-    url = https://git.kernel.org/pub/scm/network/wireless/iwd.git;
+    url = "https://git.kernel.org/pub/scm/network/wireless/iwd.git";
     rev = version;
-    sha256 = "151bqc85vchl1arhl9pyvfashxq886cjrbi6js4csx4vzscbhzzm";
+    sha256 = "sha256-uGe4TO1/bs8k2z3wOJqaZgT6u6yX/7wx4HMSS2hN4XE=";
   };
+
+  outputs = [ "out" "man" ]
+    ++ lib.optional (stdenv.hostPlatform == stdenv.buildPlatform) "test";
 
   nativeBuildInputs = [
     autoreconfHook
+    docutils
+    pkg-config
     python3Packages.wrapPython
   ];
 
   buildInputs = [
-    readline
+    ell
     python3Packages.python
+    readline
   ];
 
-  pythonPath = [
+  checkInputs = [ openssl ];
+
+  # wrapPython wraps the scripts in $test. They pull in gobject-introspection,
+  # which doesn't cross-compile.
+  pythonPath = lib.optionals (stdenv.hostPlatform == stdenv.buildPlatform) [
     python3Packages.dbus-python
     python3Packages.pygobject3
   ];
 
-  enableParallelBuilding = true;
-
   configureFlags = [
-    "--with-dbus-datadir=$(out)/etc/"
-    "--localstatedir=/var"
-    "--disable-systemd-service"
+    "--enable-external-ell"
+    "--enable-wired"
+    "--localstatedir=/var/"
+    "--with-dbus-busdir=${placeholder "out"}/share/dbus-1/system-services/"
+    "--with-dbus-datadir=${placeholder "out"}/share/"
+    "--with-systemd-modloaddir=${placeholder "out"}/etc/modules-load.d/" # maybe
+    "--with-systemd-unitdir=${placeholder "out"}/lib/systemd/system/"
+    "--with-systemd-networkdir=${placeholder "out"}/lib/systemd/network/"
   ];
 
   postUnpack = ''
-    ln -s ${ell} ell
+    mkdir -p iwd/ell
+    ln -s ${ell.src}/ell/useful.h iwd/ell/useful.h
     patchShebangs .
   '';
 
+  doCheck = true;
+
   postInstall = ''
-    cp -a test/* $out/bin/
     mkdir -p $out/share
     cp -a doc $out/share/
     cp -a README AUTHORS TODO $out/share/doc/
+  '' + lib.optionalString (stdenv.hostPlatform == stdenv.buildPlatform) ''
+    mkdir -p $test/bin
+    cp -a test/* $test/bin/
   '';
 
   preFixup = ''
     wrapPythonPrograms
   '';
 
-  meta = with stdenv.lib; {
-    homepage = https://git.kernel.org/pub/scm/network/wireless/iwd.git;
+  postFixup = ''
+    substituteInPlace $out/share/dbus-1/system-services/net.connman.ead.service \
+      --replace /bin/false ${coreutils}/bin/false
+    substituteInPlace $out/share/dbus-1/system-services/net.connman.iwd.service \
+      --replace /bin/false ${coreutils}/bin/false
+  '';
+
+  enableParallelBuilding = true;
+
+  meta = with lib; {
+    homepage = "https://git.kernel.org/pub/scm/network/wireless/iwd.git";
     description = "Wireless daemon for Linux";
-    license = licenses.lgpl21;
+    license = licenses.lgpl21Plus;
     platforms = platforms.linux;
-    maintainers = [ maintainers.mic92 ];
+    maintainers = with maintainers; [ dtzWill fpletz ];
   };
 }

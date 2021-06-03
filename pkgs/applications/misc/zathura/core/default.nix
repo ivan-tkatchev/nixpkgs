@@ -1,44 +1,54 @@
-{ stdenv, fetchurl, meson, ninja, makeWrapper, pkgconfig
+{ lib, stdenv, fetchurl, meson, ninja, wrapGAppsHook, pkg-config
 , appstream-glib, desktop-file-utils, python3
-, gtk, girara, ncurses, gettext, libxml2
-, file, sqlite, glib, texlive, libintl, libseccomp
-, gtk-mac-integration, synctexSupport ? true
+, gtk, girara, gettext, libxml2, check
+, sqlite, glib, texlive, libintl, libseccomp
+, file, librsvg
+, gtk-mac-integration
 }:
 
-assert synctexSupport -> texlive != null;
-
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "zathura-core-${version}";
-  version = "0.4.0";
+  pname = "zathura";
+  version = "0.4.7";
 
   src = fetchurl {
-    url = "https://pwmt.org/projects/zathura/download/zathura-${version}.tar.xz";
-    sha256 = "1j0yah09adv3bsjhhbqra5lambal32svk8fxmf89wwmcqrcr4qma";
+    url = "https://pwmt.org/projects/${pname}/download/${pname}-${version}.tar.xz";
+    sha256 = "1rx1fk9s556fk59lmqgvhwrmv71ashh89bx9adjq46wq5gzdn4p0";
   };
 
+  outputs = [ "bin" "man" "dev" "out" ];
+
+  # Flag list:
+  # https://github.com/pwmt/zathura/blob/master/meson_options.txt
+  mesonFlags = [
+    "-Dsqlite=enabled"
+    "-Dmagic=enabled"
+    "-Dmanpages=enabled"
+    "-Dconvert-icon=enabled"
+    "-Dsynctex=enabled"
+    # Make sure tests are enabled for doCheck
+    "-Dtests=enabled"
+  ] ++ optional (!stdenv.isLinux) "-Dseccomp=disabled";
+
   nativeBuildInputs = [
-    meson ninja pkgconfig appstream-glib desktop-file-utils python3.pkgs.sphinx
-    gettext makeWrapper libxml2
+    meson ninja pkg-config desktop-file-utils python3.pkgs.sphinx
+    gettext wrapGAppsHook libxml2 check appstream-glib
   ];
 
   buildInputs = [
-    file gtk girara libintl libseccomp
-    sqlite glib
-  ] ++ optional synctexSupport texlive.bin.core
-    ++ optional stdenv.isDarwin [ gtk-mac-integration ];
+    gtk girara libintl sqlite glib file librsvg
+    texlive.bin.core
+  ] ++ optional stdenv.isLinux libseccomp
+    ++ optional stdenv.isDarwin gtk-mac-integration;
 
-  postInstall = ''
-    wrapProgram "$out/bin/zathura" \
-      --prefix PATH ":" "${makeBinPath [ file ]}"
-  '';
+  doCheck = !stdenv.isDarwin;
 
   meta = {
-    homepage = https://pwmt.org/projects/zathura/;
+    homepage = "https://git.pwmt.org/pwmt/zathura";
     description = "A core component for zathura PDF viewer";
     license = licenses.zlib;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ garbas ];
+    maintainers = with maintainers; [ globin ];
   };
 }

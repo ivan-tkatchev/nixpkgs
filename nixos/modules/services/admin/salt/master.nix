@@ -45,7 +45,7 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
       path = with pkgs; [
-        utillinux  # for dmesg
+        util-linux  # for dmesg
       ];
       serviceConfig = {
         ExecStart = "${pkgs.salt}/bin/salt-master";
@@ -53,8 +53,11 @@ in
         Type = "notify";
         NotifyAccess = "all";
       };
+      restartTriggers = [
+        config.environment.etc."salt/master".source
+      ];
     };
   };
 
-  meta.maintainers = with lib.maintainers; [ aneeshusa ];
+  meta.maintainers = with lib.maintainers; [ Flakebi ];
 }

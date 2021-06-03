@@ -1,4 +1,4 @@
-{ lib, stdenv, buildPythonPackage, fetchPypi, requests }:
+{ lib, buildPythonPackage, fetchPypi, requests }:
 
 buildPythonPackage rec {
   pname = "PyMVGLive";
@@ -13,7 +13,7 @@ buildPythonPackage rec {
 
   meta = with lib; {
     description = "get live-data from mvg-live.de";
-    homepage = https://github.com/pc-coholic/PyMVGLive;
+    homepage = "https://github.com/pc-coholic/PyMVGLive";
     license = licenses.free;
   };
 }

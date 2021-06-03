@@ -1,16 +1,16 @@
-{ stdenv, fetchurl, makeWrapper, hadoop, jre, bash }:
+{ lib, stdenv, fetchurl, makeWrapper, hadoop, jre, bash }:
 
 stdenv.mkDerivation rec {
 
-  name = "pig-0.16.0";
+  name = "pig-0.17.0";
 
   src = fetchurl {
     url = "mirror://apache/pig/${name}/${name}.tar.gz";
-    sha256 = "0p79grz5islnq195lv7pqdxb5l3v4y0k0w63602827qs70zpr508";
+    sha256 = "1wwpg0w47f49rnivn2d26vrxgyfl9gpqx3vmzbl5lhx6x5l3fqbd";
 
   };
 
-  buildInputs = [ makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
 
   installPhase = ''
     mkdir -p $out
@@ -21,13 +21,13 @@ stdenv.mkDerivation rec {
 
     for n in $out/{bin,sbin}"/"*; do
       wrapProgram $n \
-        --prefix PATH : "${stdenv.lib.makeBinPath [ jre bash ]}" \
+        --prefix PATH : "${lib.makeBinPath [ jre bash ]}" \
         --set JAVA_HOME "${jre}" --set HADOOP_PREFIX "${hadoop}"
     done
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://pig.apache.org/;
+  meta = with lib; {
+    homepage = "https://pig.apache.org/";
     description = "High-level language for Apache Hadoop";
     license = licenses.asl20;
 

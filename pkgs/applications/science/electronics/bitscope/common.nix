@@ -2,14 +2,12 @@
 , buildFHSUserEnv
 , cairo
 , dpkg
-, fetchurl
-, gdk_pixbuf
+, gdk-pixbuf
 , glib
 , gtk2-x11
 , makeWrapper
 , pango
-, stdenv
-, writeTextFile
+, lib, stdenv
 , xorg
 }:
 
@@ -17,15 +15,15 @@
 let
   wrapBinary = libPaths: binaryName: ''
     wrapProgram "$out/bin/${binaryName}" \
-      --prefix LD_LIBRARY_PATH : "${stdenv.lib.makeLibraryPath libPaths}"
+      --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath libPaths}"
   '';
   pkg = stdenv.mkDerivation (rec {
     inherit (attrs) version src;
 
     name = "${toolName}-${version}";
 
-    meta = with stdenv.lib; {
-      homepage = http://bitscope.com/software/;
+    meta = with lib; {
+      homepage = "http://bitscope.com/software/";
       license = licenses.unfree;
       platforms = [ "x86_64-linux" ];
       maintainers = with maintainers; [
@@ -41,7 +39,7 @@ let
     libs = attrs.libs or [
       atk
       cairo
-      gdk_pixbuf
+      gdk-pixbuf
       glib
       gtk2-x11
       pango
@@ -60,10 +58,6 @@ let
       ${(wrapBinary libs) attrs.toolName}
     '';
   });
-  fhs = target: buildFHSUserEnv {
-    inherit (pkg) name;
-    runScript = target;
-  };
 in buildFHSUserEnv {
   name = "${attrs.toolName}-${attrs.version}";
   runScript = "${pkg.outPath}/bin/${attrs.toolName}";

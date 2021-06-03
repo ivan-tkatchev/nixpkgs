@@ -1,18 +1,32 @@
-{ stdenv, fetchFromGitHub, pythonPackages }:
+{ lib, fetchFromGitHub, python3Packages, bash, git, less }:
 
-pythonPackages.buildPythonApplication rec {
-  name = "icdiff-${version}";
-  version = "1.9.1";
+python3Packages.buildPythonApplication rec {
+  pname = "icdiff";
+  version = "1.9.5";
 
   src = fetchFromGitHub {
     owner = "jeffkaufman";
     repo = "icdiff";
     rev = "release-${version}";
-    sha256 = "0ffn5kq7dwvrimxgpj9ksym36c18md8nsdps82qzhm1xq7p9w9yb";
+    sha256 = "080v8h09pv8qwplin4kwfm0kmqjwdqjfxbpcdrv16sv4hwfwl5qd";
   };
 
-  meta = with stdenv.lib; {
-    homepage = https://www.jefftk.com/icdiff;
+  checkInputs = [
+    bash
+    git
+    less
+  ];
+
+  # error: could not lock config file /homeless-shelter/.gitconfig: No such file or directory
+  doCheck = false;
+
+  checkPhase = ''
+    patchShebangs test.sh
+    ./test.sh ${python3Packages.python.interpreter}
+  '';
+
+  meta = with lib; {
+    homepage = "https://www.jefftk.com/icdiff";
     description = "Side-by-side highlighted command line diffs";
     maintainers = with maintainers; [ aneeshusa ];
     license = licenses.psfl;

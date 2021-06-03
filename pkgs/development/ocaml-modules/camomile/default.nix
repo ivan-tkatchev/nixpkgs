@@ -1,27 +1,26 @@
-{ stdenv, fetchFromGitHub, ocaml, findlib, jbuilder, cppo }:
+{ lib, fetchFromGitHub, buildDunePackage, cppo }:
 
-stdenv.mkDerivation rec {
-	version = "0.8.7";
-	name = "ocaml${ocaml.version}-camomile-${version}";
+buildDunePackage rec {
+  pname = "camomile";
+  version = "1.0.2";
 
-	src = fetchFromGitHub {
-		owner = "yoriyuki";
-		repo = "camomile";
-		rev = "rel-${version}";
-		sha256 = "0rh58nl5jrnx01hf0yqbdcc2ncx107pq29zblchww82ci0x1xwsf";
-	};
+  useDune2 = true;
 
-	buildInputs = [ ocaml findlib jbuilder cppo ];
+  src = fetchFromGitHub {
+    owner = "yoriyuki";
+    repo = pname;
+    rev = version;
+    sha256 = "00i910qjv6bpk0nkafp5fg97isqas0bwjf7m6rz11rsxilpalzad";
+  };
 
-	configurePhase = "ocaml configure.ml --share $out/share/camomile";
+  buildInputs = [ cppo ];
 
-	inherit (jbuilder) installPhase;
+  configurePhase = "ocaml configure.ml --share $out/share/camomile";
 
-	meta = {
-		inherit (ocaml.meta) platforms;
-		inherit (src.meta) homepage;
-		maintainers = [ stdenv.lib.maintainers.vbgl ];
-		license = stdenv.lib.licenses.lgpl21;
-		description = "A Unicode library for OCaml";
-	};
+  meta = {
+    inherit (src.meta) homepage;
+    maintainers = [ lib.maintainers.vbgl ];
+    license = lib.licenses.lgpl21;
+    description = "A Unicode library for OCaml";
+  };
 }

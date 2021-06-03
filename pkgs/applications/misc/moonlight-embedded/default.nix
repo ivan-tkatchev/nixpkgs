@@ -1,18 +1,19 @@
-{ stdenv, fetchgit, cmake, perl
+{ lib, stdenv, fetchFromGitHub, cmake, perl
 , alsaLib, libevdev, libopus, udev, SDL2
-, ffmpeg, pkgconfig, xorg, libvdpau, libpulseaudio, libcec
-, curl, expat, avahi, enet, libuuid
+, ffmpeg, pkg-config, xorg, libvdpau, libpulseaudio, libcec
+, curl, expat, avahi, enet, libuuid, libva
 }:
 
 stdenv.mkDerivation rec {
-  name = "moonlight-embedded-${version}";
-  version = "2.4.6";
+  pname = "moonlight-embedded";
+  version = "2.4.11";
 
-  # fetchgit used to ensure submodules are available
-  src = fetchgit {
-    url = "git://github.com/irtimmer/moonlight-embedded";
-    rev = "refs/tags/v${version}";
-    sha256 = "0vs6rjmz8058s9lscagiif6pcizwfrvfpk9rxxgacfi0xisfgmf1";
+  src = fetchFromGitHub {
+    owner = "irtimmer";
+    repo = "moonlight-embedded";
+    rev = "v${version}";
+    sha256 = "19wm4gizj8q6j4jwqfcn3bkhms97d8afwxmqjmjnqqxzpd2gxc16";
+    fetchSubmodules = true;
   };
 
   outputs = [ "out" "man" ];
@@ -20,13 +21,13 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [ cmake perl ];
   buildInputs = [
     alsaLib libevdev libopus udev SDL2
-    ffmpeg pkgconfig xorg.libxcb libvdpau libpulseaudio libcec
-    xorg.libpthreadstubs curl expat avahi enet libuuid
+    ffmpeg pkg-config xorg.libxcb libvdpau libpulseaudio libcec
+    xorg.libpthreadstubs curl expat avahi enet libuuid libva
   ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Open source implementation of NVIDIA's GameStream";
-    homepage = https://github.com/irtimmer/moonlight-embedded;
+    homepage = "https://github.com/irtimmer/moonlight-embedded";
     license = licenses.gpl3;
     maintainers = [ maintainers.globin ];
     platforms = platforms.linux;

@@ -1,36 +1,39 @@
-{ stdenv
-, fetchurl
-, perl
-, perlPackages
-, libxml2
-, pciutils
-, pkgconfig
-, gtk2
+{ lib, stdenv
+, autoconf
+, automake
+, libtool
+, intltool
+, fetchFromGitHub
 }:
 
-let version = "20061014"; in
-let verName = "${version}"; in
-stdenv.mkDerivation {
-  name = "ddccontrol-db-${verName}";
-  src = fetchurl {
-    url = "mirror://sourceforge/ddccontrol/ddccontrol-db/${verName}/ddccontrol-db-${verName}.tar.bz2";
-    sha1 = "9d06570fdbb4d25e397202a518265cc1173a5de3";
+stdenv.mkDerivation rec {
+  pname = "ddccontrol-db";
+  version = "20210505";
+
+  src = fetchFromGitHub {
+    owner = "ddccontrol";
+    repo = "ddccontrol-db";
+    rev = version;
+    sha256 = "sha256-k0Bcf1I/g2sFnX3y4qyWG7Z3W7K6YeZ9trUFSJ4NhSo=";
   };
+
+  preConfigure = ''
+    ./autogen.sh
+  '';
+
   buildInputs =
     [
-      perl
-      perlPackages.libxml_perl
-      libxml2
-      pciutils
-      pkgconfig
-      gtk2
+      autoconf
+      automake
+      libtool
+      intltool
     ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Monitor database for DDCcontrol";
-    homepage = http://ddccontrol.sourceforge.net/;
+    homepage = "https://github.com/ddccontrol/ddccontrol-db";
     license = licenses.gpl2;
     platforms = platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.pakhfn ];
+    maintainers = [ lib.maintainers.pakhfn ];
   };
 }

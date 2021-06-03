@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, pkgconfig, directfb, libsigcxx, libxml2, fontconfig }:
+{ lib, stdenv, fetchurl, pkg-config, directfb, libsigcxx, libxml2, fontconfig }:
 
 # TODO: optional deps: baresip, FusionDale, FusionSound, SaWMan, doxygen,
 # Reflex, Wnn, NLS
@@ -11,16 +11,19 @@ stdenv.mkDerivation rec {
     sha256 = "1kmdmqf68jiv7y6as41bhbgdy70yy2i811a3l6kccbazlzpif34v";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ directfb libsigcxx libxml2 fontconfig ];
 
-  configureFlags = ''
-    --enable-log-debug --enable-debug --enable-trace --with-examples
-  '';
+  configureFlags = [
+    "--enable-log-debug"
+    "--enable-debug"
+    "--enable-trace"
+    "--with-examples"
+  ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Lightweight C++ GUI toolkit for embedded Linux systems";
-    homepage = http://ilixi.org/;
+    homepage = "https://github.com/ilixi/ilixi";
     license = licenses.lgpl3;
     platforms = platforms.linux;
     maintainers = [ maintainers.bjornfor ];

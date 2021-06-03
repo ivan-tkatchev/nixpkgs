@@ -1,18 +1,18 @@
-{ stdenv, fetchFromGitHub, autoreconfHook, pkgconfig, perl, pythonPackages, libiconv }:
+{ lib, stdenv, fetchFromGitHub, autoreconfHook, coreutils, pkg-config, perl, python3Packages, libiconv, jansson }:
 
 stdenv.mkDerivation rec {
-  name = "universal-ctags-${version}";
-  version = "2018-01-05";
+  pname = "universal-ctags";
+  version = "5.9.20210411.0";
 
   src = fetchFromGitHub {
     owner = "universal-ctags";
     repo = "ctags";
-    rev = "c66bdfb4db99977c1bd0568e33e60853a48dca65";
-    sha256 = "0fdzhr0704cj84ym00plkl5l9w83haal6i6w70lx6f4968pcliyi";
+    rev = "p${version}";
+    sha256 = "0c031y0dl2b70pd0mqfbylplf8f27x11b0ch7ljka3rqav0zb1zr";
   };
 
-  nativeBuildInputs = [ autoreconfHook pkgconfig pythonPackages.docutils ];
-  buildInputs = stdenv.lib.optional stdenv.isDarwin libiconv;
+  nativeBuildInputs = [ autoreconfHook coreutils pkg-config python3Packages.docutils ];
+  buildInputs = [ jansson ] ++ lib.optional stdenv.isDarwin libiconv;
 
   # to generate makefile.in
   autoreconfPhase = ''
@@ -21,21 +21,30 @@ stdenv.mkDerivation rec {
 
   configureFlags = [ "--enable-tmpdir=/tmp" ];
 
+  postPatch = ''
+    # Remove source of non-determinism
+    substituteInPlace main/options.c \
+      --replace "printf (\"  Compiled: %s, %s\n\", __DATE__, __TIME__);" ""
+
+    substituteInPlace Tmain/utils.sh \
+      --replace /bin/echo ${coreutils}/bin/echo
+  '';
+
   postConfigure = ''
     sed -i 's|/usr/bin/env perl|${perl}/bin/perl|' misc/optlib2c
   '';
 
   doCheck = true;
 
-  checkFlags = "units";
+  checkFlags = [ "units" ];
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A maintained ctags implementation";
-    homepage = https://ctags.io/;
+    homepage = "https://ctags.io/";
     license = licenses.gpl2Plus;
     platforms = platforms.unix;
     # universal-ctags is preferred over emacs's ctags
     priority = 1;
-    maintainers = [ maintainers.mimadrid ];
+    maintainers = [ maintainers.mimame ];
   };
 }

@@ -1,29 +1,27 @@
-{ stdenv, fetchFromGitHub, coreutils }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, systemd }:
 
 stdenv.mkDerivation rec {
-  name = "brightnessctl-${version}";
-  version = "0.3.2";
+  pname = "brightnessctl";
+  version = "0.5.1";
 
   src = fetchFromGitHub {
     owner = "Hummer12007";
     repo = "brightnessctl";
-    rev = "${version}";
-    sha256 = "0amxhcikcgj04z81272kz35m5h5q4jx9x7v71h8yl1rv4b2lzh7z";
+    rev = version;
+    sha256 = "0immxc7almmpg80n3bdn834p3nrrz7bspl2syhb04s3lawa5y2lq";
   };
 
-  makeFlags = "MODE=0755 PREFIX=/ DESTDIR=$(out)";
+  makeFlags = [ "PREFIX=" "DESTDIR=$(out)" "ENABLE_SYSTEMD=1" ];
 
-  patchPhase = ''
-    substituteInPlace 90-brightnessctl.rules --replace /bin/ ${coreutils}/bin/
-    substituteInPlace 90-brightnessctl.rules --replace %k '*'
-  '';
+  nativeBuildInputs = [ pkg-config ];
+  buildInputs = [ systemd ];
 
-  meta = {
+  meta = with lib; {
     homepage = "https://github.com/Hummer12007/brightnessctl";
-    maintainers = [ stdenv.lib.maintainers.Dje4321 ];
-    license = stdenv.lib.licenses.mit;
     description = "This program allows you read and control device brightness";
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.mit;
+    maintainers = with maintainers; [ megheaiulian ];
+    platforms = platforms.linux;
   };
 
 }

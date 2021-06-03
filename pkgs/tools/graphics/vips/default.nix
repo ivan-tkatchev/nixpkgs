@@ -1,29 +1,90 @@
-{ stdenv, fetchurl, pkgconfig, glib, libxml2, flex, bison, vips, expat,
-  fftw, orc, lcms, imagemagick, openexr, libtiff, libjpeg, libgsf, libexif,
-  python27, libpng, matio ? null, cfitsio ? null, libwebp ? null
+{ lib, stdenv
+, pkg-config
+, glib
+, libxml2
+, expat
+, fftw
+, orc
+, lcms
+, imagemagick
+, openexr
+, libtiff
+, libjpeg
+, libgsf
+, libexif
+, libheif
+, librsvg
+, ApplicationServices
+, Foundation
+, python27
+, libpng
+, fetchFromGitHub
+, fetchpatch
+, autoreconfHook
+, gtk-doc
+, gobject-introspection
+,
 }:
 
 stdenv.mkDerivation rec {
-  name = "vips-${version}";
-  version = "8.6.4";
+  pname = "vips";
+  version = "8.10.6";
 
-  src = fetchurl {
-    url = "https://github.com/jcupitt/libvips/releases/download/v${version}/${name}.tar.gz";
-    sha256 = "1x4ai997yfl4155r4k3m5fa5hj3030c4abi5g49kfarbr60a0ca6";
+  outputs = [ "bin" "out" "man" "dev" ];
+
+  src = fetchFromGitHub {
+    owner = "libvips";
+    repo = "libvips";
+    rev = "v${version}";
+    sha256 = "sha256-hdpkBC76PnPTN+rnNchLVk1CrhcClTtbaWyUcyUtuAk=";
+    # Remove unicode file names which leads to different checksums on HFS+
+    # vs. other filesystems because of unicode normalisation.
+    extraPostFetch = ''
+      rm -r $out/test/test-suite/images/
+    '';
   };
 
-  buildInputs =
-    [ pkgconfig glib libxml2 fftw orc lcms
-      imagemagick openexr libtiff libjpeg
-      libgsf libexif python27 libpng
-      expat
-    ];
+  nativeBuildInputs = [
+    pkg-config
+    autoreconfHook
+    gtk-doc
+    gobject-introspection
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = http://www.vips.ecs.soton.ac.uk;
+  buildInputs = [
+    glib
+    libxml2
+    fftw
+    orc
+    lcms
+    imagemagick
+    openexr
+    libtiff
+    libjpeg
+    libgsf
+    libexif
+    libheif
+    libpng
+    librsvg
+    python27
+    libpng
+    expat
+  ] ++ lib.optionals stdenv.isDarwin [ApplicationServices Foundation];
+
+  # Required by .pc file
+  propagatedBuildInputs = [
+    glib
+  ];
+
+  autoreconfPhase = ''
+    NOCONFIGURE=1 ./autogen.sh
+  '';
+
+  meta = with lib; {
+    homepage = "https://libvips.github.io/libvips/";
     description = "Image processing system for large images";
     license = licenses.lgpl2Plus;
     maintainers = with maintainers; [ kovirobi ];
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

@@ -17,6 +17,15 @@ in
     '';
   };
 
+  options.services.zerotierone.port = mkOption {
+    default = 9993;
+    example = 9993;
+    type = types.int;
+    description = ''
+      Network port used by ZeroTier.
+    '';
+  };
+
   options.services.zerotierone.package = mkOption {
     default = pkgs.zerotierone;
     defaultText = "pkgs.zerotierone";
@@ -29,9 +38,13 @@ in
   config = mkIf cfg.enable {
     systemd.services.zerotierone = {
       description = "ZeroTierOne";
-      path = [ cfg.package ];
-      after = [ "network.target" ];
+
       wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
+      wants = [ "network-online.target" ];
+
+      path = [ cfg.package ];
+
       preStart = ''
         mkdir -p /var/lib/zerotier-one/networks.d
         chmod 700 /var/lib/zerotier-one
@@ -40,18 +53,30 @@ in
         touch "/var/lib/zerotier-one/networks.d/${netId}.conf"
       '') cfg.joinNetworks);
       serviceConfig = {
-        ExecStart = "${cfg.package}/bin/zerotier-one";
+        ExecStart = "${cfg.package}/bin/zerotier-one -p${toString cfg.port}";
         Restart = "always";
         KillMode = "process";
+        TimeoutStopSec = 5;
       };
     };
 
     # ZeroTier does not issue DHCP leases, but some strangers might...
     networking.dhcpcd.denyInterfaces = [ "zt*" ];
 
-    # ZeroTier receives UDP transmissions on port 9993 by default
-    networking.firewall.allowedUDPPorts = [ 9993 ];
+    # ZeroTier receives UDP transmissions
+    networking.firewall.allowedUDPPorts = [ cfg.port ];
 
     environment.systemPackages = [ cfg.package ];
+
+    # Prevent systemd from potentially changing the MAC address
+    systemd.network.links."50-zerotier" = {
+      matchConfig = {
+        OriginalName = "zt*";
+      };
+      linkConfig = {
+        AutoNegotiation = false;
+        MACAddressPolicy = "none";
+      };
+    };
   };
 }

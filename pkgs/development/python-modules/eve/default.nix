@@ -1,34 +1,46 @@
-{ stdenv, buildPythonPackage, fetchPypi, flask, jinja2, itsdangerous, events
-, markupsafe, pymongo, flask-pymongo, werkzeug, simplejson, cerberus }:
+{ lib
+, buildPythonPackage
+, fetchPypi
+, flask
+, events
+, pymongo
+, simplejson
+, cerberus
+, setuptools
+}:
 
 buildPythonPackage rec {
   pname = "Eve";
-  version = "0.8";
+  version = "1.1.5";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "9f926c715f88c7a92dc2b950ccc09cccd91f72fe0e93cde806b85d25b947df2f";
+    sha256 = "5647ee7dd6e063b967276e49f564cd4f96decdd0a218482bdf86c404a2be1fbf";
   };
 
   propagatedBuildInputs = [
     cerberus
     events
-    flask-pymongo
     flask
-    itsdangerous
-    jinja2
-    markupsafe
     pymongo
     simplejson
-    werkzeug
+    setuptools
   ];
+
+  postPatch = ''
+    substituteInPlace setup.py \
+      --replace "events>=0.3,<0.4" "events>=0.3,<0.5"
+  '';
+
+  pythonImportsCheck = [ "eve" ];
 
   # tests call a running mongodb instance
   doCheck = false;
 
-  meta = with stdenv.lib; {
-    homepage = "http://python-eve.org/";
+  meta = with lib; {
+    homepage = "https://python-eve.org/";
     description = "Open source Python REST API framework designed for human beings";
     license = licenses.bsd3;
+    maintainers = [ maintainers.marsam ];
   };
 }

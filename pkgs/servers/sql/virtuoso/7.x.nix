@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, libxml2, openssl, readline, gawk }:
+{ lib, stdenv, fetchurl, libxml2, openssl, readline, gawk }:
 
 stdenv.mkDerivation rec {
   name = "virtuoso-opensource-7.2.4.2";
@@ -12,11 +12,11 @@ stdenv.mkDerivation rec {
 
   CPP = "${stdenv.cc}/bin/gcc -E";
 
-  configureFlags = "
-    --enable-shared --disable-all-vads --with-readline=${readline.dev}
-    --disable-hslookup --disable-wbxml2 --without-iodbc
-    --enable-openssl=${openssl.dev}
-    ";
+  configureFlags = [
+    "--enable-shared" "--disable-all-vads" "--with-readline=${readline.dev}"
+    "--disable-hslookup" "--disable-wbxml2" "--without-iodbc"
+    "--enable-openssl=${openssl.dev}"
+  ];
 
   postInstall=''
     echo Moving documentation
@@ -26,11 +26,11 @@ stdenv.mkDerivation rec {
     find $out -name "*.a" -delete -o -name "*.jar" -delete -o -type d -empty -delete
     '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "SQL/RDF database used by, e.g., KDE-nepomuk";
-    homepage = http://virtuoso.openlinksw.com/dataspace/dav/wiki/Main/;
+    homepage = "http://virtuoso.openlinksw.com/dataspace/dav/wiki/Main/";
     #configure: The current version [...] can only be built on 64bit platforms
     platforms = [ "x86_64-linux" ];
-    maintainers = [ ];
+    license = licenses.gpl2;
   };
 }

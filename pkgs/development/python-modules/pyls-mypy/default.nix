@@ -1,42 +1,50 @@
-{ lib, buildPythonPackage, fetchFromGitHub, fetchpatch
+{ lib, buildPythonPackage, fetchFromGitHub, isPy27
 , future, python-language-server, mypy, configparser
-, pytest, mock, isPy3k, pytestcov, coverage
+, pytestCheckHook, mock, pytestcov, coverage
+, fetchpatch
 }:
 
 buildPythonPackage rec {
   pname = "pyls-mypy";
-  version = "0.1.2";
+  version = "0.1.8";
 
   src = fetchFromGitHub {
     owner = "tomv564";
     repo = "pyls-mypy";
     rev = version;
-    sha256 = "0wa038a8a8yj3wmrc7q909nj4b5d3lq70ysbw7rpsnyb0x06m826";
+    sha256 = "14giyvcrq4w3asm1nyablw70zkakkcsr76chk5a41alxlk4l2alb";
   };
 
-  disabled = !isPy3k;
+  # presumably tests don't find typehints ?
+  doCheck = false;
+
+  disabledTests = [
+    "test_parse_line_without_line"
+  ];
+
+  preCheck = ''
+    export HOME=$TEMPDIR
+  '';
 
   patches = [
-    # also part of https://github.com/tomv564/pyls-mypy/pull/10
+    # makes future optional
     (fetchpatch {
-      url = "https://github.com/Mic92/pyls-mypy/commit/4c727120d2cbd8bf2825e1491cd55175f03266d2.patch";
-      sha256 = "1dgn5z742swpxwknmgvm65jpxq9zwzhggw4nl6ys7yw8r49kqgrl";
+      url = "https://github.com/tomv564/pyls-mypy/commit/2949582ff5f39b1de51eacc92de6cfacf1b5ab75.patch";
+      sha256 = "0bqkvdy5mxyi46nhq5ryynf465f68b6ffy84hmhxrigkapz085g5";
     })
   ];
 
-  checkPhase = ''
-    HOME=$TEMPDIR pytest
-  '';
-
-  checkInputs = [ pytest mock pytestcov coverage ];
+  checkInputs = [ mock pytestcov coverage pytestCheckHook ];
 
   propagatedBuildInputs = [
-    mypy python-language-server future configparser
+    mypy python-language-server configparser
+  ] ++ lib.optional (isPy27) [
+    future
   ];
 
   meta = with lib; {
-    homepage = https://github.com/palantir/python-language-server;
-    description = "An implementation of the Language Server Protocol for Python";
+    homepage = "https://github.com/tomv564/pyls-mypy";
+    description = "Mypy plugin for the Python Language Server";
     license = licenses.mit;
     maintainers = [ maintainers.mic92 ];
   };

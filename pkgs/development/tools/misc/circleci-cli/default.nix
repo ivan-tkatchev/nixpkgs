@@ -1,38 +1,39 @@
-{ stdenv, fetchFromGitHub, docker, makeWrapper }:
+{ lib, fetchFromGitHub, buildGoModule }:
 
-stdenv.mkDerivation rec {
-  name = "${pname}-${version}";
+buildGoModule rec {
   pname = "circleci-cli";
-  version = "2018-05-12";
+  version = "0.1.15149";
 
   src = fetchFromGitHub {
-    owner = "circleci";
-    repo = "local-cli";
-    rev = "2c7c1a74e3c3ffb8eebc03fccd782b1bfe9e940a";
-    sha256 = "0fp0fz0xr7ynp32lqcmaigl9p45wk1hd2gv9i5q5bj9syj3g7qzm";
+    owner = "CircleCI-Public";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-pmLDCNgCQv4fetl/q6ZokH1qF6pSqsR0DUWbzGeEtaw=";
   };
 
-  nativeBuildInputs = [ makeWrapper ];
+  vendorSha256 = "sha256-j7VP/QKKMdmWQ60BYpChG4syDlll7CY4rb4wfb4+Z1s=";
 
-  installPhase = ''
-    mkdir -p "$out/bin/"
-    cp "$src/circleci.sh" "$out/bin/circleci"
+  doCheck = false;
+
+  buildFlagsArray = [ "-ldflags=-s -w -X github.com/CircleCI-Public/circleci-cli/version.Version=${version} -X github.com/CircleCI-Public/circleci-cli/version.Commit=${src.rev} -X github.com/CircleCI-Public/circleci-cli/version.packageManager=nix" ];
+
+  preBuild = ''
+    substituteInPlace data/data.go \
+      --replace 'packr.New("circleci-cli-box", "../_data")' 'packr.New("circleci-cli-box", "${placeholder "out"}/share/circleci-cli")'
   '';
 
-  postFixup = ''
-    wrapProgram $out/bin/circleci \
-      --prefix "PATH" : "${docker}/bin"
+  postInstall = ''
+    install -Dm644 -t $out/share/circleci-cli _data/data.yml
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     # Box blurb edited from the AUR package circleci-cli
     description = ''
       Command to enable you to reproduce the CircleCI environment locally and
       run jobs as if they were running on the hosted CirleCI application.
     '';
     maintainers = with maintainers; [ synthetica ];
-    platforms = platforms.linux;
     license = licenses.mit;
-    homepage = https://circleci.com/;
+    homepage = "https://circleci.com/";
   };
 }

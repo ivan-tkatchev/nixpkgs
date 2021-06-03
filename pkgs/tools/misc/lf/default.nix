@@ -1,34 +1,29 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
+{ buildGoModule, fetchFromGitHub, lib, installShellFiles }:
 
-buildGoPackage rec {
-  name = "lf-${version}";
-  version = "7";
+buildGoModule rec {
+  pname = "lf";
+  version = "22";
 
   src = fetchFromGitHub {
     owner = "gokcehan";
     repo = "lf";
     rev = "r${version}";
-    sha256 = "11n5svxhc2781ss7v15w40ac81mchhcvkszhb2r70zry7sa15li1";
+    sha256 = "10zmac9xza2v7l13zkavmc34ppcpmb82v8dxvrv4ggm261ns1abr";
   };
 
-  goPackagePath = "github.com/gokcehan/lf";
-  goDeps = ./deps.nix;
+  vendorSha256 = "1yjsig2x6zrxdjnds6nqqq3r3g5lq8g9dvmz60nbifqhcx112bcw";
 
-  # TODO: Setting buildFlags probably isn't working properly. I've tried a few
-  # variants, e.g.:
-  # - buildFlags = "-ldflags \"-s -w -X 'main.gVersion=${version}'\"";
-  # - buildFlags = "-ldflags \\\"-X ${goPackagePath}/main.gVersion=${version}\\\"";
+  nativeBuildInputs = [ installShellFiles ];
 
-  # Override the build phase (to set buildFlags):
-  buildPhase = ''
-    runHook preBuild
-    runHook renameImports
-    cd go/src/${goPackagePath}
-    go install -ldflags="-s -w -X main.gVersion=r${version}"
-    runHook postBuild
+  buildFlagsArray = [ "-ldflags=-s -w -X main.gVersion=r${version}" ];
+
+  postInstall = ''
+    install -D --mode=444 lf.desktop $out/share/applications/lf.desktop
+    installManPage lf.1
+    installShellCompletion etc/lf.{zsh,fish}
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A terminal file manager written in Go and heavily inspired by ranger";
     longDescription = ''
       lf (as in "list files") is a terminal file manager written in Go. It is
@@ -36,9 +31,10 @@ buildGoPackage rec {
       the missing features are deliberately omitted since it is better if they
       are handled by external tools.
     '';
-    homepage = https://godoc.org/github.com/gokcehan/lf;
+    homepage = "https://godoc.org/github.com/gokcehan/lf";
+    changelog = "https://github.com/gokcehan/lf/releases/tag/r${version}";
     license = licenses.mit;
     platforms = platforms.unix;
-    maintainers = with maintainers; [ primeos ];
+    maintainers = with maintainers; [ ];
   };
 }

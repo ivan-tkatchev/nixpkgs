@@ -5,18 +5,18 @@
 
 buildPythonPackage rec {
   pname = "XStatic-jQuery";
-  version = "1.10.2.1";
+  version = "3.5.1.1";
 
   src = fetchPypi {
     inherit version pname;
-    sha256 = "018kx4zijflcq8081xx6kmiqf748bsjdq7adij2k91bfp1mnlhc3";
+    sha256 = "e0ae8f8ec5bbd28045ba4bca06767a38bd5fc27cf9b71f434589f59370dcd323";
   };
 
   # no tests implemented
   doCheck = false;
 
   meta = with lib;{
-    homepage =  https://jquery.org;
+    homepage =  "https://jquery.org";
     description = "jquery packaged static files for python";
     license = licenses.mit;
     maintainers = with maintainers; [ makefu ];

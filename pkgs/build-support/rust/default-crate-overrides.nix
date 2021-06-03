@@ -1,77 +1,163 @@
-{ stdenv, pkgconfig, curl, darwin, libiconv, libgit2, libssh2,
-  openssl, sqlite, zlib, dbus, dbus-glib, gdk_pixbuf, cairo, python3,
-  libsodium, postgresql, ... }:
+{ lib, stdenv, pkg-config, curl, darwin, libiconv, libgit2, libssh2,
+  openssl, sqlite, zlib, dbus, dbus-glib, gdk-pixbuf, cairo, python3,
+  libsodium, postgresql, gmp, foundationdb, capnproto, nettle, clang,
+  llvmPackages, ... }:
 
 let
   inherit (darwin.apple_sdk.frameworks) CoreFoundation Security;
 in
 {
-  cargo = attrs: {
-    buildInputs = [ openssl zlib curl ]
-      ++ stdenv.lib.optionals stdenv.isDarwin [ CoreFoundation libiconv ];
-    # TODO: buildRustCrate seems to use incorrect default inference
-    crateBin = [ {  name = "cargo"; path = "src/bin/cargo.rs"; } ];
-  };
-  cargo-vendor = attrs: {
-    buildInputs = [ openssl zlib curl ];
-    # TODO: this defaults to cargo_vendor; needs to be cargo-vendor to
-    # be considered a cargo subcommand.
-    crateBin = [ { name = "cargo-vendor"; path = "src/main.rs"; } ];
-  };
-  curl-sys = attrs: {
-    buildInputs = [ pkgconfig zlib curl ];
-    propagatedBuildInputs = [ curl zlib ];
-    extraLinkFlags = ["-L${zlib.out}/lib"];
-  };
-  libgit2-sys = attrs: {
-    LIBGIT2_SYS_USE_PKG_CONFIG = true;
-    buildInputs = [ pkgconfig openssl zlib libgit2 ];
-  };
-  libsqlite3-sys = attrs: {
-    buildInputs = [ pkgconfig sqlite ];
-  };
-  libssh2-sys = attrs: {
-    buildInputs = [ pkgconfig openssl zlib libssh2 ];
-  };
-  openssl = attrs: {
-    buildInputs = [ openssl ];
-  };
-  openssl-sys = attrs: {
-    buildInputs = [ pkgconfig openssl ];
-  };
-
-  dbus = attrs: {
-    buildInputs = [ pkgconfig dbus ];
-  };
-  libdbus-sys = attrs: {
-    buildInputs = [ pkgconfig dbus ];
-  };
-  gobject-sys = attrs: {
-    buildInputs = [ dbus-glib ];
-  };
-  gio-sys = attrs: {
-    buildInputs = [ dbus-glib ];
-  };
-  gdk-pixbuf-sys = attrs: {
-    buildInputs = [ dbus-glib ];
-  };
-  gdk-pixbuf = attrs: {
-    buildInputs = [ gdk_pixbuf ];
-  };
   cairo-rs = attrs: {
     buildInputs = [ cairo ];
   };
-  xcb = attrs: {
-    buildInputs = [ python3 ];
+
+  capnp-rpc = attrs: {
+    nativeBuildInputs = [ capnproto ];
+  };
+
+  cargo = attrs: {
+    buildInputs = [ openssl zlib curl ]
+      ++ lib.optionals stdenv.isDarwin [ CoreFoundation Security libiconv ];
+  };
+
+  libz-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ zlib ];
+    extraLinkFlags = ["-L${zlib.out}/lib"];
+  };
+
+  curl-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ zlib curl ];
+    propagatedBuildInputs = [ curl zlib ];
+    extraLinkFlags = ["-L${zlib.out}/lib"];
+  };
+
+  dbus = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ dbus ];
+  };
+
+  foundationdb-sys = attrs: {
+    buildInputs = [ foundationdb ];
+    # needed for 0.4+ release, when the FFI bindings are auto-generated
+    #
+    # patchPhase = ''
+    #   substituteInPlace ./foundationdb-sys/build.rs \
+    #     --replace /usr/local/include ${foundationdb.dev}/include
+    # '';
+  };
+
+  foundationdb = attrs: {
+    buildInputs = [ foundationdb ];
+  };
+
+  gobject-sys = attrs: {
+    buildInputs = [ dbus-glib ];
+  };
+
+  gio-sys = attrs: {
+    buildInputs = [ dbus-glib ];
+  };
+
+  gdk-pixbuf-sys = attrs: {
+    buildInputs = [ dbus-glib ];
+  };
+
+  gdk-pixbuf = attrs: {
+    buildInputs = [ gdk-pixbuf ];
+  };
+
+  libgit2-sys = attrs: {
+    LIBGIT2_SYS_USE_PKG_CONFIG = true;
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ openssl zlib libgit2 ];
+  };
+
+  libsqlite3-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ sqlite ];
+  };
+
+  libssh2-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ openssl zlib libssh2 ];
+  };
+
+  libdbus-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ dbus ];
+  };
+
+  nettle-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ nettle clang ];
+    LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
+  };
+
+  openssl = attrs: {
+    buildInputs = [ openssl ];
+  };
+
+  openssl-sys = attrs: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ openssl ];
+  };
+
+  pq-sys = attr: {
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ postgresql ];
+  };
+
+  rink = attrs: {
+    buildInputs = [ gmp ];
+    crateBin = [ {  name = "rink"; path = "src/bin/rink.rs"; } ];
+  };
+
+  security-framework-sys = attr: {
+    propagatedBuildInputs = [ Security ];
+  };
+
+  sequoia-openpgp = attrs: {
+    buildInputs = [ gmp ];
+  };
+
+  sequoia-openpgp-ffi = attrs: {
+    buildInputs = [ gmp ];
+  };
+
+  sequoia-ipc = attrs: {
+    buildInputs = [ gmp ];
+  };
+
+  sequoia-guide = attrs: {
+    buildInputs = [ gmp ];
+  };
+
+  sequoia-store = attrs: {
+    nativeBuildInputs = [ capnproto ];
+    buildInputs = [ sqlite gmp ];
+  };
+
+  sequoia-sq = attrs: {
+    buildInputs = [ sqlite gmp ];
+  };
+
+  sequoia-tool = attrs: {
+    nativeBuildInputs = [ capnproto ];
+    buildInputs = [ sqlite gmp ];
+  };
+
+  serde_derive = attrs: {
+    buildInputs = lib.optional stdenv.isDarwin Security;
   };
 
   thrussh-libsodium = attrs: {
-    buildInputs = [ pkgconfig libsodium ];
+    nativeBuildInputs = [ pkg-config ];
+    buildInputs = [ libsodium ];
   };
-  pq-sys = attr: {
-    buildInputs = [ pkgconfig postgresql ];
-  };
-  security-framework-sys = attr: {
-    propagatedBuildInputs = [ Security ];
+
+  xcb = attrs: {
+    buildInputs = [ python3 ];
   };
 }

@@ -5,16 +5,16 @@
 
 buildPythonPackage rec {
   pname = "texttable";
-  version = "1.3.1";
+  version = "1.6.3";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0f75f5838b775bddc19f72c5bf50eb74be3815eb505ed3084e4666ce2e6c3259";
+    sha256 = "ce0faf21aa77d806bbff22b107cc22cce68dc9438f97a2df32c93e9afa4ce436";
   };
 
-  meta = {
+  meta = with lib; {
     description = "A module to generate a formatted text table, using ASCII characters";
-    homepage = http://foutaise.org/code/;
-    license = lib.licenses.lgpl2;
+    homepage = "https://github.com/foutaise/texttable";
+    license = licenses.lgpl2;
   };
 }

@@ -4,62 +4,224 @@ with lib;
 
 let
   luks = config.boot.initrd.luks;
+  kernelPackages = config.boot.kernelPackages;
 
-  openCommand = name': { name, device, header, keyFile, keyFileSize, allowDiscards, yubikey, fallbackToPassword, ... }: assert name' == name; ''
+  commonFunctions = ''
+    die() {
+        echo "$@" >&2
+        exit 1
+    }
 
-    # Wait for a target (e.g. device, keyFile, header, ...) to appear.
+    dev_exist() {
+        local target="$1"
+        if [ -e $target ]; then
+            return 0
+        else
+            local uuid=$(echo -n $target | sed -e 's,UUID=\(.*\),\1,g')
+            blkid --uuid $uuid >/dev/null
+            return $?
+        fi
+    }
+
     wait_target() {
         local name="$1"
         local target="$2"
+        local secs="''${3:-10}"
+        local desc="''${4:-$name $target to appear}"
 
-        if [ ! -e $target ]; then
-            echo -n "Waiting 10 seconds for $name $target to appear"
+        if ! dev_exist $target; then
+            echo -n "Waiting $secs seconds for $desc..."
             local success=false;
-            for try in $(seq 10); do
+            for try in $(seq $secs); do
                 echo -n "."
                 sleep 1
-                if [ -e $target ]; then success=true break; fi
+                if dev_exist $target; then
+                    success=true
+                    break
+                fi
             done
-            if [ $success = true ]; then
+            if [ $success == true ]; then
                 echo " - success";
+                return 0
             else
                 echo " - failure";
+                return 1
             fi
         fi
+        return 0
     }
 
+    wait_yubikey() {
+        local secs="''${1:-10}"
+
+        ykinfo -v 1>/dev/null 2>&1
+        if [ $? != 0 ]; then
+            echo -n "Waiting $secs seconds for YubiKey to appear..."
+            local success=false
+            for try in $(seq $secs); do
+                echo -n .
+                sleep 1
+                ykinfo -v 1>/dev/null 2>&1
+                if [ $? == 0 ]; then
+                    success=true
+                    break
+                fi
+            done
+            if [ $success == true ]; then
+                echo " - success";
+                return 0
+            else
+                echo " - failure";
+                return 1
+            fi
+        fi
+        return 0
+    }
+
+    wait_gpgcard() {
+        local secs="''${1:-10}"
+
+        gpg --card-status > /dev/null 2> /dev/null
+        if [ $? != 0 ]; then
+            echo -n "Waiting $secs seconds for GPG Card to appear"
+            local success=false
+            for try in $(seq $secs); do
+                echo -n .
+                sleep 1
+                gpg --card-status > /dev/null 2> /dev/null
+                if [ $? == 0 ]; then
+                    success=true
+                    break
+                fi
+            done
+            if [ $success == true ]; then
+                echo " - success";
+                return 0
+            else
+                echo " - failure";
+                return 1
+            fi
+        fi
+        return 0
+    }
+  '';
+
+  preCommands = ''
+    # A place to store crypto things
+
+    # A ramfs is used here to ensure that the file used to update
+    # the key slot with cryptsetup will never get swapped out.
+    # Warning: Do NOT replace with tmpfs!
+    mkdir -p /crypt-ramfs
+    mount -t ramfs none /crypt-ramfs
+
+    # Cryptsetup locking directory
+    mkdir -p /run/cryptsetup
+
+    # For YubiKey salt storage
+    mkdir -p /crypt-storage
+
+    ${optionalString luks.gpgSupport ''
+    export GPG_TTY=$(tty)
+    export GNUPGHOME=/crypt-ramfs/.gnupg
+
+    gpg-agent --daemon --scdaemon-program $out/bin/scdaemon > /dev/null 2> /dev/null
+    ''}
+
+    # Disable all input echo for the whole stage. We could use read -s
+    # instead but that would ocasionally leak characters between read
+    # invocations.
+    stty -echo
+  '';
+
+  postCommands = ''
+    stty echo
+    umount /crypt-storage 2>/dev/null
+    umount /crypt-ramfs 2>/dev/null
+  '';
+
+  openCommand = name: dev: assert name == dev.name;
+  let
+    csopen = "cryptsetup luksOpen ${dev.device} ${dev.name}"
+           + optionalString dev.allowDiscards " --allow-discards"
+           + optionalString dev.bypassWorkqueues " --perf-no_read_workqueue --perf-no_write_workqueue"
+           + optionalString (dev.header != null) " --header=${dev.header}";
+    cschange = "cryptsetup luksChangeKey ${dev.device} ${optionalString (dev.header != null) "--header=${dev.header}"}";
+  in ''
     # Wait for luksRoot (and optionally keyFile and/or header) to appear, e.g.
     # if on a USB drive.
-    wait_target "device" ${device}
+    wait_target "device" ${dev.device} || die "${dev.device} is unavailable"
 
-    ${optionalString (keyFile != null) ''
-      wait_target "key file" ${keyFile}
+    ${optionalString (dev.header != null) ''
+      wait_target "header" ${dev.header} || die "${dev.header} is unavailable"
     ''}
 
-    ${optionalString (header != null) ''
-      wait_target "header" ${header}
-    ''}
+    do_open_passphrase() {
+        local passphrase
 
-    open_normally() {
-        echo luksOpen ${device} ${name} ${optionalString allowDiscards "--allow-discards"} \
-          ${optionalString (header != null) "--header=${header}"} \
-          > /.luksopen_args
-        ${optionalString (keyFile != null) ''
-        ${optionalString fallbackToPassword "if [ -e ${keyFile} ]; then"}
-            echo " --key-file=${keyFile} ${optionalString (keyFileSize != null) "--keyfile-size=${toString keyFileSize}"}" \
-              >> /.luksopen_args
-        ${optionalString fallbackToPassword ''
-        else
-            echo "keyfile ${keyFile} not found -- fallback to interactive unlocking"
-        fi
-        ''}
-        ''}
-        cryptsetup-askpass
-        rm /.luksopen_args
+        while true; do
+            echo -n "Passphrase for ${dev.device}: "
+            passphrase=
+            while true; do
+                if [ -e /crypt-ramfs/passphrase ]; then
+                    echo "reused"
+                    passphrase=$(cat /crypt-ramfs/passphrase)
+                    break
+                else
+                    # ask cryptsetup-askpass
+                    echo -n "${dev.device}" > /crypt-ramfs/device
+
+                    # and try reading it from /dev/console with a timeout
+                    IFS= read -t 1 -r passphrase
+                    if [ -n "$passphrase" ]; then
+                       ${if luks.reusePassphrases then ''
+                         # remember it for the next device
+                         echo -n "$passphrase" > /crypt-ramfs/passphrase
+                       '' else ''
+                         # Don't save it to ramfs. We are very paranoid
+                       ''}
+                       echo
+                       break
+                    fi
+                fi
+            done
+            echo -n "Verifying passphrase for ${dev.device}..."
+            echo -n "$passphrase" | ${csopen} --key-file=-
+            if [ $? == 0 ]; then
+                echo " - success"
+                ${if luks.reusePassphrases then ''
+                  # we don't rm here because we might reuse it for the next device
+                '' else ''
+                  rm -f /crypt-ramfs/passphrase
+                ''}
+                break
+            else
+                echo " - failure"
+                # ask for a different one
+                rm -f /crypt-ramfs/passphrase
+            fi
+        done
     }
 
-    ${optionalString (luks.yubikeySupport && (yubikey != null)) ''
+    # LUKS
+    open_normally() {
+        ${if (dev.keyFile != null) then ''
+        if wait_target "key file" ${dev.keyFile}; then
+            ${csopen} --key-file=${dev.keyFile} \
+              ${optionalString (dev.keyFileSize != null) "--keyfile-size=${toString dev.keyFileSize}"} \
+              ${optionalString (dev.keyFileOffset != null) "--keyfile-offset=${toString dev.keyFileOffset}"}
+        else
+            ${if dev.fallbackToPassword then "echo" else "die"} "${dev.keyFile} is unavailable"
+            echo " - failing back to interactive password prompt"
+            do_open_passphrase
+        fi
+        '' else ''
+        do_open_passphrase
+        ''}
+    }
 
+    ${optionalString (luks.yubikeySupport && (dev.yubikey != null)) ''
+    # YubiKey
     rbtohex() {
         ( od -An -vtx1 | tr -d ' \n' )
     }
@@ -68,8 +230,7 @@ let
         ( tr '[:lower:]' '[:upper:]' | sed -e 's/\([0-9A-F]\{2\}\)/\\\\\\x\1/gI' | xargs printf )
     }
 
-    open_yubikey() {
-
+    do_open_yubikey() {
         # Make all of these local to this function
         # to prevent their values being leaked
         local salt
@@ -85,32 +246,55 @@ let
         local new_response
         local new_k_luks
 
-        mkdir -p ${yubikey.storage.mountPoint}
-        mount -t ${yubikey.storage.fsType} ${toString yubikey.storage.device} ${yubikey.storage.mountPoint}
+        mount -t ${dev.yubikey.storage.fsType} ${dev.yubikey.storage.device} /crypt-storage || \
+          die "Failed to mount YubiKey salt storage device"
 
-        salt="$(cat ${yubikey.storage.mountPoint}${yubikey.storage.path} | sed -n 1p | tr -d '\n')"
-        iterations="$(cat ${yubikey.storage.mountPoint}${yubikey.storage.path} | sed -n 2p | tr -d '\n')"
+        salt="$(cat /crypt-storage${dev.yubikey.storage.path} | sed -n 1p | tr -d '\n')"
+        iterations="$(cat /crypt-storage${dev.yubikey.storage.path} | sed -n 2p | tr -d '\n')"
         challenge="$(echo -n $salt | openssl-wrap dgst -binary -sha512 | rbtohex)"
-        response="$(ykchalresp -${toString yubikey.slot} -x $challenge 2>/dev/null)"
+        response="$(ykchalresp -${toString dev.yubikey.slot} -x $challenge 2>/dev/null)"
 
         for try in $(seq 3); do
-
-            ${optionalString yubikey.twoFactor ''
+            ${optionalString dev.yubikey.twoFactor ''
             echo -n "Enter two-factor passphrase: "
-            read -s k_user
-            echo
+            k_user=
+            while true; do
+                if [ -e /crypt-ramfs/passphrase ]; then
+                    echo "reused"
+                    k_user=$(cat /crypt-ramfs/passphrase)
+                    break
+                else
+                    # Try reading it from /dev/console with a timeout
+                    IFS= read -t 1 -r k_user
+                    if [ -n "$k_user" ]; then
+                       ${if luks.reusePassphrases then ''
+                         # Remember it for the next device
+                         echo -n "$k_user" > /crypt-ramfs/passphrase
+                       '' else ''
+                         # Don't save it to ramfs. We are very paranoid
+                       ''}
+                       echo
+                       break
+                    fi
+                fi
+            done
             ''}
 
             if [ ! -z "$k_user" ]; then
-                k_luks="$(echo -n $k_user | pbkdf2-sha512 ${toString yubikey.keyLength} $iterations $response | rbtohex)"
+                k_luks="$(echo -n $k_user | pbkdf2-sha512 ${toString dev.yubikey.keyLength} $iterations $response | rbtohex)"
             else
-                k_luks="$(echo | pbkdf2-sha512 ${toString yubikey.keyLength} $iterations $response | rbtohex)"
+                k_luks="$(echo | pbkdf2-sha512 ${toString dev.yubikey.keyLength} $iterations $response | rbtohex)"
             fi
 
-            echo -n "$k_luks" | hextorb | cryptsetup luksOpen ${device} ${name} ${optionalString allowDiscards "--allow-discards"} --key-file=-
+            echo -n "$k_luks" | hextorb | ${csopen} --key-file=-
 
-            if [ $? == "0" ]; then
+            if [ $? == 0 ]; then
                 opened=true
+                ${if luks.reusePassphrases then ''
+                  # We don't rm here because we might reuse it for the next device
+                '' else ''
+                  rm -f /crypt-ramfs/passphrase
+                ''}
                 break
             else
                 opened=false
@@ -118,14 +302,10 @@ let
             fi
         done
 
-        if [ "$opened" == false ]; then
-            umount ${yubikey.storage.mountPoint}
-            echo "Maximum authentication errors reached"
-            exit 1
-        fi
+        [ "$opened" == false ] && die "Maximum authentication errors reached"
 
         echo -n "Gathering entropy for new salt (please enter random keys to generate entropy if this blocks for long)..."
-        for i in $(seq ${toString yubikey.saltLength}); do
+        for i in $(seq ${toString dev.yubikey.saltLength}); do
             byte="$(dd if=/dev/random bs=1 count=1 2>/dev/null | rbtohex)";
             new_salt="$new_salt$byte";
             echo -n .
@@ -133,81 +313,161 @@ let
         echo "ok"
 
         new_iterations="$iterations"
-        ${optionalString (yubikey.iterationStep > 0) ''
-        new_iterations="$(($new_iterations + ${toString yubikey.iterationStep}))"
+        ${optionalString (dev.yubikey.iterationStep > 0) ''
+        new_iterations="$(($new_iterations + ${toString dev.yubikey.iterationStep}))"
         ''}
 
         new_challenge="$(echo -n $new_salt | openssl-wrap dgst -binary -sha512 | rbtohex)"
 
-        new_response="$(ykchalresp -${toString yubikey.slot} -x $new_challenge 2>/dev/null)"
+        new_response="$(ykchalresp -${toString dev.yubikey.slot} -x $new_challenge 2>/dev/null)"
 
         if [ ! -z "$k_user" ]; then
-            new_k_luks="$(echo -n $k_user | pbkdf2-sha512 ${toString yubikey.keyLength} $new_iterations $new_response | rbtohex)"
+            new_k_luks="$(echo -n $k_user | pbkdf2-sha512 ${toString dev.yubikey.keyLength} $new_iterations $new_response | rbtohex)"
         else
-            new_k_luks="$(echo | pbkdf2-sha512 ${toString yubikey.keyLength} $new_iterations $new_response | rbtohex)"
+            new_k_luks="$(echo | pbkdf2-sha512 ${toString dev.yubikey.keyLength} $new_iterations $new_response | rbtohex)"
         fi
 
-        mkdir -p ${yubikey.ramfsMountPoint}
-        # A ramfs is used here to ensure that the file used to update
-        # the key slot with cryptsetup will never get swapped out.
-        # Warning: Do NOT replace with tmpfs!
-        mount -t ramfs none ${yubikey.ramfsMountPoint}
+        echo -n "$new_k_luks" | hextorb > /crypt-ramfs/new_key
+        echo -n "$k_luks" | hextorb | ${cschange} --key-file=- /crypt-ramfs/new_key
 
-        echo -n "$new_k_luks" | hextorb > ${yubikey.ramfsMountPoint}/new_key
-        echo -n "$k_luks" | hextorb | cryptsetup luksChangeKey ${device} --key-file=- ${yubikey.ramfsMountPoint}/new_key
-
-        if [ $? == "0" ]; then
-            echo -ne "$new_salt\n$new_iterations" > ${yubikey.storage.mountPoint}${yubikey.storage.path}
+        if [ $? == 0 ]; then
+            echo -ne "$new_salt\n$new_iterations" > /crypt-storage${dev.yubikey.storage.path}
         else
             echo "Warning: Could not update LUKS key, current challenge persists!"
         fi
 
-        rm -f ${yubikey.ramfsMountPoint}/new_key
-        umount ${yubikey.ramfsMountPoint}
-        rm -rf ${yubikey.ramfsMountPoint}
-
-        umount ${yubikey.storage.mountPoint}
+        rm -f /crypt-ramfs/new_key
+        umount /crypt-storage
     }
 
-    ${optionalString (yubikey.gracePeriod > 0) ''
-    echo -n "Waiting ${toString yubikey.gracePeriod} seconds as grace..."
-    for i in $(seq ${toString yubikey.gracePeriod}); do
-        sleep 1
-        echo -n .
-    done
-    echo "ok"
+    open_with_hardware() {
+        if wait_yubikey ${toString dev.yubikey.gracePeriod}; then
+            do_open_yubikey
+        else
+            echo "No YubiKey found, falling back to non-YubiKey open procedure"
+            open_normally
+        fi
+    }
     ''}
 
-    yubikey_missing=true
-    ykinfo -v 1>/dev/null 2>&1
-    if [ $? != "0" ]; then
-        echo -n "waiting 10 seconds for yubikey to appear..."
-        for try in $(seq 10); do
-            sleep 1
-            ykinfo -v 1>/dev/null 2>&1
-            if [ $? == "0" ]; then
-                yubikey_missing=false
+    ${optionalString (luks.gpgSupport && (dev.gpgCard != null)) ''
+
+    do_open_gpg_card() {
+        # Make all of these local to this function
+        # to prevent their values being leaked
+        local pin
+        local opened
+
+        gpg --import /gpg-keys/${dev.device}/pubkey.asc > /dev/null 2> /dev/null
+
+        gpg --card-status > /dev/null 2> /dev/null
+
+        for try in $(seq 3); do
+            echo -n "PIN for GPG Card associated with device ${dev.device}: "
+            pin=
+            while true; do
+                if [ -e /crypt-ramfs/passphrase ]; then
+                    echo "reused"
+                    pin=$(cat /crypt-ramfs/passphrase)
+                    break
+                else
+                    # and try reading it from /dev/console with a timeout
+                    IFS= read -t 1 -r pin
+                    if [ -n "$pin" ]; then
+                       ${if luks.reusePassphrases then ''
+                         # remember it for the next device
+                         echo -n "$pin" > /crypt-ramfs/passphrase
+                       '' else ''
+                         # Don't save it to ramfs. We are very paranoid
+                       ''}
+                       echo
+                       break
+                    fi
+                fi
+            done
+            echo -n "Verifying passphrase for ${dev.device}..."
+            echo -n "$pin" | gpg -q --batch --passphrase-fd 0 --pinentry-mode loopback -d /gpg-keys/${dev.device}/cryptkey.gpg 2> /dev/null | ${csopen} --key-file=- > /dev/null 2> /dev/null
+            if [ $? == 0 ]; then
+                echo " - success"
+                ${if luks.reusePassphrases then ''
+                  # we don't rm here because we might reuse it for the next device
+                '' else ''
+                  rm -f /crypt-ramfs/passphrase
+                ''}
                 break
+            else
+                echo " - failure"
+                # ask for a different one
+                rm -f /crypt-ramfs/passphrase
             fi
-            echo -n .
         done
-        echo "ok"
-    else
-        yubikey_missing=false
-    fi
 
-    if [ "$yubikey_missing" == true ]; then
-        echo "no yubikey found, falling back to non-yubikey open procedure"
-        open_normally
-    else
-        open_yubikey
-    fi
+        [ "$opened" == false ] && die "Maximum authentication errors reached"
+    }
+
+    open_with_hardware() {
+        if wait_gpgcard ${toString dev.gpgCard.gracePeriod}; then
+            do_open_gpg_card
+        else
+            echo "No GPG Card found, falling back to normal open procedure"
+            open_normally
+        fi
+    }
     ''}
 
-    # open luksRoot and scan for logical volumes
-    ${optionalString ((!luks.yubikeySupport) || (yubikey == null)) ''
+    ${optionalString (luks.fido2Support && (dev.fido2.credential != null)) ''
+
+    open_with_hardware() {
+      local passsphrase
+
+        ${if dev.fido2.passwordLess then ''
+          export passphrase=""
+        '' else ''
+          read -rsp "FIDO2 salt for ${dev.device}: " passphrase
+          echo
+        ''}
+        ${optionalString (lib.versionOlder kernelPackages.kernel.version "5.4") ''
+          echo "On systems with Linux Kernel < 5.4, it might take a while to initialize the CRNG, you might want to use linuxPackages_latest."
+          echo "Please move your mouse to create needed randomness."
+        ''}
+          echo "Waiting for your FIDO2 device..."
+          fido2luks open ${dev.device} ${dev.name} ${dev.fido2.credential} --await-dev ${toString dev.fido2.gracePeriod} --salt string:$passphrase
+        if [ $? -ne 0 ]; then
+          echo "No FIDO2 key found, falling back to normal open procedure"
+          open_normally
+        fi
+    }
+    ''}
+
+    # commands to run right before we mount our device
+    ${dev.preOpenCommands}
+
+    ${if (luks.yubikeySupport && (dev.yubikey != null)) || (luks.gpgSupport && (dev.gpgCard != null)) || (luks.fido2Support && (dev.fido2.credential != null)) then ''
+    open_with_hardware
+    '' else ''
     open_normally
     ''}
+
+    # commands to run right after we mounted our device
+    ${dev.postOpenCommands}
+  '';
+
+  askPass = pkgs.writeScriptBin "cryptsetup-askpass" ''
+    #!/bin/sh
+
+    ${commonFunctions}
+
+    while true; do
+        wait_target "luks" /crypt-ramfs/device 10 "LUKS to request a passphrase" || die "Passphrase is not requested now"
+        device=$(cat /crypt-ramfs/device)
+
+        echo -n "Passphrase for $device: "
+        IFS= read -rs passphrase
+        echo
+
+        rm /crypt-ramfs/device
+        echo -n "$passphrase" > /crypt-ramfs/passphrase
+    done
   '';
 
   preLVM = filterAttrs (n: v: v.preLVM) luks.devices;
@@ -215,6 +475,9 @@ let
 
 in
 {
+  imports = [
+    (mkRemovedOptionModule [ "boot" "initrd" "luks" "enable" ] "")
+  ];
 
   options = {
 
@@ -236,8 +499,7 @@ in
       default =
         [ "aes" "aes_generic" "blowfish" "twofish"
           "serpent" "cbc" "xts" "lrw" "sha1" "sha256" "sha512"
-
-          (if pkgs.stdenv.system == "x86_64-linux" then "aes_x86_64" else "aes_i586")
+          "af_alg" "algif_skcipher"
         ];
       description = ''
         A list of cryptographic kernel modules needed to decrypt the root device(s).
@@ -255,9 +517,25 @@ in
       '';
     };
 
+    boot.initrd.luks.reusePassphrases = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        When opening a new LUKS device try reusing last successful
+        passphrase.
+
+        Useful for mounting a number of devices that use the same
+        passphrase without retyping it several times.
+
+        Such setup can be useful if you use <command>cryptsetup
+        luksSuspend</command>. Different LUKS devices will still have
+        different master keys even when using the same passphrase.
+      '';
+    };
+
     boot.initrd.luks.devices = mkOption {
       default = { };
-      example = { "luksroot".device = "/dev/disk/by-uuid/430e9eff-d852-4f68-aa3b-2fa3599ebe08"; };
+      example = { luksroot.device = "/dev/disk/by-uuid/430e9eff-d852-4f68-aa3b-2fa3599ebe08"; };
       description = ''
         The encrypted disk that should be opened before the root
         filesystem is mounted. Both LVM-over-LUKS and LUKS-over-LVM
@@ -265,7 +543,7 @@ in
         <filename>/dev/mapper/<replaceable>name</replaceable></filename>.
       '';
 
-      type = with types; loaOf (submodule (
+      type = with types; attrsOf (submodule (
         { name, ... }: { options = {
 
           name = mkOption {
@@ -316,6 +594,19 @@ in
             '';
           };
 
+          keyFileOffset = mkOption {
+            default = null;
+            example = 4096;
+            type = types.nullOr types.int;
+            description = ''
+              The offset of the key file. Use this in combination with
+              <literal>keyFileSize</literal> to use part of a file as key file
+              (often the case if a raw device or partition is used as a key file).
+              If not specified, the key begins at the first byte of
+              <literal>keyFile</literal>.
+            '';
+          };
+
           # FIXME: get rid of this option.
           preLVM = mkOption {
             default = true;
@@ -333,6 +624,17 @@ in
             '';
           };
 
+          bypassWorkqueues = mkOption {
+            default = false;
+            type = types.bool;
+            description = ''
+              Whether to bypass dm-crypt's internal read and write workqueues.
+              Enabling this should improve performance on SSDs; see
+              <link xlink:href="https://wiki.archlinux.org/index.php/Dm-crypt/Specialties#Disable_workqueue_for_increased_solid_state_drive_(SSD)_performance">here</link>
+              for more information. Needs Linux 5.9 or later.
+            '';
+          };
+
           fallbackToPassword = mkOption {
             default = false;
             type = types.bool;
@@ -343,11 +645,66 @@ in
             '';
           };
 
+          gpgCard = mkOption {
+            default = null;
+            description = ''
+              The option to use this LUKS device with a GPG encrypted luks password by the GPG Smartcard.
+              If null (the default), GPG-Smartcard will be disabled for this device.
+            '';
+
+            type = with types; nullOr (submodule {
+              options = {
+                gracePeriod = mkOption {
+                  default = 10;
+                  type = types.int;
+                  description = "Time in seconds to wait for the GPG Smartcard.";
+                };
+
+                encryptedPass = mkOption {
+                  default = "";
+                  type = types.path;
+                  description = "Path to the GPG encrypted passphrase.";
+                };
+
+                publicKey = mkOption {
+                  default = "";
+                  type = types.path;
+                  description = "Path to the Public Key.";
+                };
+              };
+            });
+          };
+
+          fido2 = {
+            credential = mkOption {
+              default = null;
+              example = "f1d00200d8dc783f7fb1e10ace8da27f8312d72692abfca2f7e4960a73f48e82e1f7571f6ebfcee9fb434f9886ccc8fcc52a6614d8d2";
+              type = types.nullOr types.str;
+              description = "The FIDO2 credential ID.";
+            };
+
+            gracePeriod = mkOption {
+              default = 10;
+              type = types.int;
+              description = "Time in seconds to wait for the FIDO2 key.";
+            };
+
+            passwordLess = mkOption {
+              default = false;
+              type = types.bool;
+              description = ''
+                Defines whatever to use an empty string as a default salt.
+
+                Enable only when your device is PIN protected, such as <link xlink:href="https://trezor.io/">Trezor</link>.
+              '';
+            };
+          };
+
           yubikey = mkOption {
             default = null;
             description = ''
-              The options to use for this LUKS device in Yubikey-PBA.
-              If null (the default), Yubikey-PBA will be disabled for this device.
+              The options to use for this LUKS device in YubiKey-PBA.
+              If null (the default), YubiKey-PBA will be disabled for this device.
             '';
 
             type = with types; nullOr (submodule {
@@ -355,13 +712,13 @@ in
                 twoFactor = mkOption {
                   default = true;
                   type = types.bool;
-                  description = "Whether to use a passphrase and a Yubikey (true), or only a Yubikey (false).";
+                  description = "Whether to use a passphrase and a YubiKey (true), or only a YubiKey (false).";
                 };
 
                 slot = mkOption {
                   default = 2;
                   type = types.int;
-                  description = "Which slot on the Yubikey to challenge.";
+                  description = "Which slot on the YubiKey to challenge.";
                 };
 
                 saltLength = mkOption {
@@ -383,15 +740,9 @@ in
                 };
 
                 gracePeriod = mkOption {
-                  default = 2;
+                  default = 10;
                   type = types.int;
-                  description = "Time in seconds to wait before attempting to find the Yubikey.";
-                };
-
-                ramfsMountPoint = mkOption {
-                  default = "/crypt-ramfs";
-                  type = types.str;
-                  description = "Path where the ramfs used to update the LUKS key will be mounted during early boot.";
+                  description = "Time in seconds to wait for the YubiKey.";
                 };
 
                 /* TODO: Add to the documentation of the current module:
@@ -414,12 +765,6 @@ in
                     description = "The filesystem of the unencrypted device.";
                   };
 
-                  mountPoint = mkOption {
-                    default = "/crypt-storage";
-                    type = types.str;
-                    description = "Path where the unencrypted device will be mounted during early boot.";
-                  };
-
                   path = mkOption {
                     default = "/crypt-storage/default";
                     type = types.str;
@@ -433,21 +778,81 @@ in
             });
           };
 
-        }; }));
+          preOpenCommands = mkOption {
+            type = types.lines;
+            default = "";
+            example = ''
+              mkdir -p /tmp/persistent
+              mount -t zfs rpool/safe/persistent /tmp/persistent
+            '';
+            description = ''
+              Commands that should be run right before we try to mount our LUKS device.
+              This can be useful, if the keys needed to open the drive is on another partion.
+            '';
+          };
+
+          postOpenCommands = mkOption {
+            type = types.lines;
+            default = "";
+            example = ''
+              umount /tmp/persistent
+            '';
+            description = ''
+              Commands that should be run right after we have mounted our LUKS device.
+            '';
+          };
+        };
+      }));
+    };
+
+    boot.initrd.luks.gpgSupport = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Enables support for authenticating with a GPG encrypted password.
+      '';
     };
 
     boot.initrd.luks.yubikeySupport = mkOption {
       default = false;
       type = types.bool;
       description = ''
-            Enables support for authenticating with a Yubikey on LUKS devices.
+            Enables support for authenticating with a YubiKey on LUKS devices.
             See the NixOS wiki for information on how to properly setup a LUKS device
-            and a Yubikey to work with this feature.
+            and a YubiKey to work with this feature.
           '';
     };
+
+    boot.initrd.luks.fido2Support = mkOption {
+      default = false;
+      type = types.bool;
+      description = ''
+        Enables support for authenticating with FIDO2 devices.
+      '';
+    };
+
   };
 
   config = mkIf (luks.devices != {} || luks.forceLuksSupportInInitrd) {
+
+    assertions =
+      [ { assertion = !(luks.gpgSupport && luks.yubikeySupport);
+          message = "YubiKey and GPG Card may not be used at the same time.";
+        }
+
+        { assertion = !(luks.gpgSupport && luks.fido2Support);
+          message = "FIDO2 and GPG Card may not be used at the same time.";
+        }
+
+        { assertion = !(luks.fido2Support && luks.yubikeySupport);
+          message = "FIDO2 and YubiKey may not be used at the same time.";
+        }
+
+        { assertion = any (dev: dev.bypassWorkqueues) (attrValues luks.devices)
+                      -> versionAtLeast kernelPackages.kernel.version "5.9";
+          message = "boot.initrd.luks.devices.<name>.bypassWorkqueues is not supported for kernels older than 5.9";
+        }
+      ];
 
     # actually, sbp2 driver is the one enabling the DMA attack, but this needs to be tested
     boot.blacklistedKernelModules = optionals luks.mitigateDMAAttacks
@@ -463,18 +868,8 @@ in
     # copy the cryptsetup binary and it's dependencies
     boot.initrd.extraUtilsCommands = ''
       copy_bin_and_libs ${pkgs.cryptsetup}/bin/cryptsetup
-
-      cat > $out/bin/cryptsetup-askpass <<EOF
-      #!$out/bin/sh -e
-      if [ -e /.luksopen_args ]; then
-        cryptsetup \$(cat /.luksopen_args)
-        killall -q cryptsetup
-      else
-        echo "Passphrase is not requested now"
-        exit 1
-      fi
-      EOF
-      chmod +x $out/bin/cryptsetup-askpass
+      copy_bin_and_libs ${askPass}/bin/cryptsetup-askpass
+      sed -i s,/bin/sh,$out/bin/sh, $out/bin/cryptsetup-askpass
 
       ${optionalString luks.yubikeySupport ''
         copy_bin_and_libs ${pkgs.yubikey-personalization}/bin/ykchalresp
@@ -495,6 +890,28 @@ in
         EOF
         chmod +x $out/bin/openssl-wrap
       ''}
+
+      ${optionalString luks.fido2Support ''
+        copy_bin_and_libs ${pkgs.fido2luks}/bin/fido2luks
+      ''}
+
+
+      ${optionalString luks.gpgSupport ''
+        copy_bin_and_libs ${pkgs.gnupg}/bin/gpg
+        copy_bin_and_libs ${pkgs.gnupg}/bin/gpg-agent
+        copy_bin_and_libs ${pkgs.gnupg}/libexec/scdaemon
+
+        ${concatMapStringsSep "\n" (x:
+          if x.gpgCard != null then
+            ''
+              mkdir -p $out/secrets/gpg-keys/${x.device}
+              cp -a ${x.gpgCard.encryptedPass} $out/secrets/gpg-keys/${x.device}/cryptkey.gpg
+              cp -a ${x.gpgCard.publicKey} $out/secrets/gpg-keys/${x.device}/pubkey.asc
+            ''
+          else ""
+          ) (attrValues luks.devices)
+        }
+      ''}
     '';
 
     boot.initrd.extraUtilsCommandsTest = ''
@@ -504,10 +921,19 @@ in
         $out/bin/ykinfo -V
         $out/bin/openssl-wrap version
       ''}
+      ${optionalString luks.gpgSupport ''
+        $out/bin/gpg --version
+        $out/bin/gpg-agent --version
+        $out/bin/scdaemon --version
+      ''}
+      ${optionalString luks.fido2Support ''
+        $out/bin/fido2luks --version
+      ''}
     '';
 
-    boot.initrd.preLVMCommands = concatStrings (mapAttrsToList openCommand preLVM);
-    boot.initrd.postDeviceCommands = concatStrings (mapAttrsToList openCommand postLVM);
+    boot.initrd.preFailCommands = postCommands;
+    boot.initrd.preLVMCommands = commonFunctions + preCommands + concatStrings (mapAttrsToList openCommand preLVM) + postCommands;
+    boot.initrd.postDeviceCommands = commonFunctions + preCommands + concatStrings (mapAttrsToList openCommand postLVM) + postCommands;
 
     environment.systemPackages = [ pkgs.cryptsetup ];
   };

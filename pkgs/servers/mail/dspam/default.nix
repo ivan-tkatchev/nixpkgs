@@ -1,6 +1,6 @@
 { stdenv, lib, fetchurl, makeWrapper
 , gawk, gnused, gnugrep, coreutils, which
-, perl, NetSMTP
+, perlPackages
 , withMySQL ? false, zlib, mysql57
 , withPgSQL ? false, postgresql
 , withSQLite ? false, sqlite
@@ -18,14 +18,15 @@ let
   maintenancePath = lib.makeBinPath [ gawk gnused gnugrep coreutils which ];
 
 in stdenv.mkDerivation rec {
-  name = "dspam-3.10.2";
+  pname = "dspam";
+  version = "3.10.2";
 
   src = fetchurl {
-    url = "mirror://sourceforge/dspam/dspam/${name}/${name}.tar.gz";
+    url = "mirror://sourceforge/dspam/dspam/${pname}-${version}/${pname}-${version}.tar.gz";
     sha256 = "1acklnxn1wvc7abn31l3qdj8q6k13s51k5gv86vka7q20jb5cxmf";
   };
 
-  buildInputs = [ perl ]
+  buildInputs = [ perlPackages.perl ]
                 ++ lib.optionals withMySQL [ zlib mysql57.connector-c ]
                 ++ lib.optional withPgSQL postgresql
                 ++ lib.optional withSQLite sqlite
@@ -62,7 +63,7 @@ in stdenv.mkDerivation rec {
     rm -rf $out/var
 
     wrapProgram $out/bin/dspam_notify \
-      --set PERL5LIB "${lib.makePerlPath [ NetSMTP ]}"
+      --set PERL5LIB "${perlPackages.makePerlPath [ perlPackages.libnet ]}"
 
     # Install SQL scripts
     mkdir -p $out/share/dspam/sql
@@ -99,7 +100,7 @@ in stdenv.mkDerivation rec {
   '';
 
   meta = with lib; {
-    homepage = http://nuclearelephant.com/;
+    homepage = "http://nuclearelephant.com/";
     description = "Community Driven Antispam Filter";
     license = licenses.agpl3;
     platforms = platforms.linux;

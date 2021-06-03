@@ -1,7 +1,7 @@
 { lib
 , buildPythonPackage
 , fetchPypi
-, isPy3k
+, pythonOlder
 , boto3
 , enum34
 , jsonschema
@@ -10,29 +10,25 @@
 
 buildPythonPackage rec {
   pname = "aws-sam-translator";
-  version = "1.6.0";
+  version = "1.35.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1da15d459150eb631af4f400ca336901da6a564b543fe3d7a75169ca2c9f36cb";
+    sha256 = "5cf7faab3566843f3b44ef1a42a9c106ffb50809da4002faab818076dcc7bff8";
   };
 
   # Tests are not included in the PyPI package
   doCheck = false;
 
-  disabled = isPy3k;
-
   propagatedBuildInputs = [
     boto3
-    enum34
     jsonschema
     six
-  ];
+  ] ++ lib.optionals (pythonOlder "3.4") [ enum34 ];
 
-  meta = {
-    homepage = https://github.com/awslabs/serverless-application-model;
+  meta = with lib; {
+    homepage = "https://github.com/awslabs/serverless-application-model";
     description = "Python library to transform SAM templates into AWS CloudFormation templates";
-    license = lib.licenses.asl20;
-    maintainers = [ lib.maintainers.andreabedini ];
+    license = licenses.asl20;
   };
 }

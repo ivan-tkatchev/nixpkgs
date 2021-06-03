@@ -1,6 +1,5 @@
-{ stdenv, buildPackages
-, buildPlatform, hostPlatform
-, fetchurl, makeWrapper, gawk, pkgconfig
+{ lib, stdenv, pkgsBuildBuild, buildPackages
+, fetchurl, makeWrapper, gawk, pkg-config
 , libtool, readline, gmp
 }:
 
@@ -19,13 +18,13 @@ stdenv.mkDerivation rec {
   configureFlags = [ "--disable-error-on-warning" ]
     # Guile needs patching to preset results for the configure tests about
     # pthreads, which work only in native builds.
-    ++ stdenv.lib.optional (stdenv.hostPlatform != stdenv.buildPlatform)
+    ++ lib.optional (stdenv.hostPlatform != stdenv.buildPlatform)
                           "--with-threads=no";
 
   depsBuildBuild = [ buildPackages.stdenv.cc ]
-    ++ stdenv.lib.optional (hostPlatform != buildPlatform)
-                           buildPackages.buildPackages.guile_1_8;
-  nativeBuildInputs = [ makeWrapper gawk pkgconfig ];
+    ++ lib.optional (stdenv.hostPlatform != stdenv.buildPlatform)
+                           pkgsBuildBuild.guile_1_8;
+  nativeBuildInputs = [ makeWrapper gawk pkg-config ];
   buildInputs = [ readline libtool ];
 
   propagatedBuildInputs = [
@@ -38,7 +37,10 @@ stdenv.mkDerivation rec {
     libtool
   ];
 
-  patches = [ ./cpp-4.5.patch ];
+  patches = [
+    ./cpp-4.5.patch
+    ./CVE-2016-8605.patch
+  ];
 
   preBuild = ''
     sed -e '/lt_dlinit/a  lt_dladdsearchdir("'$out/lib'");' -i libguile/dynl.c
@@ -59,7 +61,7 @@ stdenv.mkDerivation rec {
   # One test fails.
   # ERROR: file: "libtest-asmobs", message: "file not found"
   # This is fixed here:
-  # <http://git.savannah.gnu.org/cgit/guile.git/commit/?h=branch_release-1-8&id=a0aa1e5b69d6ef0311aeea8e4b9a94eae18a1aaf>.
+  # <https://git.savannah.gnu.org/cgit/guile.git/commit/?h=branch_release-1-8&id=a0aa1e5b69d6ef0311aeea8e4b9a94eae18a1aaf>.
   doCheck = false;
   doInstallCheck = doCheck;
 
@@ -67,10 +69,10 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "Embeddable Scheme implementation";
-    homepage    = http://www.gnu.org/software/guile/;
-    license     = stdenv.lib.licenses.lgpl2Plus;
-    maintainers = [ stdenv.lib.maintainers.ludo ];
-    platforms   = stdenv.lib.platforms.unix;
+    homepage    = "https://www.gnu.org/software/guile/";
+    license     = lib.licenses.lgpl2Plus;
+    maintainers = [ lib.maintainers.ludo ];
+    platforms   = lib.platforms.unix;
 
     longDescription = ''
       GNU Guile is an interpreter for the Scheme programming language,

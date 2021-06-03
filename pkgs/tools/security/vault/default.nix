@@ -1,52 +1,37 @@
-{ stdenv, fetchFromGitHub, go, gox, removeReferencesTo }:
+{ lib, fetchFromGitHub, buildGoPackage, installShellFiles, nixosTests }:
 
-let
-  vaultBashCompletions = fetchFromGitHub {
-    owner = "iljaweis";
-    repo = "vault-bash-completion";
-    rev = "e2f59b64be1fa5430fa05c91b6274284de4ea77c";
-    sha256 = "10m75rp3hy71wlmnd88grmpjhqy0pwb9m8wm19l0f463xla54frd";
-  };
-in stdenv.mkDerivation rec {
-  name = "vault-${version}";
-  version = "0.10.3";
+buildGoPackage rec {
+  pname = "vault";
+  version = "1.7.2";
 
   src = fetchFromGitHub {
     owner = "hashicorp";
     repo = "vault";
     rev = "v${version}";
-    sha256 = "16sndzbfciw4bccxm7sc83y2pma2bgsmc1kqyb2hp0jsdy4rl3k4";
+    sha256 = "0nd77lfccl71qn98cq1yz85aiafplxbr58nafbbflijs1fz1771q";
   };
 
-  nativeBuildInputs = [ go gox removeReferencesTo ];
+  goPackagePath = "github.com/hashicorp/vault";
 
-  buildPhase = ''
-    patchShebangs ./
-    substituteInPlace scripts/build.sh --replace 'git rev-parse HEAD' 'echo ${src.rev}'
-    sed -i s/'^GIT_DIRTY=.*'/'GIT_DIRTY="+NixOS"'/ scripts/build.sh
+  subPackages = [ "." ];
 
-    mkdir -p src/github.com/hashicorp
-    ln -s $(pwd) src/github.com/hashicorp/vault
+  nativeBuildInputs = [ installShellFiles ];
 
-    mkdir -p .git/hooks
+  buildFlagsArray = [ "-tags=vault" "-ldflags=-s -w -X ${goPackagePath}/sdk/version.GitCommit=${src.rev}" ];
 
-    GOPATH=$(pwd) make
+  postInstall = ''
+    echo "complete -C $out/bin/vault vault" > vault.bash
+    installShellCompletion vault.bash
   '';
 
-  installPhase = ''
-    mkdir -p $out/bin $out/share/bash-completion/completions
+  passthru.tests.vault = nixosTests.vault;
 
-    cp pkg/*/* $out/bin/
-    find $out/bin -type f -exec remove-references-to -t ${go} '{}' +
-
-    cp ${vaultBashCompletions}/vault-bash-completion.sh $out/share/bash-completion/completions/vault
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = https://www.vaultproject.io;
+  meta = with lib; {
+    homepage = "https://www.vaultproject.io/";
     description = "A tool for managing secrets";
+    changelog = "https://github.com/hashicorp/vault/blob/v${version}/CHANGELOG.md";
     platforms = platforms.linux ++ platforms.darwin;
     license = licenses.mpl20;
-    maintainers = with maintainers; [ rushmorem offline pradeepchhetri ];
+    maintainers = with maintainers; [ rushmorem lnl7 offline pradeepchhetri Chili-Man ];
   };
 }

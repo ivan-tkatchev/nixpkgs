@@ -1,40 +1,68 @@
-{ stdenv, fetchurl, fetchpatch, oniguruma }:
+{ lib, stdenv, fetchpatch, fetchFromGitHub, autoreconfHook
+, onigurumaSupport ? true, oniguruma }:
 
 stdenv.mkDerivation rec {
-  name = "jq-${version}";
-  version="1.5";
+  pname = "jq";
+  version = "1.6";
 
-  src = fetchurl {
-    url="https://github.com/stedolan/jq/releases/download/jq-${version}/jq-${version}.tar.gz";
-    sha256="0g29kyz4ykasdcrb0zmbrp2jqs9kv1wz9swx849i2d1ncknbzln4";
+  src = fetchFromGitHub {
+    owner = "stedolan";
+    repo = "jq";
+    rev = "${pname}-${version}";
+    hash = "sha256-CIE8vumQPGK+TFAncmpBijANpFALLTadOvkob0gVzro";
   };
-
-  buildInputs = [ oniguruma ];
 
   patches = [
     (fetchpatch {
-      name = "CVE-2015-8863.patch";
-      url = https://github.com/stedolan/jq/commit/8eb1367ca44e772963e704a700ef72ae2e12babd.diff;
-      sha256 = "18bjanzvklfzlzzd690y88725l7iwl4f6wnr429na5pfmircbpvh";
-    })
-    (fetchpatch {
-      name = "CVE-2016-4074.patch";
-      url = https://patch-diff.githubusercontent.com/raw/stedolan/jq/pull/1214.diff;
-      sha256 = "1w8bapnyp56di6p9casbfczfn8258rw0z16grydavdjddfm280l9";
+      name = "fix-tests-when-building-without-regex-supports.patch";
+      url = "https://github.com/stedolan/jq/pull/2292/commits/f6a69a6e52b68a92b816a28eb20719a3d0cb51ae.patch";
+      sha256 = "pTM5FZ6hFs5Rdx+W2dICSS2lcoLY1Q//Lan3Hu8Gr58=";
     })
   ];
-  patchFlags = [ "-p2" ]; # `src` subdir was introduced after v1.5 was released
 
-  # jq is linked to libjq:
-  configureFlags = stdenv.lib.optional (!stdenv.isDarwin) "LDFLAGS=-Wl,-rpath,\\\${libdir}";
+  outputs = [ "bin" "doc" "man" "dev" "lib" "out" ];
 
-  installCheckPhase = "$out/bin/jq --help";
+  # Upstream script that writes the version that's eventually compiled
+  # and printed in `jq --help` relies on a .git directory which our src
+  # doesn't keep.
+  preConfigure = ''
+    echo "#!/bin/sh" > scripts/version
+    echo "echo ${version}" >> scripts/version
+    patchShebangs scripts/version
+  '';
+
+  # paranoid mode: make sure we never use vendored version of oniguruma
+  # Note: it must be run after automake, or automake will complain
+  preBuild = ''
+    rm -r ./modules/oniguruma
+  '';
+
+  buildInputs = lib.optionals onigurumaSupport [ oniguruma ];
+  nativeBuildInputs = [ autoreconfHook ];
+
+  configureFlags = [
+    "--bindir=\${bin}/bin"
+    "--sbindir=\${bin}/bin"
+    "--datadir=\${doc}/share"
+    "--mandir=\${man}/share/man"
+  ] ++ lib.optional (!onigurumaSupport) "--with-oniguruma=no"
+    # jq is linked to libjq:
+    ++ lib.optional (!stdenv.isDarwin) "LDFLAGS=-Wl,-rpath,\\\${libdir}";
+
   doInstallCheck = true;
+  installCheckTarget = "check";
 
-  meta = with stdenv.lib; {
-    description = ''A lightweight and flexible command-line JSON processor'';
+  postInstallCheck = ''
+    $bin/bin/jq --help >/dev/null
+    $bin/bin/jq -r '.values[1]' <<< '{"values":["hello","world"]}' | grep '^world$' > /dev/null
+  '';
+
+  passthru = { inherit onigurumaSupport; };
+
+  meta = with lib; {
+    description = "A lightweight and flexible command-line JSON processor";
     license = licenses.mit;
-    maintainers = with maintainers; [ raskin ];
+    maintainers = with maintainers; [ raskin globin ];
     platforms = with platforms; linux ++ darwin;
     downloadPage = "http://stedolan.github.io/jq/download/";
     updateWalker = true;

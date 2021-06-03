@@ -1,28 +1,25 @@
-{ stdenv, fetchFromGitHub, rustPlatform }:
+{ lib, stdenv, fetchCrate, rustPlatform }:
 
 rustPlatform.buildRustPackage rec {
-  name = "skim-${version}";
-  version = "0.5.0";
+  pname = "skim";
+  version = "0.9.4";
 
-  src = fetchFromGitHub {
-    owner = "lotabout";
-    repo = "skim";
-    rev = "v${version}";
-    sha256 = "0hk19mqfmrsyx28lb8h1hixivl6zrc8dg3imygk1ppgn66c0zf00";
+  src = fetchCrate {
+    inherit pname version;
+    sha256 = "0yvjzmz2vqc63l8911jflqf5aww7wxsav2yal5wg9ci9hzq6dl7j";
   };
 
   outputs = [ "out" "vim" ];
 
-  cargoSha256 = "18lgjh1b1wfm9xsd6y6slfj1i3dwrvzkzszdzk3lmqx1f8515gx7";
+  cargoSha256 = "1jk2vcm2z6r1xd6md98jzpcy7kdwp5p2fzxvvaz9qscyfnx28x17";
 
-  patchPhase = ''
+  postPatch = ''
     sed -i -e "s|expand('<sfile>:h:h')|'$out'|" plugin/skim.vim
-    # fix Cargo.lock version
-    sed -i -e '168s|0.4.0|0.5.0|' Cargo.lock
   '';
 
   postInstall = ''
     install -D -m 555 bin/sk-tmux -t $out/bin
+    install -D -m 644 man/man1/* -t $out/man/man1
     install -D -m 444 shell/* -t $out/share/skim
     install -D -m 444 plugin/skim.vim -t $vim/plugin
 
@@ -35,11 +32,10 @@ rustPlatform.buildRustPackage rec {
     chmod +x $out/bin/sk-share
   '';
 
-  meta = with stdenv.lib; {
-    description = "Fuzzy Finder in rust!";
-    homepage = https://github.com/lotabout/skim;
+  meta = with lib; {
+    description = "Command-line fuzzy finder written in Rust";
+    homepage = "https://github.com/lotabout/skim";
     license = licenses.mit;
     maintainers = with maintainers; [ dywedir ];
-    platforms = platforms.all;
   };
 }

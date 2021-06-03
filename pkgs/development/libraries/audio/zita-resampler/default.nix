@@ -1,11 +1,11 @@
-{ stdenv, fetchurl }:
+{ lib, stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "zita-resampler-${version}";
-  version = "1.6.0";
+  pname = "zita-resampler";
+  version = "1.8.0";
   src = fetchurl {
-    url = "http://kokkinizita.linuxaudio.org/linuxaudio/downloads/${name}.tar.bz2";
-    sha256 = "1w48lp99jn4wh687cvbnbnjgaraqzkb4bgir16cp504x55v8v20h";
+    url = "http://kokkinizita.linuxaudio.org/linuxaudio/downloads/${pname}-${version}.tar.bz2";
+    sha256 = "sha256-5XRPI8VN0Vs/eDpoe9h57uKmkKRUWhW0nEzwN6pGSqI=";
   };
 
   makeFlags = [
@@ -14,7 +14,7 @@ stdenv.mkDerivation rec {
   ];
 
   patchPhase = ''
-    cd libs
+    cd source
     sed -e "s@ldconfig@@" -i Makefile
   '';
 
@@ -24,10 +24,10 @@ stdenv.mkDerivation rec {
 
   meta = {
     description = "Resample library by Fons Adriaensen";
-    version = "${version}";
-    homepage = http://kokkinizita.linuxaudio.org/linuxaudio/downloads/index.html;
-    license = stdenv.lib.licenses.gpl2;
-    maintainers = [ stdenv.lib.maintainers.magnetophon ];
-    platforms = stdenv.lib.platforms.linux;
+    version = version;
+    homepage = "http://kokkinizita.linuxaudio.org/linuxaudio/downloads/index.html";
+    license = lib.licenses.gpl2;
+    maintainers = [ lib.maintainers.magnetophon ];
+    platforms = lib.platforms.linux;
   };
 }

@@ -1,7 +1,7 @@
-{ stdenv, fetchgit, glib, pkgconfig, python, scons, pythonPackages }:
+{ lib, stdenv, fetchgit, glib, pkg-config, python, scons }:
 
-stdenv.mkDerivation rec {
-  name = "hammer-${version}";
+stdenv.mkDerivation {
+  pname = "hammer";
   version = "e7aa734";
 
   src = fetchgit {
@@ -10,12 +10,10 @@ stdenv.mkDerivation rec {
     rev = "47f34b81e4de834fd3537dd71928c4f3cdb7f533";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ glib python scons ];
-  buildPhase = "scons prefix=$out";
-  installPhase = "scons prefix=$out install";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A bit-oriented parser combinator library";
     longDescription = ''
       Hammer is a parsing library. Like many modern parsing libraries,
@@ -25,8 +23,8 @@ stdenv.mkDerivation rec {
       character-oriented, making it ideal for parsing binary data such
       as images, network packets, audio, and executables.
     '';
-    homepage = https://github.com/UpstandingHackers/hammer;
+    homepage = "https://github.com/UpstandingHackers/hammer";
     license = licenses.gpl2;
     platforms = platforms.linux;
-    };
+  };
 }

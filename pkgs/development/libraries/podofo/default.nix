@@ -1,30 +1,37 @@
-{ stdenv, fetchurl, cmake, zlib, freetype, libjpeg, libtiff, fontconfig
-, openssl, libpng, lua5, pkgconfig, libidn, expat
-, gcc5 # TODO(@Dridus) remove this at next hash break
+{ lib, stdenv, fetchurl, cmake, zlib, freetype, libjpeg, libtiff, fontconfig
+, openssl, libpng, lua5, pkg-config, libidn, expat
 }:
 
 stdenv.mkDerivation rec {
-  name = "podofo-0.9.6";
+  version = "0.9.7";
+  pname = "podofo";
 
   src = fetchurl {
-    url = "mirror://sourceforge/podofo/${name}.tar.gz";
-    sha256 = "0wj0y4zcmj4q79wrn3vv3xq4bb0vhhxs8yifafwy9f2sjm83c5p9";
+    url = "mirror://sourceforge/podofo/${pname}-${version}.tar.gz";
+    sha256 = "1f0yvkx6nf99fp741w2y706d8bs9824x1z2gqm3rdy5fv8bfgwkw";
   };
 
-  propagatedBuildInputs = [ zlib freetype libjpeg libtiff fontconfig openssl libpng libidn expat ];
+  outputs = [ "out" "dev" "lib" ];
 
-  # TODO(@Dridus) remove the ++ ghc5 at next hash break
-  nativeBuildInputs = [ cmake pkgconfig ] ++ stdenv.lib.optional stdenv.isLinux gcc5;
+  nativeBuildInputs = [ cmake pkg-config ];
 
-  # TODO(@Dridus) remove the ++ libc at next hash break
-  buildInputs = [ lua5 ] ++ stdenv.lib.optional stdenv.isLinux stdenv.cc.libc;
+  buildInputs = [ zlib freetype libjpeg libtiff fontconfig openssl libpng
+                  libidn expat lua5 ];
 
-  cmakeFlags = "-DPODOFO_BUILD_SHARED=ON -DPODOFO_BUILD_STATIC=OFF";
+  cmakeFlags = [
+    "-DPODOFO_BUILD_SHARED=ON"
+    "-DPODOFO_BUILD_STATIC=OFF"
+    "-DCMAKE_BUILD_WITH_INSTALL_NAME_DIR=ON"
+  ];
 
-  meta = {
-    homepage = http://podofo.sourceforge.net;
+  postInstall = ''
+    moveToOutput lib "$lib"
+  '';
+
+  meta = with lib; {
+    homepage = "http://podofo.sourceforge.net";
     description = "A library to work with the PDF file format";
-    platforms = stdenv.lib.platforms.all;
-    maintainers = [ ];
+    platforms = platforms.all;
+    license = with licenses; [ gpl2Plus lgpl2Plus ];
   };
 }

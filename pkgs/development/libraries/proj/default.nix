@@ -1,20 +1,53 @@
-{ stdenv, fetchurl }:
+{ lib
+, stdenv
+, fetchFromGitHub
+, cmake
+, pkg-config
+, sqlite
+, libtiff
+, curl
+, gtest
+}:
 
-stdenv.mkDerivation {
-  name = "proj-4.9.3";
+stdenv.mkDerivation rec {
+  pname = "proj";
+  version = "7.2.1";
 
-  src = fetchurl {
-    url = https://download.osgeo.org/proj/proj-4.9.3.tar.gz;
-    sha256 = "1xw5f427xk9p2nbsj04j6m5zyjlyd66sbvl2bkg8hd1kx8pm9139";
+  src = fetchFromGitHub {
+    owner = "OSGeo";
+    repo = "PROJ";
+    rev = version;
+    sha256 = "0mymvfvs8xggl4axvlj7kc1ksd9g94kaz6w1vdv0x2y5mqk93gx9";
   };
+
+  postPatch = lib.optionalString (version == "7.2.1") ''
+    substituteInPlace CMakeLists.txt \
+      --replace "MAJOR 7 MINOR 2 PATCH 0" "MAJOR 7 MINOR 2 PATCH 1"
+  '';
+
+  outputs = [ "out" "dev"];
+
+  nativeBuildInputs = [ cmake pkg-config ];
+
+  buildInputs = [ sqlite libtiff curl ];
+
+  checkInputs = [ gtest ];
+
+  cmakeFlags = [
+    "-DUSE_EXTERNAL_GTEST=ON"
+  ];
 
   doCheck = stdenv.is64bit;
 
-  meta = with stdenv.lib; {
+  preCheck = ''
+    export HOME=$TMPDIR
+  '';
+
+  meta = with lib; {
     description = "Cartographic Projections Library";
-    homepage = http://trac.osgeo.org/proj/;
+    homepage = "https://proj4.org";
     license = licenses.mit;
-    platforms = platforms.linux ++ platforms.darwin;
-    maintainers = with maintainers; [ vbgl ];
+    platforms = platforms.unix;
+    maintainers = with maintainers; [ vbgl dotlambda ];
   };
 }

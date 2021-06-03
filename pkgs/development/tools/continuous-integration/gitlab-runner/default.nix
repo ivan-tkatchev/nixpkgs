@@ -1,22 +1,23 @@
-{ lib, buildGoPackage, fetchFromGitLab, fetchurl, go-bindata }:
+{ lib, buildGoPackage, fetchFromGitLab, fetchurl }:
 
 let
-  version = "11.0.0";
+  version = "13.12.0";
   # Gitlab runner embeds some docker images these are prebuilt for arm and x86_64
   docker_x86_64 = fetchurl {
-    url = "https://gitlab-runner-downloads.s3.amazonaws.com/v${version}/docker/prebuilt-x86_64.tar.xz";
-    sha256 = "1wi2wza991hhys60c8f3rhad8dqargnb6i7xwfsxrjd26dsbif2b";
+    url = "https://gitlab-runner-downloads.s3.amazonaws.com/v${version}/helper-images/prebuilt-x86_64.tar.xz";
+    sha256 = "0m0r295520jy45wn8jw3jzhiixl4c6yrfx7gvgbd4c1v4y8ivrci";
   };
 
   docker_arm = fetchurl {
-    url = "https://gitlab-runner-downloads.s3.amazonaws.com/v${version}/docker/prebuilt-arm.tar.xz";
-    sha256 = "1y67zxxad2jy1rvfhdlp194fi0qgwrnlcs24zh5lzwvsnwvc13bg";
+    url = "https://gitlab-runner-downloads.s3.amazonaws.com/v${version}/helper-images/prebuilt-arm.tar.xz";
+    sha256 = "0syfggplp19bbmhhpyc17h0f1dii9hc6n04q483l0xdk7sv39fwx";
   };
 in
 buildGoPackage rec {
   inherit version;
-  name = "gitlab-runner-${version}";
+  pname = "gitlab-runner";
   goPackagePath = "gitlab.com/gitlab-org/gitlab-runner";
+  subPackages = [ "." ];
   commonPackagePath = "${goPackagePath}/common";
   buildFlagsArray = ''
     -ldflags=
@@ -29,38 +30,22 @@ buildGoPackage rec {
     owner = "gitlab-org";
     repo = "gitlab-runner";
     rev = "v${version}";
-    sha256 = "06p8fggnxn2afy0k4wjh44d1qby9n2j0mq6cl206cckzh2gfsknp";
+    sha256 = "01ajl7zka5fnph5zcnp3z6ir8xr81wzkam69gxazwjb3nbs642an";
   };
 
   patches = [ ./fix-shell-path.patch ];
 
-  buildInputs = [ go-bindata ];
-
-  preBuild = ''
-    (
-    # go-bindata names the assets after the filename thus we create a symlink with the name we want
-    cd go/src/${goPackagePath}
-    ln -sf ${docker_x86_64} prebuilt-x86_64.tar.xz
-    ln -sf ${docker_arm} prebuilt-arm.tar.xz
-    go-bindata \
-        -pkg docker \
-        -nocompress \
-        -nomemcopy \
-        -o executors/docker/bindata.go \
-        prebuilt-x86_64.tar.xz \
-        prebuilt-arm.tar.xz
-    )
-  '';
-
   postInstall = ''
-    install -d $out/bin
+    install -d $out/bin/helper-images
+    ln -sf ${docker_x86_64} $out/bin/helper-images/prebuilt-x86_64.tar.xz
+    ln -sf ${docker_arm} $out/bin/helper-images/prebuilt-arm.tar.xz
   '';
 
   meta = with lib; {
     description = "GitLab Runner the continuous integration executor of GitLab";
     license = licenses.mit;
-    homepage = https://about.gitlab.com/gitlab-ci/;
+    homepage = "https://about.gitlab.com/gitlab-ci/";
     platforms = platforms.unix ++ platforms.darwin;
-    maintainers = with maintainers; [ bachp zimbatm ];
+    maintainers = with maintainers; [ bachp zimbatm globin ];
   };
 }

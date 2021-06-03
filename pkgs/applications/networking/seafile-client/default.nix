@@ -1,37 +1,43 @@
-{ stdenv, fetchFromGitHub, writeScript, pkgconfig, cmake, qtbase, qttools
-, seafile-shared, ccnet, makeWrapper
+{ mkDerivation, lib, fetchFromGitHub, fetchpatch, pkg-config, cmake, qtbase, qttools
+, seafile-shared, jansson, libsearpc
 , withShibboleth ? true, qtwebengine }:
 
-with stdenv.lib;
-
-stdenv.mkDerivation rec {
-  version = "6.2.2";
-  name = "seafile-client-${version}";
+mkDerivation rec {
+  pname = "seafile-client";
+  version = "8.0.1";
 
   src = fetchFromGitHub {
     owner = "haiwen";
     repo = "seafile-client";
-    rev = "v${version}";
-    sha256 = "19204fqi4x4q7hsc500y6gj0qdfzf4kjgfsr808w13qnh1lxhvr4";
+    rev = "b4b944921c7efef13a93d693c45c997943899dec";
+    sha256 = "2vV+6ZXjVg81JVLfWeD0UK+RdmpBxBU2Ozx790WFSyw=";
   };
 
-  nativeBuildInputs = [ pkgconfig cmake makeWrapper ];
-  buildInputs = [ qtbase qttools seafile-shared ]
-    ++ optional withShibboleth qtwebengine;
+  patches = [
+    # Fix compilation failure with "error: template with C linkage", fixes #122505
+    (fetchpatch {
+      url = "https://aur.archlinux.org/cgit/aur.git/plain/fix_build_with_glib2.diff?h=seafile-client&id=7be253aaa2bdb6771721f45aa08bc875c8001c5a";
+      name = "fix_build_with_glib2.diff";
+      sha256 = "0hl7rcqfr8k62c1pr133bp3j63b905izaaggmgvr1af4jibal05v";
+    })
+  ];
+
+  nativeBuildInputs = [ pkg-config cmake ];
+  buildInputs = [ qtbase qttools seafile-shared jansson libsearpc ]
+    ++ lib.optional withShibboleth qtwebengine;
 
   cmakeFlags = [ "-DCMAKE_BUILD_TYPE=Release" ]
-    ++ optional withShibboleth "-DBUILD_SHIBBOLETH_SUPPORT=ON";
+    ++ lib.optional withShibboleth "-DBUILD_SHIBBOLETH_SUPPORT=ON";
 
-  postInstall = ''
-    wrapProgram $out/bin/seafile-applet \
-      --suffix PATH : ${stdenv.lib.makeBinPath [ ccnet seafile-shared ]}
-  '';
+  qtWrapperArgs = [
+    "--suffix PATH : ${lib.makeBinPath [ seafile-shared ]}"
+  ];
 
-  meta = with stdenv.lib; {
-    homepage = https://github.com/haiwen/seafile-client;
+  meta = with lib; {
+    homepage = "https://github.com/haiwen/seafile-client";
     description = "Desktop client for Seafile, the Next-generation Open Source Cloud Storage";
     license = licenses.asl20;
     platforms = platforms.linux;
-    maintainers = with maintainers; [ dotlambda ];
+    maintainers = with maintainers; [ eduardosm ];
   };
 }

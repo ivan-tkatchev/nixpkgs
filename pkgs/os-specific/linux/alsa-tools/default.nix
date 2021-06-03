@@ -1,17 +1,17 @@
-{ stdenv, fetchurl, alsaLib, pkgconfig, gtk2, gtk3, fltk13 }:
+{ lib, stdenv, fetchurl, alsaLib, pkg-config, gtk2, gtk3, fltk13 }:
 # Comes from upstream as as bundle of several tools,
 # some use gtk2, some gtk3 (and some even fltk13).
 
 stdenv.mkDerivation rec {
-  name = "alsa-tools-${version}";
-  version = "1.1.6";
+  pname = "alsa-tools";
+  version = "1.2.5";
 
   src = fetchurl {
-    url = "mirror://alsa/tools/${name}.tar.bz2";
-    sha256 = "09rjb6hw1mn9y1jfdfj5djncgc2cr5wfps83k56rf6k4zg14v76n";
+    url = "mirror://alsa/tools/${pname}-${version}.tar.bz2";
+    sha256 = "sha256-NacQJ6AfTX3kci4iNSDpQN5os8VwtsZxaRVnrij5iT4=";
   };
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
   buildInputs = [ alsaLib gtk2 gtk3 fltk13 ];
 
   patchPhase = ''
@@ -38,8 +38,8 @@ stdenv.mkDerivation rec {
     done
   '';
 
-  meta = {
-    homepage = http://www.alsa-project.org/;
+  meta = with lib; {
+    homepage = "http://www.alsa-project.org/";
     description = "ALSA, the Advanced Linux Sound Architecture tools";
 
     longDescription = ''
@@ -47,7 +47,8 @@ stdenv.mkDerivation rec {
       MIDI functionality to the Linux-based operating system.
     '';
 
-    platforms = stdenv.lib.platforms.linux;
-    maintainers = [ stdenv.lib.maintainers.fps ];
+    license = licenses.gpl2;
+    platforms = platforms.linux;
+    maintainers = [ maintainers.fps ];
   };
 }

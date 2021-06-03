@@ -1,20 +1,21 @@
-{ stdenv, fetchurl, pkgconfig, intltool, itstool, libxml2, dbus-glib,
-  libxklavier, libcanberra-gtk3, librsvg, libappindicator-gtk3,
-  desktop-file-utils, gnome3, mate, hicolor-icon-theme, wrapGAppsHook
+{ lib, stdenv, fetchurl, pkg-config, gettext, itstool, libxml2, dbus-glib
+, libxklavier, libcanberra-gtk3, librsvg, libappindicator-gtk3
+, desktop-file-utils, dconf, gtk3, polkit, mate, hicolor-icon-theme, wrapGAppsHook
+, mateUpdateScript
 }:
 
 stdenv.mkDerivation rec {
-  name = "mate-control-center-${version}";
-  version = "1.20.3";
+  pname = "mate-control-center";
+  version = "1.24.2";
 
   src = fetchurl {
-    url = "http://pub.mate-desktop.org/releases/${mate.getRelease version}/${name}.tar.xz";
-    sha256 = "0wpi8b3zz10xd5i7ir7nd737a9vl4q17rc5nh8vfrqpyrcilqzkd";
+    url = "https://pub.mate-desktop.org/releases/${lib.versions.majorMinor version}/${pname}-${version}.tar.xz";
+    sha256 = "18vsqkcl4n3k5aa05fqha61jc3133zw07gd604sm0krslwrwdn39";
   };
 
   nativeBuildInputs = [
-    pkgconfig
-    intltool
+    pkg-config
+    gettext
     itstool
     desktop-file-utils
     wrapGAppsHook
@@ -27,8 +28,9 @@ stdenv.mkDerivation rec {
     libcanberra-gtk3
     librsvg
     libappindicator-gtk3
-    gnome3.gtk
-    gnome3.dconf
+    gtk3
+    dconf
+    polkit
     hicolor-icon-theme
     mate.mate-desktop
     mate.libmatekbd
@@ -37,12 +39,23 @@ stdenv.mkDerivation rec {
     mate.mate-settings-daemon
   ];
 
-  configureFlags = "--disable-update-mimedb";
+  configureFlags = [ "--disable-update-mimedb" ];
 
-  meta = with stdenv.lib; {
+  preFixup = ''
+    gappsWrapperArgs+=(
+      # WM keyboard shortcuts
+      --prefix XDG_DATA_DIRS : "${mate.marco}/share"
+    )
+  '';
+
+  enableParallelBuilding = true;
+
+  passthru.updateScript = mateUpdateScript { inherit pname version; };
+
+  meta = with lib; {
     description = "Utilities to configure the MATE desktop";
-    homepage = https://github.com/mate-desktop/mate-control-center;
-    license = licenses.gpl2;
+    homepage = "https://github.com/mate-desktop/mate-control-center";
+    license = licenses.gpl2Plus;
     platforms = platforms.unix;
     maintainers = [ maintainers.romildo ];
   };

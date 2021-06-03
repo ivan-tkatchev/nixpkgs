@@ -1,21 +1,21 @@
-{ stdenv, fetchFromGitHub, pkgconfig, glib, libpulseaudio }:
+{ lib, stdenv, fetchFromGitHub, pkg-config, glib, libpulseaudio }:
 
-with stdenv.lib;
+with lib;
 
 stdenv.mkDerivation rec {
-  name = "libcardiacarrest-${version}";
-  version = "12.1-6"; # <PA API version>-<version>
+  pname = "libcardiacarrest";
+  version = "12.2.8"; # <PA API version>.<version>
 
   src = fetchFromGitHub {
     owner = "oxij";
     repo = "libcardiacarrest";
-    rev = "4df92b6cc66c7f9fe947dd9bbf4802cf20fe63a2";
-    sha256 = "0zfjn4nvcx8r4f6czcix5b9nsszhhhlbypcwqzi4ddhazl1gyfm6";
+    rev = "d89639f5b2d298cf74af26880f5ebf50e645166d";
+    sha256 = "0vrigwcw3g8zknqyznv6y3437ahn1w00gv3d303smmygr0p8bd94";
   };
 
   outputs = [ "out" "dev" ];
 
-  nativeBuildInputs = [ pkgconfig ];
+  nativeBuildInputs = [ pkg-config ];
 
   buildInputs = [ glib ];
 

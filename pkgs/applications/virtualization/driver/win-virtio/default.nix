@@ -1,14 +1,13 @@
-{ stdenv, fetchurl, p7zip }:
-
-stdenv.mkDerivation  {
-  name = "win-virtio-0.1.105-1";
-  version = "0.1.105-1";
+{ lib, stdenv, fetchurl, p7zip }:
+stdenv.mkDerivation rec {
+  pname = "win-virtio";
+  version = "0.1.141-1";
 
   phases = [ "buildPhase" "installPhase" ];
 
   src = fetchurl {
-    url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-0.1.105-1/virtio-win.iso";
-    sha256 = "065gz7s77y0q9kfqbr27451sr28rm9azpi88sqjkfph8c6r8q3wc";
+    url = "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/archive-virtio/virtio-win-${version}/virtio-win.iso";
+    sha256 = "0mn5gcgb9dk59nrw9scdza628yiji4vdkxmixikn9v02kgwnkja3";
   };
 
   buildPhase = ''
@@ -26,11 +25,11 @@ stdenv.mkDerivation  {
                 {input="viorng"; output="viorng";}
                ];
     in
-      stdenv.lib.concatStringsSep "\n" ((map (copy "amd64" "w8.1") virtio) ++ (map (copy "x86" "w8.1") virtio));
+      lib.concatStringsSep "\n" ((map (copy "amd64" "w8.1") virtio) ++ (map (copy "x86" "w8.1") virtio));
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Windows VirtIO Drivers";
-    homepage = https://fedoraproject.org/wiki/Windows_Virtio_Drivers;
+    homepage = "https://fedoraproject.org/wiki/Windows_Virtio_Drivers";
     maintainers = [ maintainers.tstrobel ];
     platforms = platforms.linux;
   };

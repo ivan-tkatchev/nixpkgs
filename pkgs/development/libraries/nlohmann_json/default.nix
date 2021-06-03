@@ -1,35 +1,41 @@
-{ stdenv, fetchFromGitHub, cmake
-, hostPlatform
+{ lib, stdenv, fetchFromGitHub, fetchpatch, cmake
 }:
 
 stdenv.mkDerivation rec {
-  name = "nlohmann_json-${version}";
-  version = "3.1.2";
+  pname = "nlohmann_json";
+  version = "3.9.1";
 
   src = fetchFromGitHub {
     owner = "nlohmann";
     repo = "json";
     rev = "v${version}";
-    sha256 = "1mpr781fb2dfbyscrr7nil75lkxsazg4wkm749168lcf2ksrrbfi";
+    sha256 = "sha256-THordDPdH2qwk6lFTgeFmkl7iDuA/7YH71PTUe6vJCs=";
   };
+
+  patches = [
+    # https://github.com/nlohmann/json/pull/2690
+    (fetchpatch {
+      url = "https://github.com/nlohmann/json/commit/53a9850eebb88c6ff95f6042d08d5c0cc9d18097.patch";
+      sha256 = "k+Og00nXNg5IsFQY5fWD3xVQQXUFFTie44UXole0S1M=";
+    })
+  ];
 
   nativeBuildInputs = [ cmake ];
 
-  doCheck = true;
-  checkTarget = "test";
+  cmakeFlags = [
+    "-DBuildTests=${if doCheck then "ON" else "OFF"}"
+    "-DJSON_MultipleHeaders=ON"
+  ];
 
-  enableParallelBuilding = true;
+  # A test cause the build to timeout https://github.com/nlohmann/json/issues/1816
+  #doCheck = stdenv.hostPlatform == stdenv.buildPlatform;
+  doCheck = false;
 
-  crossAttrs = {
-    cmakeFlags = "-DBuildTests=OFF";
-    doCheck = false;
-  } // stdenv.lib.optionalAttrs (hostPlatform.libc == "msvcrt") {
-    cmakeFlags = "-DBuildTests=OFF -DCMAKE_SYSTEM_NAME=Windows";
-  };
+  postInstall = "rm -rf $out/lib64";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Header only C++ library for the JSON file format";
-    homepage = https://github.com/nlohmann/json;
+    homepage = "https://github.com/nlohmann/json";
     license = licenses.mit;
     platforms = platforms.all;
   };

@@ -1,57 +1,37 @@
-{ stdenv, fetchFromGitHub, cmake, doxygen, makeWrapper
-, libmsgpack, neovim, pythonPackages, qtbase }:
+{ stdenv, makeWrapper, neovim, neovim-qt-unwrapped }:
 
-stdenv.mkDerivation rec {
-  name = "neovim-qt-${version}";
-  version = "0.2.8";
+let
+  unwrapped = neovim-qt-unwrapped;
+in
+stdenv.mkDerivation {
+  pname = "neovim-qt";
+  version = unwrapped.version;
+  buildCommand = if stdenv.isDarwin then ''
+    mkdir -p $out/Applications
+    cp -r ${unwrapped}/bin/nvim-qt.app $out/Applications
 
-  src = fetchFromGitHub {
-    owner  = "equalsraf";
-    repo   = "neovim-qt";
-    rev    = "v${version}";
-    sha256 = "190yg6kkw953h8wajlqr2hvs2fz65y6z0blmywlg1nff724allaq";
-  };
+    chmod -R a+w $out/Applications/nvim-qt.app/Contents/MacOS
+    wrapProgram $out/Applications/nvim-qt.app/Contents/MacOS/nvim-qt \
+      --prefix PATH : ${neovim}/bin
+  '' else ''
+    makeWrapper ${unwrapped}/bin/nvim-qt $out/bin/nvim-qt \
+      --prefix PATH : ${neovim}/bin
 
-  cmakeFlags = [
-    "-DMSGPACK_INCLUDE_DIRS=${libmsgpack}/include"
-    "-DMSGPACK_LIBRARIES=${libmsgpack}/lib/libmsgpackc.so"
+    # link .desktop file
+    mkdir -p $out/share/pixmaps
+    ln -s ${unwrapped}/share/applications $out/share/applications
+    ln -s ${unwrapped}/share/pixmaps/nvim-qt.png $out/share/pixmaps/nvim-qt.png
+  '';
+
+  preferLocalBuild = true;
+
+  nativeBuildInputs = [
+    makeWrapper
   ];
 
-  buildInputs = with pythonPackages; [
-    neovim qtbase libmsgpack
-  ] ++ (with pythonPackages; [
-    jinja2 msgpack python
-  ]);
-
-  nativeBuildInputs = [ cmake doxygen makeWrapper ];
-
-  enableParallelBuilding = true;
-
-  preConfigure = ''
-    # avoid cmake trying to download libmsgpack
-    echo "" > third-party/CMakeLists.txt
-    # we rip out a number of tests that fail in the build env
-    # the GUI tests will never work but the others should - they did before neovim 0.2.0
-    # was released
-    sed -i test/CMakeLists.txt \
-      -e '/^add_xtest_gui/d' \
-      -e '/tst_neovimconnector/d' \
-      -e '/tst_callallmethods/d' \
-      -e '/tst_encoding/d'
-  '';
-
-  doCheck = true;
-
-  postInstall = ''
-    wrapProgram "$out/bin/nvim-qt" \
-      --prefix PATH : "${neovim}/bin"
-  '';
-
-  meta = with stdenv.lib; {
-    description = "Neovim client library and GUI, in Qt5";
-    license     = licenses.isc;
-    maintainers = with maintainers; [ peterhoeg ];
-    inherit (neovim.meta) platforms;
-    inherit version;
+  passthru = {
+    inherit unwrapped;
   };
+
+  inherit (unwrapped) meta;
 }

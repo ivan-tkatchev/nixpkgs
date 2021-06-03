@@ -1,39 +1,67 @@
-{ stdenv, mkDerivation, lib, fetchFromGitHub, cmake, pkgconfig
+{ lib
+, stdenv
+, mkDerivation
+, fetchFromGitHub
+, cmake
+, pkg-config
+, perl
 , libtoxcore
-, libpthreadstubs, libXdmcp, libXScrnSaver
-, qtbase, qtsvg, qttools, qttranslations
-, ffmpeg, filter-audio, libexif, libsodium, libopus
-, libvpx, openal, pcre, qrencode, sqlcipher
-, AVFoundation ? null }:
+, libpthreadstubs
+, libXdmcp
+, libXScrnSaver
+, qtbase
+, qtsvg
+, qttools
+, qttranslations
+, ffmpeg
+, filter-audio
+, libexif
+, libsodium
+, libopus
+, libvpx
+, openal
+, pcre
+, qrencode
+, sqlcipher
+, AVFoundation
+}:
 
-let
-  version = "1.16.1";
-  rev = "v${version}";
-
-in mkDerivation rec {
-  name = "qtox-${version}";
+mkDerivation rec {
+  pname = "qtox";
+  version = "1.17.3";
 
   src = fetchFromGitHub {
-    owner  = "qTox";
-    repo   = "qTox";
-    sha256 = "05cz67yvdqjv1dmqycnc5rd0275zh94wyaa7sqdkr1iw8k5h955n";
-    inherit rev;
+    owner = "qTox";
+    repo = "qTox";
+    rev = "v${version}";
+    sha256 = "19xgw9bqirxbgvj5cdh20qxh61pkwk838lq1l78n6py1qrs7z5wp";
   };
 
   buildInputs = [
     libtoxcore
-    libpthreadstubs libXdmcp libXScrnSaver
-    qtbase qtsvg qttranslations
-    ffmpeg filter-audio libexif libopus libsodium
-    libvpx openal pcre qrencode sqlcipher
-  ] ++ lib.optionals stdenv.isDarwin [ AVFoundation] ;
+    libpthreadstubs
+    libXdmcp
+    libXScrnSaver
+    qtbase
+    qtsvg
+    qttranslations
+    ffmpeg
+    filter-audio
+    libexif
+    libopus
+    libsodium
+    libvpx
+    openal
+    pcre
+    qrencode
+    sqlcipher
+  ] ++ lib.optionals stdenv.isDarwin [ AVFoundation ];
 
-  nativeBuildInputs = [ cmake pkgconfig qttools ];
-
-  enableParallelBuilding = true;
+  nativeBuildInputs = [ cmake pkg-config qttools ]
+    ++ lib.optionals stdenv.isDarwin [ perl ];
 
   cmakeFlags = [
-    "-DGIT_DESCRIBE=${rev}"
+    "-DGIT_DESCRIBE=v${version}"
     "-DENABLE_STATUSNOTIFIER=False"
     "-DENABLE_GTK_SYSTRAY=False"
     "-DENABLE_APPINDICATOR=False"
@@ -42,9 +70,9 @@ in mkDerivation rec {
 
   meta = with lib; {
     description = "Qt Tox client";
-    homepage    = https://tox.chat;
-    license     = licenses.gpl3;
-    maintainers = with maintainers; [ viric jgeerds akaWolf peterhoeg ];
-    platforms   = platforms.all;
+    homepage = "https://tox.chat";
+    license = licenses.gpl3;
+    maintainers = with maintainers; [ akaWolf peterhoeg ];
+    platforms = platforms.all;
   };
 }

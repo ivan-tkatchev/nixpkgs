@@ -1,13 +1,13 @@
-{ stdenv, fetchFromGitHub, libtool, autoconf, automake }:
+{ lib, stdenv, fetchFromGitHub, libtool, autoconf, automake }:
 
 stdenv.mkDerivation rec {
-  version = "0.99.4";
-  name = "fastjson-${version}";
+  version = "0.99.9";
+  pname = "fastjson";
   src = fetchFromGitHub {
     repo = "libfastjson";
     owner = "rsyslog";
-    rev = "6e057a094cb225c9d80d8d6e6b1f36ca88a942dd";
-    sha256 = "1pn207p9zns0aqm6z5l5fdgb94wyyhaw83lyvyfdxmai74nbqs65";
+    rev = "v${version}";
+    sha256 = "sha256-2LyBdJR0dV1CElcGfrlmNwX52lVtx9X/Z4h/1XFjOIs=";
   };
 
   buildInputs = [ autoconf automake libtool ];
@@ -16,9 +16,9 @@ stdenv.mkDerivation rec {
     sh autogen.sh
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A fast json library for C";
-    homepage = https://github.com/rsyslog/libfastjson;
+    homepage = "https://github.com/rsyslog/libfastjson";
     license = licenses.mit;
     maintainers = with maintainers; [ nequissimus ];
     platforms = with platforms; unix;

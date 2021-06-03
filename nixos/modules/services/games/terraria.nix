@@ -4,10 +4,10 @@ with lib;
 
 let
   cfg   = config.services.terraria;
-  worldSizeMap = { "small" = 1; "medium" = 2; "large" = 3; };
+  worldSizeMap = { small = 1; medium = 2; large = 3; };
   valFlag = name: val: optionalString (val != null) "-${name} \"${escape ["\\" "\""] (toString val)}\"";
   boolFlag = name: val: optionalString val "-${name}";
-  flags = [ 
+  flags = [
     (valFlag "port" cfg.port)
     (valFlag "maxPlayers" cfg.maxPlayers)
     (valFlag "password" cfg.password)
@@ -18,6 +18,16 @@ let
     (boolFlag "secure" cfg.secure)
     (boolFlag "noupnp" cfg.noUPnP)
   ];
+  stopScript = pkgs.writeScript "terraria-stop" ''
+    #!${pkgs.runtimeShell}
+
+    if ! [ -d "/proc/$1" ]; then
+      exit 0
+    fi
+
+    ${getBin pkgs.tmux}/bin/tmux -S ${cfg.dataDir}/terraria.sock send-keys Enter exit Enter
+    ${getBin pkgs.coreutils}/bin/tail --pid="$1" -f /dev/null
+  '';
 in
 {
   options = {
@@ -26,7 +36,7 @@ in
         type        = types.bool;
         default     = false;
         description = ''
-          If enabled, starts a Terraria server. The server can be connected to via <literal>tmux -S /var/lib/terraria/terraria.sock attach</literal>
+          If enabled, starts a Terraria server. The server can be connected to via <literal>tmux -S ${cfg.dataDir}/terraria.sock attach</literal>
           for administration by users who are a part of the <literal>terraria</literal> group (use <literal>C-b d</literal> shortcut to detach again).
         '';
       };
@@ -101,13 +111,26 @@ in
         default     = false;
         description = "Disables automatic Universal Plug and Play.";
       };
+
+      openFirewall = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Wheter to open ports in the firewall";
+      };
+
+      dataDir = mkOption {
+        type        = types.str;
+        default     = "/var/lib/terraria";
+        example     = "/srv/terraria";
+        description = "Path to variable state data directory for terraria.";
+      };
     };
   };
 
   config = mkIf cfg.enable {
     users.users.terraria = {
       description = "Terraria server service user";
-      home        = "/var/lib/terraria";
+      home        = cfg.dataDir;
       createHome  = true;
       uid         = config.ids.uids.terraria;
     };
@@ -124,16 +147,22 @@ in
 
       serviceConfig = {
         User    = "terraria";
-        Type = "oneshot";
-        RemainAfterExit = true;
-        ExecStart = "${getBin pkgs.tmux}/bin/tmux -S /var/lib/terraria/terraria.sock new -d ${pkgs.terraria-server}/bin/TerrariaServer ${concatStringsSep " " flags}";
-        ExecStop = "${getBin pkgs.tmux}/bin/tmux -S /var/lib/terraria/terraria.sock send-keys Enter \"exit\" Enter";
+        Type = "forking";
+        GuessMainPID = true;
+        ExecStart = "${getBin pkgs.tmux}/bin/tmux -S ${cfg.dataDir}/terraria.sock new -d ${pkgs.terraria-server}/bin/TerrariaServer ${concatStringsSep " " flags}";
+        ExecStop = "${stopScript} $MAINPID";
       };
 
       postStart = ''
-        ${pkgs.coreutils}/bin/chmod 660 /var/lib/terraria/terraria.sock
-        ${pkgs.coreutils}/bin/chgrp terraria /var/lib/terraria/terraria.sock
+        ${pkgs.coreutils}/bin/chmod 660 ${cfg.dataDir}/terraria.sock
+        ${pkgs.coreutils}/bin/chgrp terraria ${cfg.dataDir}/terraria.sock
       '';
     };
+
+    networking.firewall = mkIf cfg.openFirewall {
+      allowedTCPPorts = [ cfg.port ];
+      allowedUDPPorts = [ cfg.port ];
+    };
+
   };
 }

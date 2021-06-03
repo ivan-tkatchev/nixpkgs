@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, pkgconfig, makeWrapper, gtk3, json_c, taskwarrior }:
+{ lib, stdenv, fetchurl, pkg-config, makeWrapper, gtk3, json_c, taskwarrior }:
 
 stdenv.mkDerivation rec {
   name = "ptask-1.0.0";
@@ -10,9 +10,9 @@ stdenv.mkDerivation rec {
 
   buildInputs = [ gtk3 json_c ];
 
-  nativeBuildInputs = [ pkgconfig makeWrapper ];
+  nativeBuildInputs = [ pkg-config makeWrapper ];
 
-  patches = [ ./tw-version.patch ];
+  patches = [ ./tw-version.patch ./json_c_is_error.patch ];
 
   preFixup = ''
     wrapProgram "$out/bin/ptask" \
@@ -20,10 +20,11 @@ stdenv.mkDerivation rec {
       --prefix PATH : "${taskwarrior}/bin"
   '';
 
-  meta = with stdenv.lib; {
-    homepage = http://wpitchoune.net/ptask/;
+  meta = with lib; {
+    homepage = "http://wpitchoune.net/ptask/";
     description = "GTK-based GUI for taskwarrior";
     license = licenses.gpl2;
     maintainers = [ maintainers.spacefrogg ];
+    platforms = platforms.linux;
   };
 }

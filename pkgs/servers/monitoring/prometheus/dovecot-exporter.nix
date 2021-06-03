@@ -1,8 +1,8 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
+{ lib, buildGoPackage, fetchFromGitHub, nixosTests }:
 
 buildGoPackage rec {
-  name = "dovecot_exporter-${version}";
-  version = "0.1.1";
+  pname = "dovecot_exporter";
+  version = "0.1.3";
 
   goPackagePath = "github.com/kumina/dovecot_exporter";
 
@@ -10,15 +10,17 @@ buildGoPackage rec {
     owner = "kumina";
     repo = "dovecot_exporter";
     rev = version;
-    sha256 = "0i7nfgkb5jqdbgr16i29jdsvh69dx9qgn6nazpw78k0lgy7mpidn";
+    sha256 = "1lnxnnm45fhcyv40arcvpiiibwdnxdwhkf8sbjpifx1wspvphcj9";
   };
 
   goDeps = ./dovecot-exporter-deps.nix;
 
-  meta = with stdenv.lib; {
+  passthru.tests = { inherit (nixosTests.prometheus-exporters) dovecot; };
+
+  meta = with lib; {
     inherit (src.meta) homepage;
     description = "Prometheus metrics exporter for Dovecot";
     license = licenses.asl20;
-    maintainers = with maintainers; [ willibutz ];
+    maintainers = with maintainers; [ willibutz globin ];
   };
 }

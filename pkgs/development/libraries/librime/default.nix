@@ -1,25 +1,23 @@
-{ stdenv, fetchFromGitHub, cmake, boost, glog, leveldb, marisa, opencc,
-  libyamlcpp, gmock }:
+{ lib, stdenv, fetchFromGitHub, cmake, boost, glog, leveldb, marisa, opencc,
+  libyamlcpp, gtest }:
 
 stdenv.mkDerivation rec {
-  name = "librime-${version}";
-  version = "1.3.1";
+  pname = "librime";
+  version = "1.5.3";
 
   src = fetchFromGitHub {
     owner = "rime";
     repo = "librime";
-    rev = "${version}";
-    sha256 = "1y0h3nnz97smx9z8h5fzk4c27mvrwv8kajxffqc43bhyvxvb2jd6";
+    rev = version;
+    sha256 = "0xskhdhk7dgpc71r39pfzxi5vrlzy90aqj1gzv8nnapq91p2awhv";
   };
 
   nativeBuildInputs = [ cmake ];
 
-  buildInputs = [ boost glog leveldb marisa opencc libyamlcpp gmock ];
+  buildInputs = [ boost glog leveldb marisa opencc libyamlcpp gtest ];
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
-    homepage    = https://rime.im/;
+  meta = with lib; {
+    homepage    = "https://rime.im/";
     description = "Rime Input Method Engine, the core library";
     license     = licenses.bsd3;
     maintainers = with maintainers; [ sifmelcara ];

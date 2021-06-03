@@ -1,11 +1,9 @@
-{ stdenv, buildPythonApplication, fetchFromGitHub, ncurses, pillow, pytest }:
+{ lib, python3, fetchFromGitHub, ncurses }:
 
-let
+with python3.pkgs; buildPythonApplication rec {
+  pname = "almonds";
   version = "1.25b";
-in
 
-buildPythonApplication {
-  name = "almonds-${version}";
   src = fetchFromGitHub {
     owner = "Tenchi2xh";
     repo = "Almonds";
@@ -19,11 +17,10 @@ buildPythonApplication {
 
   checkPhase = "py.test";
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Terminal Mandelbrot fractal viewer";
-    homepage = https://github.com/Tenchi2xh/Almonds;
-    # No license has been specified
-    license = licenses.unfree;
+    homepage = "https://github.com/Tenchi2xh/Almonds";
+    license = licenses.mit;
     maintainers = with maintainers; [ infinisil ];
   };
 }

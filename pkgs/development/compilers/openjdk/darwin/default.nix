@@ -1,18 +1,47 @@
-{ stdenv, fetchurl, unzip, setJavaClassPath, freetype }:
+{ lib, stdenv, fetchurl, unzip, setJavaClassPath }:
 let
-  jdk = stdenv.mkDerivation {
-    name = "openjdk-7u60b30";
-
-    # From https://github.com/alexkasko/openjdk-unofficial-builds
-    src = fetchurl {
-      url = https://bitbucket.org/alexkasko/openjdk-unofficial-builds/downloads/openjdk-1.7.0-u60-unofficial-macosx-x86_64-bundle.zip;
-      sha256 = "af510a4d566712d82c17054bb39f91d98c69a85586e244c6123669a0bd4b7401";
+  # Details from https://www.azul.com/downloads/?version=java-16-sts&os=macos&package=jdk
+  # Note that the latest build may differ by platform
+  dist = {
+    x86_64-darwin = {
+      arch = "x64";
+      zuluVersion = "16.30.15";
+      jdkVersion = "16.0.1";
+      sha256 = "1jihn125dmxr9y5h9jq89zywm3z6rbwv5q7msfzsf2wzrr13jh0z";
     };
 
-    buildInputs = [ unzip freetype ];
+    aarch64-darwin = {
+      arch = "aarch64";
+      zuluVersion = "16.30.19";
+      jdkVersion = "16.0.1";
+      sha256 = "1i0bcjx3acb5dhslf6cabdcnd6mrz9728vxw9hb4al5y3f5fll4w";
+    };
+  }."${stdenv.hostPlatform.system}";
+
+  jce-policies = fetchurl {
+    # Ugh, unversioned URLs... I hope this doesn't change often enough to cause pain before we move to a Darwin source build of OpenJDK!
+    url    = "http://cdn.azul.com/zcek/bin/ZuluJCEPolicies.zip";
+    sha256 = "0nk7m0lgcbsvldq2wbfni2pzq8h818523z912i7v8hdcij5s48c0";
+  };
+
+  jdk = stdenv.mkDerivation rec {
+    pname = "zulu${dist.zuluVersion}-ca-jdk";
+    version = dist.jdkVersion;
+
+    src = fetchurl {
+      url = "https://cdn.azul.com/zulu/bin/zulu${dist.zuluVersion}-ca-jdk${dist.jdkVersion}-macosx_${dist.arch}.tar.gz";
+      inherit (dist) sha256;
+      curlOpts = "-H Referer:https://www.azul.com/downloads/zulu/";
+    };
+
+    nativeBuildInputs = [ unzip ];
 
     installPhase = ''
-      mv */Contents/Home $out
+      mkdir -p $out
+      mv * $out
+
+      unzip ${jce-policies}
+      mv -f ZuluJCEPolicies/*.jar $out/lib/security/
 
       # jni.h expects jni_md.h to be in the header search path.
       ln -s $out/include/darwin/*_md.h $out/include/
@@ -24,26 +53,26 @@ let
     '';
 
     preFixup = ''
-      # Propagate the setJavaClassPath setup hook from the JRE so that
-      # any package that depends on the JRE has $CLASSPATH set up
+      # Propagate the setJavaClassPath setup hook from the JDK so that
+      # any package that depends on the JDK has $CLASSPATH set up
       # properly.
       mkdir -p $out/nix-support
       printWords ${setJavaClassPath} > $out/nix-support/propagated-build-inputs
 
-      install_name_tool -change /usr/X11/lib/libfreetype.6.dylib ${freetype}/lib/libfreetype.6.dylib $out/jre/lib/libfontmanager.dylib
-
       # Set JAVA_HOME automatically.
       cat <<EOF >> $out/nix-support/setup-hook
-      if [ -z "\$JAVA_HOME" ]; then export JAVA_HOME=$out; fi
+      if [ -z "\''${JAVA_HOME-}" ]; then export JAVA_HOME=$out; fi
       EOF
     '';
 
     passthru = {
-      jre = jdk;
       home = jdk;
     };
 
-    meta.platforms = stdenv.lib.platforms.darwin;
+    meta = with lib; {
+      license = licenses.gpl2;
+      platforms = platforms.darwin;
+    };
 
   };
 in jdk

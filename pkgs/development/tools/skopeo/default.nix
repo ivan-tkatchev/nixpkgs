@@ -1,57 +1,62 @@
-{ stdenv, lib, buildGoPackage, fetchFromGitHub, runCommand
-, gpgme, libgpgerror, lvm2, btrfs-progs, pkgconfig, ostree, libselinux
-, go-md2man }:
+{ lib
+, stdenv
+, buildGoModule
+, fetchFromGitHub
+, gpgme
+, lvm2
+, btrfs-progs
+, pkg-config
+, go-md2man
+, installShellFiles
+, makeWrapper
+, fuse-overlayfs
+}:
 
-with stdenv.lib;
-
-let
-  version = "0.1.30";
+buildGoModule rec {
+  pname = "skopeo";
+  version = "1.3.0";
 
   src = fetchFromGitHub {
     rev = "v${version}";
-    owner = "projectatomic";
+    owner = "containers";
     repo = "skopeo";
-    sha256 = "10lpiiki7mlhrp4bid40wys3lch7fars1whxsa5gy0frfgp89ghn";
+    sha256 = "sha256-ZHEujkl+GUk5WjgDWdbJwOIKuOqJnIpGnvD1SsrHuhI=";
   };
 
-  defaultPolicyFile = runCommand "skopeo-default-policy.json" {} "cp ${src}/default-policy.json $out";
+  outputs = [ "out" "man" ];
 
-  goPackagePath = "github.com/projectatomic/skopeo";
+  vendorSha256 = null;
 
-in
-buildGoPackage rec {
-  name = "skopeo-${version}";
-  inherit src goPackagePath;
+  doCheck = false;
 
-  outputs = [ "bin" "man" "out" ];
+  nativeBuildInputs = [ pkg-config go-md2man installShellFiles makeWrapper ];
 
-  excludedPackages = "integration";
+  buildInputs = [ gpgme ]
+  ++ lib.optionals stdenv.isLinux [ lvm2 btrfs-progs ];
 
-  nativeBuildInputs = [ pkgconfig (lib.getBin go-md2man) ];
-  buildInputs = [ gpgme libgpgerror lvm2 btrfs-progs ostree libselinux ];
-
-  buildFlagsArray = ''
-    -ldflags=
-    -X github.com/projectatomic/skopeo/vendor/github.com/containers/image/signature.systemDefaultPolicyPath=${defaultPolicyFile}
-    -X github.com/projectatomic/skopeo/vendor/github.com/containers/image/internal/tmpdir.unixTempDirForBigFiles=/tmp
+  buildPhase = ''
+    runHook preBuild
+    patchShebangs .
+    make bin/skopeo docs
+    runHook postBuild
   '';
 
-  preBuild = ''
-    export CGO_CFLAGS="-I${getDev gpgme}/include -I${getDev libgpgerror}/include -I${getDev lvm2}/include -I${getDev btrfs-progs}/include"
-    export CGO_LDFLAGS="-L${getLib gpgme}/lib -L${getLib libgpgerror}/lib -L${getLib lvm2}/lib"
+  installPhase = ''
+    runHook preInstall
+    install -Dm755 bin/skopeo -t $out/bin
+    installManPage docs/*.[1-9]
+    installShellCompletion --bash completions/bash/skopeo
+  '' + lib.optionalString stdenv.isLinux ''
+    wrapProgram $out/bin/skopeo \
+      --prefix PATH : ${lib.makeBinPath [ fuse-overlayfs ]}
+  '' + ''
+    runHook postInstall
   '';
 
-  postBuild = ''
-    # depends on buildGoPackage not changing …
-    pushd ./go/src/${goPackagePath}
-    make install-docs MANINSTALLDIR="$man"
-    popd
-  '';
-
-  meta = {
+  meta = with lib; {
     description = "A command line utility for various operations on container images and image repositories";
-    homepage = https://github.com/projectatomic/skopeo;
-    maintainers = with stdenv.lib.maintainers; [ vdemeester lewo ];
-    license = stdenv.lib.licenses.asl20;
+    homepage = "https://github.com/containers/skopeo";
+    maintainers = with maintainers; [ lewo ] ++ teams.podman.members;
+    license = licenses.asl20;
   };
 }
